@@ -116,6 +116,61 @@ function ebProvisionTexteFuellen() {
 }
 
 /* ============================================================================
+ * PREISANGABE — § 3 PAngV verlangt den GESAMTPREIS
+ *
+ * Befund vom 22.09.2026: die AGB für gewerbliche Eventplaner versprachen in
+ * § 5 „Preise werden vom Dienstleister angegeben (Brutto, USt ausgewiesen)" —
+ * und das Inseratsformular kannte weder Brutto noch Netto noch einen
+ * Steuersatz. „inkl./zzgl. USt" kam im ganzen Frontend NICHT vor. Ein
+ * Rechtstext, der eine Eingabe beschreibt, die es nicht gibt.
+ *
+ * Gegenüber Verbrauchern ist der Gesamtpreis anzugeben, also der Betrag
+ * einschließlich Umsatzsteuer und aller sonstigen Bestandteile.
+ *
+ * „INKL. MWST." IST NICHT IMMER WAHR. Ein Dienstleister, der als
+ * Kleinunternehmer nach § 19 UStG abrechnet, weist keine Umsatzsteuer aus —
+ * in seinem Preis steckt keine. Ihm „inkl. MwSt." unterzuschieben wäre eine
+ * Falschaussage auf seinem eigenen Angebot, und zwar eine, die ihm gehört
+ * und nicht uns.
+ *
+ * Deshalb ist „Gesamtpreis" die Grundaussage — sie stimmt in beiden Fällen —
+ * und der Zusatz kommt nur dazu, wenn der Anbieter wirklich ausweist. Der
+ * Status liegt bereits vor: das Business-Cockpit führt ihn als
+ * `smallBusiness`.
+ * ==========================================================================*/
+
+/**
+ * Der Hinweis, der neben einem Preis stehen muss.
+ *
+ * @param {object} anbieter Inserat oder Anbieterprofil.
+ * @returns {string}
+ */
+function ebPreisHinweis(anbieter) {
+  var a = anbieter || {};
+  // `smallBusiness === false` heißt AUSDRÜCKLICH „weist USt aus". Alles
+  // andere — true, undefined, fehlendes Profil — bleibt bei der Aussage,
+  // die immer stimmt. Im Zweifel nichts behaupten, was der Anbieter nicht
+  // gesagt hat.
+  if (a.smallBusiness === false) return 'Gesamtpreis inkl. USt.';
+  return 'Gesamtpreis';
+}
+
+/**
+ * Setzt den Hinweis an der Buchungskarte.
+ *
+ * Wie bei der Provision: der Vorgabewert steht im Markup, damit die Seite
+ * ohne JavaScript nichts Falsches sagt, und hier wird er gegen die Fassung
+ * getauscht, die zu diesem Anbieter passt.
+ */
+function ebPreisHinweisSetzen(anbieter) {
+  if (typeof document === 'undefined') return '';
+  var el = document.getElementById('detailPreisHinweis');
+  var text = ebPreisHinweis(anbieter);
+  if (el) el.textContent = text;
+  return text;
+}
+
+/* ============================================================================
  * BEWEGUNGSREDUKTION — eine Stelle, live gefragt
  *
  * Vier Module fragten `prefers-reduced-motion` je mit einer eigenen Kopie der
@@ -5087,6 +5142,12 @@ function loadDetail(listingId) {
     _unitEl.textContent = _unit;
     _unitEl.style.display = _unit ? '' : 'none';
   }
+
+  // § 3 PAngV: neben dem Preis muss stehen, dass es der Gesamtpreis ist.
+  // Abgeleitet aus dem Steuerstatus des Anbieters — „inkl. USt." wäre bei
+  // einem Kleinunternehmer nach § 19 UStG eine Falschaussage auf seinem
+  // eigenen Angebot.
+  ebPreisHinweisSetzen(listing);
 
   // Features
   document.getElementById('detailFeatures').innerHTML = (Array.isArray(listing.features) ? listing.features : []).map(f =>

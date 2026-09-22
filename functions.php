@@ -57,6 +57,13 @@ require_once get_template_directory() . '/includes/chat/kontaktschutz.php';
 require_once get_template_directory() . '/includes/steuer/psttg.php';
 require_once get_template_directory() . '/includes/steuer/psttg-routen.php';
 
+// Die Rechnung ueber unsere Vermittlungsprovision (§ 14 UStG). Bis zum
+// 22.09.2026 floss die Provision ueber application_fee_amount ab, ohne dass
+// es einen Beleg dafuer gab — der Dienstleister konnte sie nicht als
+// Vorsteuer ziehen, wir hatten keinen Ausgangsbeleg. Ohne EB_STEUERNUMMER
+// oder EB_UST_ID in wp-config.php wird bewusst KEIN Beleg erzeugt.
+require_once get_template_directory() . '/includes/steuer/provisionsrechnung.php';
+
 /**
  * Self-Hosted Avatar-Generator (Server-Seite).
  *

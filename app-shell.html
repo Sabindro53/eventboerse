@@ -1413,6 +1413,12 @@
                 <span class="price-amount" id="detailPrice">ab 450€</span>
                 <span class="price-label" id="detailPriceUnit">/ Event</span>
               </div>
+              <!-- § 3 PAngV: gegenüber Verbrauchern ist der Gesamtpreis
+                   anzugeben. Der Text steht hier als Vorgabe im Markup, weil
+                   Markup nicht rechnen kann; ebPreisHinweisSetzen() tauscht
+                   ihn gegen die Fassung, die zum Steuerstatus des Anbieters
+                   passt. Wer ohne JavaScript liest, sieht den Normalfall. -->
+              <p class="booking-price-hinweis" id="detailPreisHinweis">Gesamtpreis</p>
               <div class="booking-form">
                 <div class="booking-field">
                   <label for="bookingDate">Event-Datum</label>
@@ -2164,8 +2170,8 @@
             </div>
             <div class="form-row">
               <div class="form-group">
-                <label id="clPriceLabel" for="createPrice">Preisspanne (€)</label>
-                <small class="form-hint" id="clPriceHint">Mindestpreis ist Pflicht. „Bis“-Wert ist optional und zeigt deine Spanne für größere Events.</small>
+                <label id="clPriceLabel" for="createPrice">Preisspanne (€) — Gesamtpreis</label>
+                <small class="form-hint" id="clPriceHint">Mindestpreis ist Pflicht. „Bis“-Wert ist optional und zeigt deine Spanne für größere Events. <strong>Bitte den Gesamtpreis angeben</strong> — also den Betrag, den Privatkunden am Ende zahlen, einschließlich Umsatzsteuer (§ 3 PAngV). Ob du Umsatzsteuer ausweist, stellst du unter „Mein Geschäft“ ein.</small>
                 <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
                   <input type="number" id="createPrice" min="0" aria-label="Preisspanne von (€)" placeholder="von z.B. 450" />
                   <input type="number" id="createPriceMax" min="0" aria-label="Preisspanne bis (€, optional)" placeholder="bis (optional)" />

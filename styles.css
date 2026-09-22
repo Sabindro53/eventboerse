@@ -4619,7 +4619,16 @@ body.dark-mode .detail-gallery-arrow:hover { background: rgba(55,55,55,0.98); }
   box-shadow: var(--shadow-md);
 }
 .booking-price {
-  margin-bottom: 20px;
+  margin-bottom: 4px;
+}
+/* § 3 PAngV — die Angabe, dass der Preis der Gesamtpreis ist. Kleiner als
+   der Betrag, aber mit --text-light statt einer Deckkraft: eine Opazität
+   bricht den Kontrast im Dunkelmodus, und das war hier schon einmal ein
+   Befund (.upload-hint-soft). */
+.booking-price-hinweis {
+  margin: 0 0 20px;
+  font-size: 0.82rem;
+  color: var(--text-light);
 }
 .price-amount { font-size: 1.6rem; font-weight: 800; color: var(--dark); }
 .price-label { font-size: 0.9rem; color: var(--text-light); }

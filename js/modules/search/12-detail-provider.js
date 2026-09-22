@@ -129,6 +129,12 @@ function loadDetail(listingId) {
     _unitEl.style.display = _unit ? '' : 'none';
   }
 
+  // § 3 PAngV: neben dem Preis muss stehen, dass es der Gesamtpreis ist.
+  // Abgeleitet aus dem Steuerstatus des Anbieters — „inkl. USt." wäre bei
+  // einem Kleinunternehmer nach § 19 UStG eine Falschaussage auf seinem
+  // eigenen Angebot.
+  ebPreisHinweisSetzen(listing);
+
   // Features
   document.getElementById('detailFeatures').innerHTML = (Array.isArray(listing.features) ? listing.features : []).map(f =>
     `<div class="feature-item"><span class="material-icons-round">check_circle</span><span>${_escHtml(f)}</span></div>`

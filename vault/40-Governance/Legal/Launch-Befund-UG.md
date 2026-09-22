@@ -12,6 +12,40 @@ Rechtsberatung: verglichen wurden die Aussagen unserer Rechtsseiten mit dem
 Code, der sie einlösen soll. Was ein Notar, ein Steuerberater oder ein Anwalt
 entscheiden muss, steht unten getrennt und ist als solches benannt.
 
+## Stand nach der Umsetzung (22.09.2026, abends)
+
+| Fund | Stand |
+|---|---|
+| 1 · Impressum nannte ein fremdes Zahlungsmodell | **behoben**, Tor hält es |
+| 2 · PStTG/DAC7 kam nicht vor | **erhoben und geprüft**; Meldung bleibt beim Steuerberater |
+| 3 · Provision ohne Rechnung | **gebaut**, wartet auf die Steuernummer |
+| 4 · Preisangabe ohne Gesamtpreis | **behoben** |
+| 5 · Vier Platzhalter im Impressum | **offen — und vor der Eintragung nicht schließbar** |
+
+**Die Reihenfolge ist keine Prioritätenliste, sondern eine Abhängigkeit.**
+Fund 3 und die drei Platzhalter aus Fund 5 lassen sich erst schließen, wenn
+die UG eingetragen ist und ihre Nummern hat. Alles andere ist getan.
+
+### Was beim Umsetzen dazugekommen ist
+
+**Die Bagatellgrenze gilt nicht für uns.** Beim Nachschlagen am 22.09.2026:
+§ 4 Abs. 5 Nr. 4 PStTG (unter 30 Fälle **und** unter 2.000 €) betrifft
+ausschließlich den **Verkauf von Waren**. Wir vermitteln persönliche
+Dienstleistungen nach § 5 Abs. 1 Nr. 2 — gemeldet wird **ab dem ersten
+Euro**. Der ursprüngliche Befund war damit schärfer, als er hier stand.
+
+**§ 19 UStG ist seit dem 01.01.2025 reformiert.** Die Grenzen liegen bei
+25.000 € (Vorjahr) und 100.000 € (laufendes Jahr), **netto** gerechnet. Und
+der Wechsel in die Regelbesteuerung tritt beim Überschreiten **sofort** ein,
+nicht erst im Folgejahr. Der Inhaber hat sich am 22.09.2026 für die
+**Regelbesteuerung** entschieden; der Code rechnet entsprechend mit 19 %.
+
+**Eine eigene Regel hätte rechtmäßige Eingaben abgewiesen.** Die erste
+Fassung der Steuer-ID-Prüfung verbot eine führende Null — eine Regel, die in
+mehreren Quellen steht und falsch ist: die amtliche Beispielnummer
+`02476291358` beginnt mit einer Null. Sie hätte Dienstleister von ihrer
+Auszahlung abgehalten. Gefunden hat es der eigene Prüfstand, nicht das Lesen.
+
 Die Anordnung folgt der Regel dieses Projekts: **gemessen, nicht behauptet.**
 Jeder Befund nennt seine Fundstelle.
 

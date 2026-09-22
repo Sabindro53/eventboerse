@@ -4036,6 +4036,107 @@ ist eine Entscheidung des Inhabers.
 npx playwright test tests/e2e/design-system.spec.js   # 5 Tests, 6 Mutationen
 ```
 
+### Vier Rechtstexte, die etwas anderes sagten als der Code
+
+Am 22.09.2026 auf Wunsch des Inhabers geprüft: *„damit alles Kriterien für
+eine UG in Deutschland zu gründen klappt."* Vollständiger Befund:
+`vault/40-Governance/Legal/Launch-Befund-UG.md`.
+
+**Das Impressum begründete die ZAG-Freiheit mit einem fremden Sachverhalt.**
+Es nannte ein *„Direct-Charges-Modell"*; `functions.php:8891` fährt
+`transfer_data[destination]` + `on_behalf_of` + `application_fee_amount`. Der
+einzige Direct-Charge-Pfad trägt `[ADMIN-TEST]`.
+
+Das ist kein falsches Wort: **dieser Satz ist die Begründung** dafür, dass wir
+keine ZAG-Erlaubnis brauchen, und sie hängt daran, auf wessen Konto die
+Zahlung entsteht. Unsere **eigenen AGB sagten es richtig** — zwei Rechtstexte
+derselben Plattform, ein Geldweg, zwei Beschreibungen.
+
+`zahlungsmodell.spec.js` misst jetzt den **Code**, nicht eine Konstante:
+welche Felder an Stripe gehen, entscheidet das Modell. Ein Konstantenname
+lässt sich umbenennen, ohne dass jemand an die Datei denkt.
+
+**Die Mutation „Erkennung gibt immer destination" überlebte zuerst** — die
+übrigen Tests prüfen die Felder ohnehin direkt. Eine Wache ohne beobachtbare
+Wirkung ist eine Behauptung; dieselbe Klasse wie `ebAuftragSchluessel()`
+hinter seiner Gruppierung. Sie nimmt den Rumpf jetzt als Argument.
+
+#### PStTG: keine Bagatellgrenze für Dienstleistungen
+
+```bash
+npx playwright test tests/e2e/psttg.spec.js   # 6 Tests, 6 Mutationen
+```
+
+PStTG/DAC7 kam im ganzen Projekt **null Mal** vor. Nachgeschlagen statt
+angenommen: die Grenze des § 4 Abs. 5 Nr. 4 (unter 30 Fälle **und** unter
+2.000 €) gilt nur für den **Verkauf von Waren**. Für vermittelte persönliche
+Dienstleistungen — § 5 Abs. 1 Nr. 2, also DJ, Catering, Fotografie — meldet
+man **ab dem ersten Euro**, bis zum 31. Januar des Folgejahres. Ein Verstoß
+ist eine Ordnungswidrigkeit.
+
+**Erhoben wird beim Auszahlungsweg, nicht bei der Registrierung.** Das ist
+die wichtigste Entscheidung darin, und sie ist **datenschutz**rechtlich
+begründet: meldepflichtig ist nur, wer Vergütung erhält (§ 4 Abs. 4) — ein
+Eventplaner nie. Geburtsdatum und Steuer-ID von jedem Registrierten
+einzusammeln wäre eine Erhebung auf Vorrat gegen Art. 5 Abs. 1 lit. c DSGVO.
+Ein Test hält die Registrierung davon frei.
+
+**Nichts wird halb gespeichert.** Fällt ein Feld durch, wird gar nichts
+geschrieben — sonst stünde ein Anbieter mit gültiger Steuer-ID und
+unsinnigem Geburtsdatum da, und die Vollständigkeitsprüfung meldete „fertig".
+
+**Und die eigene Zusatzregel hätte rechtmäßige Eingaben abgewiesen.** Die
+erste Fassung verbot eine führende Null in der Steuer-ID — die amtliche
+Beispielnummer `02476291358` hat eine. Sie hätte Dienstleister von ihrer
+Auszahlung abgehalten, also genau der Fehlalarm, vor dem der Kommentar
+daneben **im selben Commit** warnte. Die Prüfziffer nach ISO/IEC 7064
+MOD 11,10 trägt die Erkennung allein.
+
+#### Die Provision floss ohne Beleg
+
+```bash
+npx playwright test tests/e2e/provisionsrechnung.spec.js   # 7 Tests, 8 Mutationen
+```
+
+`application_fee_amount` zog bei jeder Buchung ab, und es gab **keine
+Rechnung** von uns an den Dienstleister (§ 14 UStG). Er konnte die Provision
+nicht als Vorsteuer ziehen, wir hatten keinen Ausgangsbeleg.
+
+**Die Steuer wird herausgerechnet, nicht aufgeschlagen.** Stripe zieht die
+Fee vom Zahlbetrag ab — sie **ist** der Bruttobetrag unserer Leistung. Wer
+19 % aufschlägt, stellt mehr in Rechnung, als eingenommen wurde.
+
+**Ohne Steuernummer entsteht kein Beleg.** § 14 Abs. 4 Nr. 2 verlangt sie;
+eine UG in Gründung hat sie nicht. Ein Beleg ohne sie berechtigt nicht zum
+Vorsteuerabzug und müsste berichtigt werden. Opt-in über `EB_STEUERNUMMER`
+bzw. `EB_UST_ID` in `wp-config.php`, derselbe Weg wie `EB_APPLE_TEAM_ID`.
+
+**Der Frühausstieg verbraucht keine Rechnungsnummer.** Jede Wache steht
+**vor** dem Hochzählen — sonst risse jeder abgewiesene Aufruf eine Lücke in
+die Folge, und Lücken muss man bei einer Prüfung erklären können.
+Hochgezählt wird in **einem** Statement: `get_option` + `update_option` hätte
+das Rennen, bei dem zwei Buchungen dieselbe Nummer bekommen.
+
+**Ein unklarer Steuerfall wird gemeldet, nicht geraten.** Drittland, fehlende
+oder fremde USt-IdNr → der Posten geht an einen Menschen. Eine zu Unrecht
+angewandte Reverse-Charge-Regel schuldet die Steuer trotzdem.
+
+#### „inkl. MwSt." ist nicht immer wahr
+
+```bash
+npx playwright test tests/e2e/preisangabe.spec.js   # 5 Tests, 5 Mutationen
+```
+
+Die B2B-AGB versprachen *„Brutto, USt ausgewiesen"*, das Formular bot
+„Preisspanne (€)". „inkl./zzgl. USt" kam im ganzen Frontend **nicht** vor
+(§ 3 PAngV verlangt den Gesamtpreis).
+
+**Der Zusatz gilt nur, wo er stimmt.** Ein Kleinunternehmer nach § 19 UStG
+weist keine Umsatzsteuer aus; ihm „inkl. MwSt." unterzuschieben wäre eine
+Falschaussage auf **seinem** Angebot. `ebPreisHinweis()` sagt deshalb
+„Gesamtpreis" — wahr in beiden Fällen — und ergänzt „inkl. USt." nur bei
+`smallBusiness === false`, also wenn er es ausdrücklich gesagt hat.
+
 ### Der Kontext wird nachgemessen
 
 ```bash
@@ -4148,7 +4249,7 @@ npm run test:smoke      # nur Routen-Smoke-Tests
 npm run test:css        # CSS-Minify-Regression (Verlaufsschrift)
 ```
 
-1203 Tests in 81 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
+1215 Tests in 83 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
 Sätze), Gebühren (centgenau, JS↔PHP-Parität), Wissensbasis (Antworten +
 Leckage-Schutz), Zufluss (Quarantäne-Tor + Demo-Feed-Ehrlichkeit),
 Verbindungen (HQ-Zugang + Connector-Katalog), Auftragsstrom (Herkunft +
