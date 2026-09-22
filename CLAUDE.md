@@ -4121,6 +4121,34 @@ das Rennen, bei dem zwei Buchungen dieselbe Nummer bekommen.
 oder fremde USt-IdNr → der Posten geht an einen Menschen. Eine zu Unrecht
 angewandte Reverse-Charge-Regel schuldet die Steuer trotzdem.
 
+#### Die Platzhalter, die nach der Eintragung unwahr werden
+
+```bash
+npx playwright test tests/e2e/impressum.spec.js   # 6 Tests, 4 Mutationen
+```
+
+Nur das Impressum trägt unausgefüllte Platzhalter. **Drei davon kann es vor
+der Eintragung nicht geben** — Registernummer, USt-IdNr und W-IdNr vergeben
+Amtsgericht und BZSt. Sie sind der ehrliche Zustand „i. G.".
+
+**Die Gefahr ist das stille Falschwerden danach**: mit der Eintragung wird
+das Impressum unvollständig, ohne dass jemand etwas ändert. Dieselbe Sorte
+wie Apples Händlerstatus. Das Tor hält deshalb das **Paar** — Platzhalter und
+Zusatz „i. G." müssen zusammen da sein und zusammen verschwinden.
+
+**Der erste Entwurf war selbst ein Prüfer ohne Subjekt, und alle drei
+Mutationen überlebten ihn.** Jede zeigte einen eigenen Fehler: `textAusHtml()`
+lässt **Entities** stehen, also trifft `/i\.\s*G\./` niemals `i.&nbsp;G.` ·
+die Erkennung hing ersatzweise am Wort **„Vorgründung"**, dem Marketing-Banner
+derselben Seite · und die Pflichtangaben wurden am **Etikett** gemessen statt
+am Wert, sodass „gelöscht statt gefüllt" durchkam — der gefährlichste Ausgang.
+
+**Und das Etikett traf zuerst die Prosa.** „Handelsregister" steht auf der
+Seite zuerst im erklärenden Satz und erst hundert Zeichen später in der
+Datenzeile; `search()` mass die Erklärung. Zehnte Fundstelle dieser Klasse.
+Gemessen wird jetzt **jede** Fundstelle, und das Etikett ist das der
+Datenzeile (`Registernummer:`), nicht das Wort daneben.
+
 #### „inkl. MwSt." ist nicht immer wahr
 
 ```bash
@@ -4249,7 +4277,7 @@ npm run test:smoke      # nur Routen-Smoke-Tests
 npm run test:css        # CSS-Minify-Regression (Verlaufsschrift)
 ```
 
-1215 Tests in 83 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
+1221 Tests in 84 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
 Sätze), Gebühren (centgenau, JS↔PHP-Parität), Wissensbasis (Antworten +
 Leckage-Schutz), Zufluss (Quarantäne-Tor + Demo-Feed-Ehrlichkeit),
 Verbindungen (HQ-Zugang + Connector-Katalog), Auftragsstrom (Herkunft +
