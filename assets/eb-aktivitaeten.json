@@ -1,7 +1,7 @@
 {
   "version": 2,
   "hinweis": "Erzeugt von scripts/aktivitaeten.mjs. Nicht von Hand bearbeiten.",
-  "stand": "2026-09-20T03:35:33.653Z",
+  "stand": "2026-09-22T03:37:01.026Z",
   "gebiete": [
     {
       "stadt": "Köln",
@@ -71,31 +71,11 @@
     }
   ],
   "anzahl": {
-    "gesamt": 950,
-    "sport": 150,
+    "gesamt": 949,
+    "sport": 149,
     "orte": 800
   },
   "eintraege": [
-    {
-      "id": "openligadb:83190",
-      "art": "sport",
-      "titel": "FC Schalke 04 – SV 07 Elversberg",
-      "beginn": "2026-09-20T15:30:00.000Z",
-      "gebiet": "Dortmund",
-      "ort": {
-        "name": "Stadion",
-        "stadt": "Dortmund",
-        "lat": 51.5136,
-        "lon": 7.4653,
-        "ungefaehr": true
-      },
-      "quelle": {
-        "name": "OpenLigaDB",
-        "url": "https://www.openligadb.de/",
-        "lizenz": "frei (openligadb.de)"
-      },
-      "partner": false
-    },
     {
       "id": "openligadb:83192",
       "art": "sport",
@@ -17504,27 +17484,6 @@
       "partner": false
     },
     {
-      "id": "osm:node/30998011",
-      "art": "ort",
-      "titel": "Titus Thermen",
-      "kategorie": "Erlebnisbad",
-      "beginn": null,
-      "gebiet": "Frankfurt",
-      "ort": {
-        "name": "Titus Thermen",
-        "stadt": "Frankfurt am Main",
-        "lat": 50.15825,
-        "lon": 8.63173
-      },
-      "entfernungKm": 6.4,
-      "quelle": {
-        "name": "OpenStreetMap",
-        "url": "https://www.openstreetmap.org/node/30998011",
-        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
-      },
-      "partner": false
-    },
-    {
       "id": "osm:node/5275837487",
       "art": "ort",
       "titel": "Kunstbühne Neu-Isenburg",
@@ -17772,6 +17731,27 @@
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/2708724903",
+        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
+      },
+      "partner": false
+    },
+    {
+      "id": "osm:node/9864764990",
+      "art": "ort",
+      "titel": "Burgfestspiele",
+      "kategorie": "Theater",
+      "beginn": null,
+      "gebiet": "Frankfurt",
+      "ort": {
+        "name": "Burgfestspiele",
+        "stadt": "",
+        "lat": 50.18501,
+        "lon": 8.74476
+      },
+      "entfernungKm": 9.4,
+      "quelle": {
+        "name": "OpenStreetMap",
+        "url": "https://www.openstreetmap.org/node/9864764990",
         "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
       },
       "partner": false
