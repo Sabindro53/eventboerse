@@ -1,6 +1,7 @@
 // ========== MODALS ==========
 function openModal(id) {
   var modal = document.getElementById(id);
+  var firstInteractive = modal.querySelector('input, button, select, textarea, a[href]');
   // Reset-Zustand bei Forgot-Modal
   if (id === 'forgotModal') {
     var fg = modal.querySelector('.form-group');
@@ -13,6 +14,10 @@ function openModal(id) {
   modal.classList.add('show');
   document.body.style.overflow = 'hidden';
   if (id === 'loginModal') initConditionalPasskeyLogin();
+  if (firstInteractive) {
+    firstInteractive.focus();
+  }
+  modal.addEventListener('focusin', function(e) { if (!modal.contains(e.target)) e.target.focus(); });
 }
 
 function closeModal(id) {
