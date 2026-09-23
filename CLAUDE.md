@@ -128,6 +128,46 @@ nächste Log, und Logs sind bei einem öffentlichen Repo öffentlich.
 zurückziehen, dann über die Historie reden — in dieser Reihenfolge.
 **Stand:** 304 Dateien, 97 Commits, 899 Blobs, **0 Funde**.
 
+**Daneben steht GitHubs Push Protection, und sie ist nachweislich scharf.**
+Am 23.09.2026 unfreiwillig belegt: ein Testprüfstein mit dem echten
+Live-Präfix eines Stripe-Schlüssels — erfunden, aber formgleich — ließ den
+Push mit `GH013` abprallen, unter Angabe von Datei und Zeile. Das ist **das
+genaue Gegenteil des toten Gitleaks-Scans**: ein Schutz, der wirklich
+auslöst.
+
+Der angebotene Freigabe-Link („To push, follow this URL to allow the secret")
+wurde **nicht** benutzt. Er ist der Weg, auf dem solche Schutzvorrichtungen
+sterben: einmal durchgewunken, weil man es ja besser weiß, und beim dritten
+Mal winkt man den echten durch. Geändert wurde stattdessen der Prüfstein —
+seine **Gestalt** war für das, was der Test misst, ohnehin belanglos.
+
+**Ein schlüsselförmiger Platzhalter ist deshalb im ganzen Repository zu
+meiden**, auch in Tests, Beispielen und Kommentaren.
+
+**Und der erklärende Kommentar über diesen Vorfall war selbst der nächste
+Fund.** Er nannte das Präfix wörtlich; `geheimnisse.mjs` schlug prompt an —
+zwei Absätze unter der Regel, die genau das verbietet. Zwölfte Fundstelle
+dieser Klasse, und die erste, bei der **Kommentarabzug die falsche Antwort
+wäre**: anders als bei `recht.mjs`, `kontext.mjs` oder den Mutationsproben
+ist das Subjekt dieses Prüfers die **Datei**, nicht der Code. Ein echter
+Schlüssel in einem Kommentar ist ein echter Schlüssel. Also weicht der Text,
+nie der Prüfer.
+
+`geheimnisse.spec.js` löst dasselbe seit jeher mit einem Kniff, der hier
+übersehen wurde: `'sk_live_' + 'A1b2…'`. Zusammengesetzt zur Laufzeit, steht
+das Literal nirgends in der Datei — *„ein Test, der einen gültigen Schlüssel
+enthielte, wäre selbst das Leck, das er verhindern soll."*
+
+**Offener Posten, nicht behoben:** `arbeitsbaum()` in `geheimnisse.mjs` liest
+`git show HEAD:…` — es misst also den **committeten Stand**, nicht die Platte,
+und heisst trotzdem „Arbeitsbaum". Für den PR-Check ist das richtig (dort ist
+HEAD der Vorschlag), lokal ist es eine Falle: eine geänderte, nicht
+committete Datei bleibt unsichtbar, und der Bericht sieht grün aus. Genau
+darauf bin ich am 23.09. hereingefallen — der Fund stand weiter im Bericht,
+nachdem die Zeile längst geändert war. Ob zusätzlich der echte Arbeitsbaum
+gescannt werden soll, ist eine **Entscheidung über einen Sicherheitsprüfer**
+und keine Aufräumarbeit; das Etikett ist bis dahin irreführend.
+
 ### Workflows, die es nur scheinbar gibt
 
 ```bash
@@ -3170,6 +3210,157 @@ npx playwright test tests/e2e/storno.spec.js          # 8 Tests, PHP wirklich au
 npx playwright test tests/e2e/storno-ansicht.spec.js  # 15 Tests, echter Browser
 ```
 
+### Der Webhook hörte auf zwei von zehn Ereignissen
+
+Am 23.09.2026 am **Live-Konto** gemessen, nachdem der Stripe-Konnektor
+freigeschaltet war — die Messung, die in PR #283 ausdrücklich als *„nicht
+belegt"* ausgewiesen werden musste.
+
+| | |
+|---|---|
+| Stripe sendet an `…/v1/stripe/webhook` | **2** Ereignisse |
+| `eb_stripe_webhook()` behandelt | **10** |
+
+Acht `case`-Zweige waren unerreichbar. **Dieselbe Klasse wie der tote
+Gitleaks-Scan, diesmal auf dem Geldweg:** der Empfänger ist da, er ist
+richtig, und sein Subjekt erreicht ihn nicht.
+
+**Der teuerste davon belegt es in seinem eigenen Kommentar.**
+`eb_booking_record_refund()` in `includes/booking.php` trägt die Zeile
+*„signed webhooks refresh rather than invent settlement"* und verhindert
+sorgfältig, dass ein verspätetes `refund.created` ein bestätigtes Ergebnis
+auf `pending` zurückdreht. Er ist **für einen Webhook gebaut, den nie jemand
+abonniert hat.**
+
+**Die Wirkung ist enger als sie klingt, und das gehört dazu.** Der Storno-Weg
+aus der App bucht die Erstattung **synchron** (`functions.php:9788`, direkt
+nach dem Stripe-Aufruf). Kaputt war der Fall daneben: **eine Erstattung, die
+im Stripe-Dashboard ausgelöst wird**, bewegt Geld und erreicht das Board nie.
+Wer eine Diagnose stellt, ohne den synchronen Pfad zu sehen, meldet einen
+gebrochenen Storno-Vorgang, den es nicht gibt — und sucht am falschen Ende.
+
+Die Rangfolge, jede Zeile am Code gemessen:
+
+| Ereignis | Empfänger | Folge des Fehlens |
+|---|---|---|
+| `refund.created/updated/failed` | `eb_booking_record_refund()` | Dashboard-Erstattung erreicht das Board nie |
+| `charge.updated` | `eb_stripe_reconcile_payment()` | centgenauer Gebührenabgleich erst über den **Stundencron** (`eb_stripe_reconcile_cron`) |
+| `transfer.created` | Audit-Log | Auszahlung ans Anbieterkonto unprotokolliert |
+| `payment_intent.payment_failed/canceled` | **NOOP** | nichts — der Zweig tut ausdrücklich nichts |
+| `account.updated` | `…handle_account_updated()` | nichts, solange live gepollt wird (s. u.) |
+
+#### Zwei Ereignisse werden BEWUSST nicht abonniert
+
+**Die NOOP-Zweige bleiben aus.** Ein Abonnement erzeugte bei jedem
+Fehlversuch einen Aufruf, der nichts tut. Verkehr ohne Wirkung anzufordern
+ist dasselbe wie ein Prüfer ohne Subjekt, nur andersherum.
+
+**`account.updated` wäre ein Tor gewesen, das nie auslöst.** Es erreicht uns
+nur über einen Endpunkt mit **Connect-Geltungsbereich** (*„Events from →
+Connected accounts"*) — am vorhandenen Konto-Endpunkt eingetragen käme es
+nie an. Genau diesen Griff hätte ich fast getan; die Stripe-Dokumentation hat
+ihn verhindert, nicht das Nachdenken.
+
+**Und ein zweiter Endpunkt wäre aktiv schädlich gewesen.** Er trägt ein
+**eigenes** Signaturgeheimnis, `eb_stripe_webhook()` kennt genau eines
+(`eb_stripe_webhook_secret()`) — jede Connect-Lieferung fiele mit 400 durch,
+bis Stripe den Endpunkt abschaltet. Reihenfolge also: **zweites Geheimnis im
+Code, dann der Endpunkt.** Solange das aussteht, trägt der Fall ohnehin:
+`eb_stripe_connect_state_for_user()` fragt Stripe bei **jeder** Buchung live
+(`functions.php:8894`), der Status ist also nie veraltet, wenn es darauf
+ankommt.
+
+#### Was NICHT kaputt war, und warum das hierher gehört
+
+Die fünf Live-PaymentIntents tragen alle `transfer_data: null`,
+`on_behalf_of: null`, `application_fee_amount: null` — also **keine**
+Destination Charge. Das sah nach dem teuersten denkbaren Fund aus: Geld, das
+zu 100 % auf dem Plattformkonto landet.
+
+Es ist keiner. Nachgemessen an der Historie:
+
+| | |
+|---|---|
+| Live-Zahlungen | 13.05. – **02.06.2026** |
+| `transfer_data[destination]` im Code seit | **26.08.2026** (`74e7900`) |
+| `metadata[offer_id]` seit | **14.09.2026** (#268) |
+
+Ihre Metadaten tragen fünf Schlüssel, der heutige Buchungspfad setzt
+vierzehn und der Admin-Pfad sechs — sie stammen aus **keinem** der beiden.
+Es sind Zahlungen einer älteren Fassung. **Ein Prüfer, der aus dem falschen
+Grund rot meldet, kostet mehr als keiner**; wer hier „repariert", baut an
+einem Pfad um, der funktioniert.
+
+#### Der Konnektor darf lesen, nicht schreiben
+
+`PostWebhookEndpointsWebhookEndpoint` → *„Your API key does not have the
+required permissions."* Das Abonnement ist deshalb eine **Handlung des
+Inhabers im Dashboard**, kein Commit. Auf einem Live-Konto werden
+Schreibrechte auch nicht durchprobiert: jeder erfolgreiche Versuch wäre eine
+echte Änderung.
+
+**Damit es nicht wieder still verrottet, misst es jetzt ein Tor.**
+
+```bash
+node scripts/stripe-webhook.mjs           # Bericht (Tagesroutine)
+node scripts/stripe-webhook.mjs --check   # Exit 1 bei Drift ODER ohne Schlüssel
+```
+
+Gebaut wie `workflows.mjs`, aus demselben Grund: **die Liste liegt bei
+Stripe und in keiner Datei dieses Repositories.** Ohne Schlüssel wird nicht
+durchgewunken — genau diese Verwechslung („nicht geprüft" sieht aus wie „in
+Ordnung") ließ den toten Secret-Scanner vier Monate wie Schutz aussehen.
+
+**Bevorzugt wird `EB_STRIPE_READ_KEY`**, ein eingeschränkter Schlüssel mit
+Leserecht auf Webhook-Endpunkte; `EB_STRIPE_SECRET_KEY` ist der Rückfall,
+damit das Tor sofort misst statt als Leiche dazuliegen. Der Schlüssel
+erscheint **nie** in der Ausgabe — Logs sind bei einem öffentlichen
+Repository öffentlich.
+
+**Blockierend ist nur, was derselbe Commit beheben kann.** Ein fehlendes Abo
+ist es (abonnieren *oder* mit Grund nach `OHNE_ABO`), ein überzähliges Abo
+bei Stripe nicht — das wird gemeldet und quittiert ohnehin mit 200.
+
+In der **Tagesroutine** läuft es als Bericht, nicht als Tor: dieselbe
+Entscheidung wie bei den Nachbarschritten, die Routine soll den Zustand
+festhalten und nicht nachts rot werden. Und ein Live-Schlüssel hat in einem
+PR-Lauf über fremde Zweige nichts zu suchen.
+
+Neun Mutationen, jede macht die Suite rot: Begründung geleert · Kommentare
+nicht mehr abgezogen · fehlendes Abo nicht gemeldet · Abo ohne Empfänger
+nicht gemeldet · veraltete Begründung nicht gemeldet · ohne Schlüssel still
+grün · Rumpf nicht begrenzt · abgeschaltete Endpunkte zählen mit · der
+Auszug liefert nichts (Gegenprobe, **4 rot**).
+
+**Die elfte Kommentar-Falle war vorhergesehen.** Dieses Skript nennt
+`case 'refund.created':` in seinem eigenen Kopfkommentar. Gemessen wird
+deshalb von vornherein nach Abzug der Kommentare, über `phpOhneKommentare()`
+— den Griff, der seit dem 13.09. genau dafür existiert.
+
+```bash
+npx playwright test tests/e2e/stripe-webhook.spec.js   # 13 Tests, 9 Mutationen
+```
+
+#### Was hier NICHT entschieden wird
+
+- **Chargebacks haben gar keinen Empfänger.** `charge.dispute.created` kommt
+  im ganzen Code nicht vor. Bei einer Destination Charge zieht Stripe den
+  Betrag vom **Plattformkonto** ein — der Anbieter behält seine Auszahlung.
+  Ob und wie zurückgeholt wird, ist eine AGB-Frage, keine Aufräumarbeit.
+- **Das Stripe-Konto ist `business_type: individual`.** Es läuft auf eine
+  natürliche Person, während Impressum und Provisionsrechnung die **UG i. G.**
+  als Aussteller führen. Spätestens mit der Eintragung müssen
+  Rechnungsaussteller und Zahlungsempfänger dieselbe Person sein.
+- **Null verbundene Konten** (`/v1/accounts` ist leer). Der Buchungspfad
+  lehnt ohne aktives Connect-Konto mit 409 ab — heute ist also **keine
+  Buchung bezahlbar**. Vor dem Start gehört dieser Weg einmal echt
+  durchlaufen.
+- **Die API-Version ist nirgends festgeschrieben.** Der Endpunkt steht auf
+  `2026-03-25.dahlia`, unsere Aufrufe nehmen die Kontovorgabe. Das zu pinnen
+  wäre richtig — aber es ändert die **Gestalt jeder Antwort**, die der Code
+  liest, und ist ohne Gegenprobe im Testmodus genau die Sorte Änderung, die
+  eine laufende Kasse stilllegt.
+
 ### Der Provisionssatz stand elfmal im Code — und einmal in wp-config.php
 
 Am 14.09.2026 beim Durchgehen des Dienstleister-Bereichs gemessen.
@@ -4277,7 +4468,7 @@ npm run test:smoke      # nur Routen-Smoke-Tests
 npm run test:css        # CSS-Minify-Regression (Verlaufsschrift)
 ```
 
-1221 Tests in 84 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
+1234 Tests in 85 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
 Sätze), Gebühren (centgenau, JS↔PHP-Parität), Wissensbasis (Antworten +
 Leckage-Schutz), Zufluss (Quarantäne-Tor + Demo-Feed-Ehrlichkeit),
 Verbindungen (HQ-Zugang + Connector-Katalog), Auftragsstrom (Herkunft +
