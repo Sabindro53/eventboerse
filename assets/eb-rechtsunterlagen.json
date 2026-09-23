@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "stand": "2026-09-22",
+  "stand": "2026-09-23",
   "paket": "Eventboerse_UG_Rechtsunterlagen_v11_Entwurf",
   "paketStand": "2026-05-04",
   "rechtshinweis": "Arbeits- und Organisationshilfe, keine Rechtsberatung. Verbindliche Fassungen benötigen die dokumentierte Freigabe qualifizierter Fachleute.",
@@ -11,7 +11,7 @@
     "vorFreigabe": 7,
     "anlagen": 5,
     "archiv": 1,
-    "aufgaben": 15
+    "aufgaben": 17
   },
   "technischerAbgleich": {
     "module": 31,
@@ -93,7 +93,8 @@
       ],
       "akzeptierterHash": "6a56a0633955faa38f62050bf17bd4b03106bd0f4bdea0cfb6e8ef620892143b",
       "aktuellerHash": "6a56a0633955faa38f62050bf17bd4b03106bd0f4bdea0cfb6e8ef620892143b",
-      "status": "aktuell"
+      "status": "nicht_erreichbar",
+      "fehler": "amtliche Seite enthielt zu wenig Text"
     },
     {
       "id": "p2b",
@@ -108,7 +109,8 @@
       ],
       "akzeptierterHash": "1f46adb781de29673c295676e5da477abccaa078e8b3be22e324ebf32e4ee8a8",
       "aktuellerHash": "1f46adb781de29673c295676e5da477abccaa078e8b3be22e324ebf32e4ee8a8",
-      "status": "aktuell"
+      "status": "nicht_erreichbar",
+      "fehler": "amtliche Seite enthielt zu wenig Text"
     },
     {
       "id": "gmbhg-5a",
@@ -415,6 +417,49 @@
       "automatisch": true,
       "quelle": "https://www.gesetze-im-internet.de/ttdsg/__25.html",
       "quellenStand": "ecd14588f20855e46f16006f5e24ae0e8cf3502b9063661d9f4e4939170fb449"
+    },
+    {
+      "id": "quelle-dsa",
+      "prioritaet": "mittel",
+      "verantwortlich": [
+        "Sandro",
+        "Julian"
+      ],
+      "titel": "Amtliche Quelle nicht erreichbar: VO (EU) 2022/2065 – Digital Services Act",
+      "beschreibung": "Abruf erneut prüfen. Solange die Quelle nicht erreichbar ist, wird Aktualität nicht behauptet.",
+      "frist": "vor der nächsten Freigabe",
+      "dokumente": [
+        "13",
+        "14",
+        "B11",
+        "B14",
+        "B15",
+        "B16"
+      ],
+      "automatisch": true,
+      "quelle": "https://eur-lex.europa.eu/eli/reg/2022/2065/oj?locale=de",
+      "quellenStand": "6a56a0633955faa38f62050bf17bd4b03106bd0f4bdea0cfb6e8ef620892143b"
+    },
+    {
+      "id": "quelle-p2b",
+      "prioritaet": "mittel",
+      "verantwortlich": [
+        "Sandro",
+        "Julian"
+      ],
+      "titel": "Amtliche Quelle nicht erreichbar: VO (EU) 2019/1150 – P2B-Verordnung",
+      "beschreibung": "Abruf erneut prüfen. Solange die Quelle nicht erreichbar ist, wird Aktualität nicht behauptet.",
+      "frist": "vor der nächsten Freigabe",
+      "dokumente": [
+        "13",
+        "14",
+        "B06",
+        "B08",
+        "B17"
+      ],
+      "automatisch": true,
+      "quelle": "https://eur-lex.europa.eu/eli/reg/2019/1150/oj?locale=de",
+      "quellenStand": "1f46adb781de29673c295676e5da477abccaa078e8b3be22e324ebf32e4ee8a8"
     },
     {
       "id": "quelle-gmbhg-5a",
