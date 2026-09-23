@@ -19,6 +19,35 @@ einen alten Abschnitt gelesen und nicht diesen.
 - **Playwright-Suite: 1234 Tests in 85 Suiten**, blockierendes Gate in `pr-check.yml`.
   Läuft seit dem Self-Hosting auch ohne Netzzugang vollständig durch
 
+## Release-Bereitschaft (2026-09-23) — der aktuelle Engpass
+
+**Die Launch-Prüfung ist gelandet und live** (PR #283, `1482814`, Deploy 1095,
+Site-Monitor grün). Sechs Funde, fünf behoben, der sechste am selben Abend
+geschlossen. Vollständig: [[40-Governance/Legal/Launch-Befund-UG]].
+
+**Was den Release wirklich sperrt — fünf Zeilen, alle beim Inhaber:**
+
+1. **Null verbundene Connect-Konten.** Ohne ein aktives lehnt der Buchungspfad
+   mit 409 ab — **heute ist keine Buchung bezahlbar.** Der Onboarding-Weg
+   wurde live nie durchlaufen. Das ist der härteste Punkt, und er ist kein
+   Codefehler.
+2. `EB_STEUERNUMMER` / `EB_UST_ID` — vorher entsteht bewusst kein
+   Provisionsbeleg (§ 14 UStG).
+3. Vier Impressum-Platzhalter füllen, danach „i. G." entfernen (das Tor
+   verlangt beides zusammen).
+4. Stripe-Konto von `business_type: individual` auf die UG umstellen.
+5. **Chargeback-Behandlung gibt es nicht** — `charge.dispute.created` hat
+   keinen Empfänger. AGB-Frage, dann baubar.
+
+**Rechtsfragen daneben:** ZAG-Einordnung anwaltlich · PStTG/DAC7 mit dem
+Steuerberater (inkl. was Stripe Connect abdeckt) · Datenschutzerklärung § 10a,
+danach `EB_HANDLE_NACHTRAG`.
+
+**Von mir baubar, wenn beauftragt:** API-Version pinnen (nur mit Gegenprobe im
+Testmodus — es ändert die Gestalt jeder Stripe-Antwort) · Ruleset auf
+`E2E-Testsuite (Playwright)` · die 105 Deko-Animationen · App-Store-Reste
+(APNs, `Info.plist`, Händlerstatus).
+
 ## Offen aus der Oberflächenprüfung (2026-09-15)
 
 Gemessen, berichtet, **nicht beauftragt** — der Inhaber entscheidet über die

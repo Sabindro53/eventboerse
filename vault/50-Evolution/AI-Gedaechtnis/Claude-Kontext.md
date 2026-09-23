@@ -9,6 +9,130 @@ tags: [layer/L5, domain/evolution, share/internal]
 
 > Diese Datei ist die **erste Quelle** die Claude Code liest. Sie enthält alles Wichtige über Projekt, Präferenzen und offene Aufgaben.
 
+## Stand 2026-09-23 — die Launch-Prüfung ist live, und Stripe wurde zum ersten Mal gemessen
+
+**PR #283 ist gemergt** (`1482814`), der IONOS-Deploy lief durch (Lauf 1095),
+und `site-monitor.yml` bestätigt am gemergten Commit: erreichbar, nicht leer,
+`app.js` vollständig. Sechs Funde, fünf behoben, einer an den Inhaber übergeben
+und noch am selben Abend von ihm geschlossen.
+
+**Der neue Fund ist der sechste, und er lag auf dem Geldweg.** Der
+Stripe-Konnektor wurde freigeschaltet — damit war die Messung möglich, die im
+PR-Text vorher ausdrücklich als *„nicht belegt"* stand. Ergebnis am **Live**-Konto
+`acct_1TFhA4ARRBfHayLn`:
+
+| | |
+|---|---|
+| Stripe sendete an unseren Webhook | **2** Ereignisse |
+| `eb_stripe_webhook()` behandelt | **10** |
+
+Acht `case`-Zweige unerreichbar. Der teuerste: `eb_booking_record_refund()` in
+`includes/booking.php` trägt im eigenen Kommentar *„signed webhooks refresh
+rather than invent settlement"* — **gebaut für einen Webhook, den nie jemand
+abonniert hat**. Eine Erstattung aus dem Stripe-Dashboard bewegte Geld und
+erreichte das Buchungsboard nie. Behoben: `scripts/stripe-webhook.mjs` misst
+die Drift jetzt (13 Tests, 9 Mutationen), die fünf fehlenden Ereignisse sind
+gesetzt, Rücklesewert **sieben**, Tor grün.
+
+### Fünf Lektionen, alle übertragbar
+
+1. **Eine Diagnose aus einem anderen Fall ist keine Messung.** Ich schrieb dem
+   Inhaber, ich könne #283 nicht mergen — der Branch-Schutz verlange eine
+   Freigabe, die ein Bot-Token nicht bekommt. Das war der Befund vom 13.09.
+   über die **Routine-App**, ungeprüft übertragen. Gemessen war `blocked`
+   schlicht der **Draft-Zustand**; nach dem Aufheben stand er auf `clean`.
+2. **Push Protection ist scharf, und sie ist das Gegenteil des toten
+   Gitleaks-Scans.** Ein erfundener, aber formgleicher Testprüfstein liess den
+   Push mit `GH013` abprallen. Der angebotene Freigabe-Link wurde **nicht**
+   benutzt — das ist der Weg, auf dem solche Schutzvorrichtungen sterben.
+   Geändert wurde der Prüfstein. **Regel: kein schlüsselförmiger Platzhalter
+   im Repository, auch nicht in Kommentaren.**
+3. **Die zwölfte Kommentar-Falle — und die erste, bei der Kommentarabzug die
+   FALSCHE Antwort wäre.** `geheimnisse.mjs` schlug auf den erklärenden
+   Kommentar an, den ich zwei Absätze unter der Regel selbst geschrieben
+   hatte. Anders als bei `recht.mjs` oder `kontext.mjs` ist das Subjekt dieses
+   Prüfers die **Datei**, nicht der Code: ein echter Schlüssel in einem
+   Kommentar ist ein echter Schlüssel. **Also weicht der Text, nie der Prüfer.**
+4. **Ein Webhook-Ereignis kann einen veralteten SHA tragen.** `check_suite.
+   completed` kam für den **vorigen** Head. Wer das als „CI ist durch" liest,
+   handelt am falschen Commit — dieselbe Klasse wie der `base`-SHA im
+   PR-Objekt, der nicht der Stand von `main` ist.
+5. **Bei Stripe ersetzt die API, die Oberfläche ergänzt.** `enabled_events`
+   über die API ist ein **Ersetzen**. Wer nur die fünf neuen sendet, löscht die
+   zwei bestehenden — und danach wird **keine Buchung mehr erfasst**. Im
+   Dashboard sind die bestehenden vorangehakt. Trotzdem gilt: **vor dem
+   Speichern auf sieben nachzählen, danach über die API zurücklesen.** Ein
+   gespeichertes Formular ist kein Beleg.
+
+### Was am Stripe-Konto sonst gemessen wurde
+
+- **`business_type: individual`** — das Konto läuft auf eine natürliche Person,
+  während Impressum und Provisionsrechnung die **UG i. G.** als Aussteller
+  führen. Spätestens mit der Eintragung müssen Rechnungsaussteller und
+  Zahlungsempfänger dieselbe Person sein.
+- **Null verbundene Konten** (`/v1/accounts` ist leer). Der Buchungspfad lehnt
+  ohne aktives Connect-Konto mit 409 ab — **heute ist keine Buchung
+  bezahlbar.** Der Onboarding-Weg wurde live nie durchlaufen.
+- **Chargebacks haben gar keinen Empfänger.** `charge.dispute.created` kommt im
+  Code nicht vor; bei einer Destination Charge zieht Stripe vom
+  **Plattformkonto** ein, der Anbieter behält seine Auszahlung.
+- **Kein Fund, obwohl es danach aussah:** die fünf Live-PaymentIntents ohne
+  `transfer_data` stammen vom 13.05.–02.06.2026, die Destination-Charge-Mechanik
+  kam am 26.08. in den Code. Geschichte, kein offener Fehler. Wer hier
+  „repariert", baut an einem funktionierenden Pfad um.
+- `capabilities.transfers: active`, `charges_enabled`, `payouts_enabled`,
+  `requirements.currently_due: []` — die Grundlage trägt.
+- Kleineres: MCC `5734` („Computer Software Stores") für einen
+  Event-Dienstleistungsmarktplatz · `support_phone` ist eine private
+  Mobilnummer, `support_email`/`support_url` leer · Branding-Farbe `#ff3366`
+  statt der dokumentierten `#FF385C` (sichtbar im Express-Onboarding).
+
+### Release-Bereitschaft: was wirklich noch fehlt (Stand 23.09.2026)
+
+**Die Gründung selbst blockiert nichts.** Notartermin, Gesellschaftsvertrag,
+Stammkapital, Handelsregister, Gewerbeanmeldung können laufen.
+
+**Echte Sperren vor dem ersten echten Zahlungsverkehr:**
+
+| # | Sperre | Wer |
+|---|---|---|
+| 1 | **Null Connect-Konten** — ohne ein aktives ist keine Buchung bezahlbar | Inhaber: Onboarding einmal echt durchlaufen |
+| 2 | `EB_STEUERNUMMER` / `EB_UST_ID` in `wp-config.php` — vorher entsteht bewusst kein Provisionsbeleg (§ 14 UStG) | Inhaber, nach dem Finanzamt |
+| 3 | Vier Impressum-Platzhalter füllen, danach „i. G." entfernen — das Tor verlangt **beides zusammen** | Inhaber, nach der Eintragung |
+| 4 | Stripe-Konto von `individual` auf die UG umstellen | Inhaber, nach der Eintragung |
+| 5 | **Chargeback-Behandlung gibt es nicht** — AGB-Frage, ob vom Anbieter zurückgeholt wird | Inhaber entscheidet, dann baubar |
+
+**Rechtsfragen, die keine Messung ersetzt:** ZAG-Einordnung unter Destination
+Charges anwaltlich bestätigen · PStTG/DAC7 mit dem Steuerberater, insbesondere
+was Stripe Connect davon abdeckt · Datenschutzerklärung § 10a, erst dann
+`EB_HANDLE_NACHTRAG` setzen (dieselbe Hand, derselbe Moment).
+
+**Technisch offen, von mir baubar:**
+
+- **API-Version nirgends festgeschrieben.** Endpunkt steht auf
+  `2026-03-25.dahlia`, unsere Aufrufe nehmen die Kontovorgabe. Pinnen ändert
+  die **Gestalt jeder Antwort** — nur mit Gegenprobe im Testmodus, sonst legt
+  es die Kasse still.
+- Ruleset auf `main` zusätzlich auf `E2E-Testsuite (Playwright)` verlangen
+  (Einstellung des Inhabers; der Code-Weg deckt es seit 14.09. ab).
+- 105 Deko-Animationen auf der Landeseite (~257 ms) — Gestaltungsfrage.
+- App Store: APNs-Schlüssel, `Info.plist`-Zwecktexte, Händlerstatus vor der
+  EU-Listung umstellen.
+
+**Erledigt und belegt:** Zahlungsmodell im Impressum · PStTG-Erhebung ·
+Provisionsrechnung · PAngV-Gesamtpreis · Impressum-Tor · Stripe-Webhook.
+
+### Offen, bewusst beim Inhaber (Stand 23.09.2026)
+
+- Die fünf Sperren oben, Zeile für Zeile.
+- Storno-Höhe (voll vs. anteilig) · Benachrichtigung des Dienstleisters
+  (Push/E-Mail) · Ausnahme im Branch-Schutz für die Routine-App ·
+  Board-Platz in der Mobilleiste.
+- **Drei alte PRs** noch offen: #46 (trägt echte Sicherheitsfixes, ungeprüft ob
+  sie inzwischen auf `main` sind), #199 und #228 (dasselbe HQ-Panel zweimal;
+  #228 ist der lebende Zweig). Die fünf Routine-PRs #217–#222 und #271 sind am
+  23.09. geschlossen — sie trugen nur veraltete erzeugte Dateien.
+
 ## Stand 2026-09-15 — die Entwarnung, die der Vault selbst weitergetragen hat
 
 Beauftragt war eine Prüfung „auf Herz und Nieren" zu Nutzerfreundlichkeit und

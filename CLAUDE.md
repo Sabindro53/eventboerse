@@ -3299,6 +3299,34 @@ Inhabers im Dashboard**, kein Commit. Auf einem Live-Konto werden
 Schreibrechte auch nicht durchprobiert: jeder erfolgreiche Versuch wäre eine
 echte Änderung.
 
+**ERLEDIGT am 23.09.2026, 21:5x UTC.** Der Inhaber hat die fünf Ereignisse
+über die Dashboard-Oberfläche gesetzt; nachgelesen über `GET
+/v1/webhook_endpoints` steht der Endpunkt jetzt auf **sieben**, `url`,
+`status: enabled` und `api_version: 2026-03-25.dahlia` unverändert, weiterhin
+genau ein Endpunkt auf dem Konto. `vergleiche()` gegen diesen Stand:
+`fehltAbo []`, `ohneEmpfaenger []` — **das Tor ist grün.**
+
+**Das Formular war nicht der Beleg, der Rücklesewert war es.** Ein
+gespeicherter Dialog sagt nur, dass er sich schließen liess.
+
+**Die Dashboard-Oberfläche ist additiv, die API ersetzt.** Wer den Weg über
+`enabled_events` nimmt, muss **alle sieben** senden — mit nur den fünf neuen
+wären `payment_intent.succeeded` und `checkout.session.completed` gelöscht, und
+danach würde **gar keine Buchung mehr erfasst**. Das ist der einzige Handgriff
+an dieser Stelle, der live Geld unsichtbar macht.
+
+**Zwei Namen haben Geschwister, die falsch sind.** Die Ereignissuche zeigt bei
+`refund.created` auch `charge.refunded`, bei `refund.updated` auch
+`charge.refund.updated`. Stripe verweist in beiden Beschreibungen selbst auf
+die `refund.*`-Variante; angehakt ist keines der `charge.*`-Geschwister. Alle
+fünf Namen existierten exakt wie im Code — **kein toter `case`.**
+
+**`webhook_write` bleibt aus.** Der Schreibweg würde einem Agenten erlauben,
+den Endpunkt still umzubiegen oder abzuschalten — der Ausfall, bei dem
+Zahlungen weiterlaufen und nur das Board nichts mehr erfährt. Getragen wird
+die Sache ohnehin vom **Lesen**: das Tor misst die Drift ab jetzt täglich, und
+der Schreibvorgang war der erste seit Monaten.
+
 **Damit es nicht wieder still verrottet, misst es jetzt ein Tor.**
 
 ```bash
