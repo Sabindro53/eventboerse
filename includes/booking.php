@@ -112,6 +112,96 @@ function eb_booking_record_refund( $refund ) {
     update_option( $key, $existing, false );
 }
 
+/** Ausgaenge, nach denen ein Dispute feststeht. Ein spaeteres Ereignis darf sie nicht zurueckdrehen. */
+function eb_booking_dispute_endzustaende() {
+    return array( 'won', 'lost', 'warning_closed' );
+}
+
+/**
+ * Haelt einen Stripe-Dispute fest — und bewegt dabei KEIN Geld.
+ *
+ * WARUM DAS UEBERHAUPT GEBRAUCHT WIRD. Am 23.09.2026 gemessen: `dispute`,
+ * `charge.dispute` und `chargeback` kamen im ganzen Code NULL Mal vor. Bei
+ * einer Destination Charge zieht Stripe den Betrag vom PLATTFORMKONTO ein,
+ * waehrend der Dienstleister seine Auszahlung behaelt — der Betreiber trug
+ * den Verlust also bereits und erfuhr nichts davon.
+ *
+ * ES WIRD NICHTS ZURUECKGEHOLT. Kein Stripe-Aufruf, keine Transfer-Umkehr,
+ * keine Erstattung. Ob und wie vom Dienstleister zurueckgeholt wird, ist eine
+ * AGB-Frage und gehoert dem Inhaber — dieselbe Regel wie beim Storno, wo die
+ * Frist eine Zustaendigkeit erzeugt und keine Zahlung.
+ *
+ * EIN DISPUTE IST KEINE ERSTATTUNG, deshalb ein eigener Schluessel. Ihn unter
+ * die Refunds zu schreiben liesse das Board "erstattet" sagen, waehrend der
+ * Ausgang noch offen ist — und ein GEWONNENER Dispute bringt das Geld zurueck.
+ */
+function eb_booking_record_dispute( $dispute ) {
+    if ( empty( $dispute['id'] ) || empty( $dispute['payment_intent'] ) ) return;
+
+    $pi  = sanitize_text_field( (string) $dispute['payment_intent'] );
+    $key = 'eb_booking_dispute_' . sanitize_key( $pi );
+    $alle = get_option( $key, array() );
+    if ( ! is_array( $alle ) ) $alle = array();
+
+    $id     = sanitize_text_field( (string) $dispute['id'] );
+    $vorher = isset( $alle[ $id ] ) && is_array( $alle[ $id ] ) ? $alle[ $id ] : array();
+    $status = sanitize_text_field( (string) ( $dispute['status'] ?? 'needs_response' ) );
+
+    // Webhooks kommen nicht in Reihenfolge. Ein verspaetetes `created` darf
+    // einen bereits geschlossenen Ausgang nicht wieder aufmachen.
+    $ende = eb_booking_dispute_endzustaende();
+    if ( in_array( $vorher['status'] ?? '', $ende, true ) && ! in_array( $status, $ende, true ) ) return;
+
+    $alle[ $id ] = array(
+        'id'       => $id,
+        'status'   => $status,
+        'amount'   => (int) ( $dispute['amount'] ?? 0 ),
+        'currency' => sanitize_text_field( (string) ( $dispute['currency'] ?? 'eur' ) ),
+        'reason'   => sanitize_text_field( (string) ( $dispute['reason'] ?? '' ) ),
+        // Die Beweisfrist ist bei einem Chargeback das, worauf es ankommt.
+        // Eine Meldung ohne sie sagt dem Betreiber nicht, wie lange er Zeit hat.
+        'due_by'   => (int) ( $dispute['evidence_details']['due_by'] ?? 0 ),
+        'updated_at' => time(),
+        // Genau EINE Meldung je Dispute. Ein Vorgang erzeugt mehrere
+        // `.updated`-Ereignisse; eine Mail je Ereignis ist eine Mail, die nach
+        // dem dritten Mal niemand mehr oeffnet.
+        'gemeldet_at' => (int) ( $vorher['gemeldet_at'] ?? 0 ),
+    );
+
+    if ( ! $alle[ $id ]['gemeldet_at'] ) {
+        $alle[ $id ]['gemeldet_at'] = eb_booking_dispute_melden( $alle[ $id ], $pi ) ? time() : 0;
+    }
+
+    update_option( $key, $alle, false );
+}
+
+/**
+ * Meldet einen neuen Dispute an den Betreiber. Gibt TRUE zurueck, wenn die
+ * Mail angenommen wurde — nur dann gilt er als gemeldet, sonst versucht es
+ * das naechste Ereignis erneut.
+ */
+function eb_booking_dispute_melden( $d, $pi ) {
+    if ( ! function_exists( 'wp_mail' ) || ! function_exists( 'eb_ops_notify_address' ) ) return false;
+
+    $betrag = number_format( ( (int) $d['amount'] ) / 100, 2, ',', '.' ) . ' ' . strtoupper( $d['currency'] );
+    $frist  = $d['due_by'] ? gmdate( 'd.m.Y H:i', (int) $d['due_by'] ) . ' UTC' : 'nicht angegeben';
+
+    $text  = "Ein Kunde hat eine Zahlung zurueckgebucht (Chargeback).\n\n";
+    $text .= "Betrag        : {$betrag}\n";
+    $text .= "Zahlung       : {$pi}\n";
+    $text .= "Dispute       : {$d['id']}\n";
+    $text .= "Grund         : " . ( $d['reason'] ?: 'nicht angegeben' ) . "\n";
+    $text .= "Status        : {$d['status']}\n";
+    $text .= "Beweise bis   : {$frist}\n\n";
+    $text .= "Stripe hat den Betrag bereits vom PLATTFORMKONTO eingezogen. Die\n";
+    $text .= "Auszahlung an den Dienstleister ist davon unberuehrt — es wurde\n";
+    $text .= "nichts automatisch zurueckgeholt.\n\n";
+    $text .= "Zu tun: im Stripe-Dashboard Beweise einreichen oder den Fall\n";
+    $text .= "akzeptieren. Nach Ablauf der Frist entscheidet die Bank ohne uns.\n";
+
+    return (bool) wp_mail( eb_ops_notify_address(), 'Chargeback: ' . $betrag . ' zurueckgebucht', $text );
+}
+
 /** Serialize agreement changes and checkout creation on the same DB connection. */
 function eb_booking_lock( $conversation_id ) {
     global $wpdb;

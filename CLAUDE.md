@@ -3371,10 +3371,9 @@ npx playwright test tests/e2e/stripe-webhook.spec.js   # 13 Tests, 9 Mutationen
 
 #### Was hier NICHT entschieden wird
 
-- **Chargebacks haben gar keinen Empfänger.** `charge.dispute.created` kommt
-  im ganzen Code nicht vor. Bei einer Destination Charge zieht Stripe den
-  Betrag vom **Plattformkonto** ein — der Anbieter behält seine Auszahlung.
-  Ob und wie zurückgeholt wird, ist eine AGB-Frage, keine Aufräumarbeit.
+- **Chargebacks hatten gar keinen Empfänger** — behoben am 23.09.2026, siehe
+  den nächsten Abschnitt. Die **Rückholung** vom Dienstleister bleibt offen:
+  das ist eine AGB-Frage, keine Aufräumarbeit.
 - **Das Stripe-Konto ist `business_type: individual`.** Es läuft auf eine
   natürliche Person, während Impressum und Provisionsrechnung die **UG i. G.**
   als Aussteller führen. Spätestens mit der Eintragung müssen
@@ -3388,6 +3387,100 @@ npx playwright test tests/e2e/stripe-webhook.spec.js   # 13 Tests, 9 Mutationen
   wäre richtig — aber es ändert die **Gestalt jeder Antwort**, die der Code
   liest, und ist ohne Gegenprobe im Testmodus genau die Sorte Änderung, die
   eine laufende Kasse stilllegt.
+
+### Ein Chargeback zog Geld ein, und niemand erfuhr davon
+
+Am 23.09.2026 gezählt, direkt nach der Webhook-Messung: `dispute`,
+`charge.dispute` und `chargeback` kamen in PHP, JS und HTML zusammen
+**null Mal** vor.
+
+**Das ist teurer als es klingt.** Bei einer Destination Charge zieht Stripe
+den strittigen Betrag vom **Plattformkonto** ein — der Dienstleister behält
+seine Auszahlung. Der Betreiber trug den Verlust also bereits **und erfuhr
+nichts davon**: keine Mail, kein Eintrag, nichts im Board. Die einzige Spur
+lag im Stripe-Dashboard, in das man hineinsehen muss, um von ihr zu wissen.
+
+Dazu läuft eine **Frist**. Wer die Beweise nicht rechtzeitig einreicht,
+verliert ohne Verfahren — und ohne die Meldung weiß niemand, dass sie läuft.
+
+#### Festgehalten und gemeldet, nicht zurückgeholt
+
+`eb_booking_record_dispute()` in `includes/booking.php` schreibt den Vorgang
+mit und meldet ihn einmal an `eb_ops_notify_address()`. **Es bewegt keinen
+Cent.**
+
+Das ist keine Bequemlichkeit, sondern dieselbe Regel wie beim Storno: *die
+Frist erzeugt eine Zuständigkeit, keine Zahlung.* Ob der Dienstleister für
+einen Chargeback einstehen muss, steht in keiner AGB dieser Plattform — und
+`reverse_transfer` automatisch zu setzen hieße, diese Frage im Code zu
+beantworten. Ein Test hält deshalb fest, dass der Empfänger **kein**
+`api.stripe.com`, `reverse_transfer`, `eb_stripe_api`, `curl_init` und
+`refund_application_fee` enthält.
+
+**Ein Dispute ist keine Erstattung.** Eigener Schlüssel
+(`eb_booking_dispute_<pi>`), eigener Zweig in der Abrechnungsantwort. Ihn
+unter die Refunds zu schreiben ließe das Board **„erstattet"** sagen, während
+der Ausgang offen ist — und ein **gewonnener** Dispute bringt das Geld
+zurück. Die Mutation „Dispute unter die Erstattungen" macht **5 Tests** rot.
+
+**Ein geschlossener Ausgang wird nicht zurückgedreht.** Webhooks kommen nicht
+in Reihenfolge; ein verspätetes `created` darf einen gewonnenen Fall nicht
+wieder auf `needs_response` setzen. Die Gegenprobe gehört dazu: ein
+Endzustand **darf** einen anderen ersetzen (`needs_response` → `lost`), sonst
+bestünde „ändere nach dem ersten Ereignis nie wieder etwas" den Test ebenso.
+
+**Genau eine Meldung je Dispute.** Ein Vorgang erzeugt mehrere
+`.updated`-Ereignisse; eine Mail je Ereignis ist eine Mail, die nach dem
+dritten Mal niemand mehr öffnet. **Scheitert die Zustellung, gilt er nicht
+als gemeldet** — sonst verschluckt ein einzelner SMTP-Aussetzer die einzige
+Meldung, die es je gibt.
+
+**Die Beweisfrist steht in der Meldung.** Ohne sie sagt sie dem Betreiber
+nicht, wie lange er Zeit hat, und nach Ablauf entscheidet die Bank ohne uns.
+
+#### Der Prüfstand steigt bei einer DB-Abfrage aus
+
+`tests/e2e/dispute.php` bindet `booking.php` im Original ein; seine
+`$wpdb`-Attrappe bricht bei **jeder** Abfrage mit Exit 3 ab. Der Empfänger
+darf die Datenbank nicht anfassen — eine Attrappe, die jede Abfrage
+beantwortet, gäbe Entwarnung für Code, den sie nie ausgeführt hat.
+
+**Und der erste Lauf sah erfolgreich aus, weil er nichts tat.**
+`booking.php` trägt `if ( ! defined( 'ABSPATH' ) ) exit;` — den Wächter gegen
+den direkten Web-Aufruf. Der steigt **mit Status 0** aus: acht Tests fielen
+durch, und zwar an einem unverständlichen JSON-Parse-Fehler statt an der
+Ursache. Der Wächter bleibt, wo er ist; der Prüfstand setzt `ABSPATH`, und
+`fahre()` verlangt jetzt ausdrücklich **Ausgabe**, nicht nur Exit 0.
+
+Zehn Mutationen, jede macht die Suite rot: Endzustand-Wache entfernt ·
+gemeldet trotz Mailfehler · Meldung bei jedem Ereignis · `payment_intent`-
+Wache entfernt · Beweisfrist nicht in der Mail · Dispute unter die
+Erstattungen (**5 rot**) · der Empfänger holt Geld zurück · Webhook-`case`
+entfernt · Abrechnung ohne `disputes` · Gegenprobe, der Empfänger schreibt
+nichts (**7 rot**).
+
+```bash
+npx playwright test tests/e2e/dispute.spec.js   # 13 Tests, 10 Mutationen
+```
+
+#### Ein Haken fehlt noch, und das Tor sagt es
+
+Die drei Ereignisse sind bei Stripe **nicht abonniert**. `stripe-webhook.mjs`
+meldet sie deshalb ab sofort unter `fehltAbo` — genau dafür ist es gebaut:
+ein Empfänger ohne Ereignis ist ein toter Zweig.
+
+**Dashboard → Webhooks → Endpunkt → Select events**, drei Haken dazu:
+
+```
+charge.dispute.created   charge.dispute.updated   charge.dispute.closed
+```
+
+Danach stehen dort **zehn** Ereignisse. Der Weg über die API bleibt gesperrt
+und wäre ohnehin der falsche — dort ersetzt `enabled_events` die ganze Liste.
+
+**Offen und ausdrücklich nicht gebaut:** die Rückholung vom Dienstleister.
+Sie braucht zuerst eine AGB-Klausel; ohne sie wäre jede Automatik eine
+Geldentscheidung ohne Rechtsgrund.
 
 ### Der Provisionssatz stand elfmal im Code — und einmal in wp-config.php
 
@@ -4496,7 +4589,7 @@ npm run test:smoke      # nur Routen-Smoke-Tests
 npm run test:css        # CSS-Minify-Regression (Verlaufsschrift)
 ```
 
-1234 Tests in 85 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
+1247 Tests in 86 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
 Sätze), Gebühren (centgenau, JS↔PHP-Parität), Wissensbasis (Antworten +
 Leckage-Schutz), Zufluss (Quarantäne-Tor + Demo-Feed-Ehrlichkeit),
 Verbindungen (HQ-Zugang + Connector-Katalog), Auftragsstrom (Herkunft +

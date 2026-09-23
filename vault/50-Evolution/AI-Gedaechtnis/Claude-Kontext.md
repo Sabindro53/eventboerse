@@ -73,9 +73,11 @@ gesetzt, Rücklesewert **sieben**, Tor grün.
 - **Null verbundene Konten** (`/v1/accounts` ist leer). Der Buchungspfad lehnt
   ohne aktives Connect-Konto mit 409 ab — **heute ist keine Buchung
   bezahlbar.** Der Onboarding-Weg wurde live nie durchlaufen.
-- **Chargebacks haben gar keinen Empfänger.** `charge.dispute.created` kommt im
-  Code nicht vor; bei einer Destination Charge zieht Stripe vom
-  **Plattformkonto** ein, der Anbieter behält seine Auszahlung.
+- **Chargebacks hatten gar keinen Empfänger** — am selben Abend behoben: der
+  Vorgang wird festgehalten und einmal an den Betreiber gemeldet, **ohne einen
+  Cent zu bewegen**. Bei einer Destination Charge zieht Stripe vom
+  **Plattformkonto** ein, der Anbieter behält seine Auszahlung; ob er dafür
+  einsteht, steht in keiner AGB und wird deshalb nicht im Code entschieden.
 - **Kein Fund, obwohl es danach aussah:** die fünf Live-PaymentIntents ohne
   `transfer_data` stammen vom 13.05.–02.06.2026, die Destination-Charge-Mechanik
   kam am 26.08. in den Code. Geschichte, kein offener Fehler. Wer hier
@@ -100,7 +102,7 @@ Stammkapital, Handelsregister, Gewerbeanmeldung können laufen.
 | 2 | `EB_STEUERNUMMER` / `EB_UST_ID` in `wp-config.php` — vorher entsteht bewusst kein Provisionsbeleg (§ 14 UStG) | Inhaber, nach dem Finanzamt |
 | 3 | Vier Impressum-Platzhalter füllen, danach „i. G." entfernen — das Tor verlangt **beides zusammen** | Inhaber, nach der Eintragung |
 | 4 | Stripe-Konto von `individual` auf die UG umstellen | Inhaber, nach der Eintragung |
-| 5 | **Chargeback-Behandlung gibt es nicht** — AGB-Frage, ob vom Anbieter zurückgeholt wird | Inhaber entscheidet, dann baubar |
+| 5 | Chargebacks werden seit 23.09. **festgehalten und gemeldet** (`eb_booking_record_dispute()`, 13 Tests, 10 Mutationen). Offen bleibt die **Rückholung** vom Anbieter — AGB-Frage. Dazu fehlen **drei Haken** im Stripe-Dashboard, sonst ist der Empfänger ein toter Zweig; `stripe-webhook.mjs` meldet sie | Inhaber: AGB-Klausel + drei Haken |
 
 **Rechtsfragen, die keine Messung ersetzt:** ZAG-Einordnung unter Destination
 Charges anwaltlich bestätigen · PStTG/DAC7 mit dem Steuerberater, insbesondere

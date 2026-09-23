@@ -16,7 +16,7 @@ Zahlen ihrer Zeit — die sind Historie, kein Ist-Stand. Der Ensemble-Kontext
 liest diese Datei von oben; ein Modell, das „68 Tests" als aktuell meldet, hat
 einen alten Abschnitt gelesen und nicht diesen.
 
-- **Playwright-Suite: 1234 Tests in 85 Suiten**, blockierendes Gate in `pr-check.yml`.
+- **Playwright-Suite: 1247 Tests in 86 Suiten**, blockierendes Gate in `pr-check.yml`.
   Läuft seit dem Self-Hosting auch ohne Netzzugang vollständig durch
 
 ## Release-Bereitschaft (2026-09-23) — der aktuelle Engpass
@@ -36,8 +36,11 @@ geschlossen. Vollständig: [[40-Governance/Legal/Launch-Befund-UG]].
 3. Vier Impressum-Platzhalter füllen, danach „i. G." entfernen (das Tor
    verlangt beides zusammen).
 4. Stripe-Konto von `business_type: individual` auf die UG umstellen.
-5. **Chargeback-Behandlung gibt es nicht** — `charge.dispute.created` hat
-   keinen Empfänger. AGB-Frage, dann baubar.
+5. **Chargebacks** werden seit 23.09. festgehalten und gemeldet — **ohne Geld
+   zu bewegen**. Offen: (a) eine **AGB-Klausel**, ob der Dienstleister dafür
+   einsteht, erst danach ist eine Rückholung baubar; (b) **drei Haken** im
+   Stripe-Dashboard (`charge.dispute.created/updated/closed`), sonst ist der
+   Empfänger ein toter Zweig — `stripe-webhook.mjs` meldet das ab sofort.
 
 **Rechtsfragen daneben:** ZAG-Einordnung anwaltlich · PStTG/DAC7 mit dem
 Steuerberater (inkl. was Stripe Connect abdeckt) · Datenschutzerklärung § 10a,

@@ -8496,6 +8496,11 @@ function eb_stripe_settlement_endpoint( WP_REST_Request $request ) {
         'payment'     => $pi,
         'canRefund'   => $provider_ok || $is_admin,
         'refunds'     => array_values( get_option( 'eb_booking_refund_' . sanitize_key( $pi ), array() ) ),
+        // Ein Dispute steht NEBEN den Erstattungen, nie darunter: er ist keine
+        // Erstattung, sein Ausgang ist offen, und ein gewonnener bringt das
+        // Geld zurueck. Wer beides zusammenwirft, zeigt "erstattet" fuer einen
+        // Vorgang, der noch laeuft.
+        'disputes'    => array_values( get_option( 'eb_booking_dispute_' . sanitize_key( $pi ), array() ) ),
         'cancellation' => get_option( 'eb_booking_refund_request_' . sanitize_key( $pi ), null ),
         'reconciled'  => ! empty( $ledger['reconciled'] ),
         'pending'     => $ledger['pending'] ?? '',
@@ -9928,6 +9933,16 @@ function eb_stripe_webhook( WP_REST_Request $request ) {
         case 'refund.updated':
         case 'refund.failed':
             eb_booking_record_refund( $obj );
+            break;
+
+        case 'charge.dispute.created':
+        case 'charge.dispute.updated':
+        case 'charge.dispute.closed':
+            // Ein Chargeback. Stripe hat den Betrag bei einer Destination
+            // Charge bereits vom PLATTFORMKONTO eingezogen, waehrend der
+            // Dienstleister seine Auszahlung behaelt. Hier wird das nur
+            // festgehalten und gemeldet — es wird KEIN Geld zurueckgeholt.
+            eb_booking_record_dispute( $obj );
             break;
 
         case 'payment_intent.payment_failed':

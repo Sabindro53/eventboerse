@@ -66,10 +66,13 @@ Diese drei sind **keine** Rechtstext-Funde, aber sie stehen vor dem Release:
 - **Null verbundene Konten.** Ohne ein aktives Connect-Konto lehnt der
   Buchungspfad mit 409 ab — **heute ist keine Buchung bezahlbar**, und der
   Onboarding-Weg wurde live nie durchlaufen.
-- **Chargebacks haben keinen Empfänger.** `charge.dispute.created` kommt im
-  Code nicht vor; bei einer Destination Charge zieht Stripe vom
-  Plattformkonto ein, der Anbieter behält seine Auszahlung. Ob zurückgeholt
-  wird, ist eine AGB-Frage.
+- **Chargebacks hatten keinen Empfänger** — behoben am 23.09.2026. Der
+  Vorgang wird jetzt festgehalten und einmal an den Betreiber gemeldet, samt
+  Beweisfrist, **ohne einen Cent zu bewegen**. Bei einer Destination Charge
+  zieht Stripe vom Plattformkonto ein, der Anbieter behält seine Auszahlung.
+  **Ob er dafür einsteht, steht in keiner AGB dieser Plattform** — deshalb
+  wird es nicht im Code entschieden. Zwei Dinge fehlen: die AGB-Klausel und
+  drei Haken im Stripe-Dashboard.
 
 ### Was beim Umsetzen dazugekommen ist
 
