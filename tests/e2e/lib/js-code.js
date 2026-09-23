@@ -105,4 +105,8 @@ function ohneJsKommentare(quelle) {
   return aus;
 }
 
-module.exports = { ohneJsKommentare, istRegexAnfang };
+// `istRegexAnfang` bleibt intern: ausserhalb von lib/ benutzt es niemand, und
+// ein Export ohne Nutzer ist ein Griff ohne Subjekt. Aufgefallen, als die
+// Gegenprobe in pruefhygiene.spec.js vom Kommentar-Entferner auf JEDEN Export
+// verallgemeinert wurde — die engere Fassung hatte ihn nie angesehen.
+module.exports = { ohneJsKommentare };

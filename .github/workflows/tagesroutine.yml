@@ -142,6 +142,22 @@ jobs:
           GH_TOKEN: ${{ steps.apptoken.outputs.token || secrets.GITHUB_TOKEN }}
         run: node scripts/workflows.mjs | tee -a "$GITHUB_STEP_SUMMARY"
 
+      # Hoert Stripe auf das, was der Code behandelt? Am 23.09.2026 gemessen:
+      # der Endpunkt fuehrte ZWEI Ereignisse, der Code behandelt ZEHN. Acht
+      # case-Zweige waren unerreichbar, darunter der Refund-Empfaenger, der
+      # ausdruecklich fuer signierte Webhooks gebaut ist. Gehoert hierher und
+      # nicht in den PR-Check: die Abo-Liste liegt bei Stripe, das braucht
+      # Netz und einen Schluessel — und ein Live-Schluessel hat in einem Lauf
+      # ueber fremde PRs nichts zu suchen.
+      #
+      # BERICHT, nicht Tor (kein --check): wie bei den Nachbarschritten soll
+      # die Routine den Zustand festhalten, nicht nachts rot werden.
+      - name: Stripe-Webhook gegen die Empfaenger im Code
+        env:
+          EB_STRIPE_READ_KEY: ${{ secrets.EB_STRIPE_READ_KEY }}
+          EB_STRIPE_SECRET_KEY: ${{ secrets.EB_STRIPE_SECRET_KEY }}
+        run: node scripts/stripe-webhook.mjs | tee -a "$GITHUB_STEP_SUMMARY"
+
       - name: Rechtliche Lage messen
         run: node scripts/recht.mjs | tee -a "$GITHUB_STEP_SUMMARY"
 

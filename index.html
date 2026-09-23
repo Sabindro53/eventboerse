@@ -234,7 +234,7 @@
         <span class="material-icons-round" id="darkModeIcon">dark_mode</span>
         <span id="darkModeLabel">Dunkelmodus</span>
         <label class="toggle-switch toggle-sm">
-          <input type="checkbox" id="darkModeToggle" onchange="toggleDarkMode(this.checked)" />
+          <input type="checkbox" id="darkModeToggle" aria-labelledby="darkModeLabel" onchange="toggleDarkMode(this.checked)" />
           <span class="toggle-slider"></span>
         </label>
       </div>
@@ -488,12 +488,12 @@
             <div class="hero-search-glow"></div>
             <div class="hero-search-row">
               <div class="hero-field hero-field-ai">
-                <label><span class="material-icons-round ai-spark">auto_awesome</span> Suche</label>
+                <label for="heroSearchInput"><span class="material-icons-round ai-spark" aria-hidden="true">auto_awesome</span> Suche</label>
                 <input type="text" placeholder="Beschreib dein Event…" id="heroSearchInput" autocomplete="off" />
               </div>
               <span class="hero-field-divider"></span>
               <div class="hero-field">
-                <label>Event-Typ</label>
+                <label for="heroEventType">Event-Typ</label>
                 <select id="heroEventType">
                   <option value="">Alle Events</option>
                   <option value="hochzeit">Hochzeit</option>
@@ -506,7 +506,7 @@
               </div>
               <span class="hero-field-divider"></span>
               <div class="hero-field">
-                <label>Region</label>
+                <label for="heroLocation">Region</label>
                 <select id="heroLocation">
                   <option value="">Alle Regionen</option>
                   <optgroup label="Top-Städte">
@@ -1470,13 +1470,19 @@
                 <span class="price-amount" id="detailPrice">ab 450€</span>
                 <span class="price-label" id="detailPriceUnit">/ Event</span>
               </div>
+              <!-- § 3 PAngV: gegenüber Verbrauchern ist der Gesamtpreis
+                   anzugeben. Der Text steht hier als Vorgabe im Markup, weil
+                   Markup nicht rechnen kann; ebPreisHinweisSetzen() tauscht
+                   ihn gegen die Fassung, die zum Steuerstatus des Anbieters
+                   passt. Wer ohne JavaScript liest, sieht den Normalfall. -->
+              <p class="booking-price-hinweis" id="detailPreisHinweis">Gesamtpreis</p>
               <div class="booking-form">
                 <div class="booking-field">
-                  <label>Event-Datum</label>
+                  <label for="bookingDate">Event-Datum</label>
                   <input type="text" id="bookingDate" placeholder="Datum wählen" />
                 </div>
                 <div class="booking-field">
-                  <label>Event-Typ</label>
+                  <label for="bookingEventType">Event-Typ</label>
                   <select id="bookingEventType" aria-label="Event-Typ für die Buchung wählen">
                     <option>Hochzeit</option>
                     <option>Geburtstag</option>
@@ -1486,11 +1492,11 @@
                   </select>
                 </div>
                 <div class="booking-field">
-                  <label>Gästeanzahl</label>
+                  <label for="bookingGuests">Gästeanzahl</label>
                   <input type="number" id="bookingGuests" placeholder="ca. 100" />
                 </div>
                 <div class="booking-field">
-                  <label>Nachricht</label>
+                  <label for="bookingMessage">Nachricht</label>
                   <textarea id="bookingMessage" rows="3" placeholder="Beschreibe kurz, was du dir vorstellst..."></textarea>
                 </div>
               </div>
@@ -1958,9 +1964,9 @@
             <p class="profile-social-empty" id="profileSocialEmpty" style="color:var(--text-light);font-size:14px">Noch keine sozialen Links angegeben.</p>
           </div>
           <div class="profile-edit-field" id="editSocialLinks" style="display:none">
-            <div class="form-group"><label><span class="material-icons-round" style="font-size:16px;vertical-align:middle;color:#E1306C">photo_camera</span> Instagram</label><input type="url" id="profileInstagram" placeholder="https://instagram.com/deinname" /></div>
-            <div class="form-group"><label><span class="material-icons-round" style="font-size:16px;vertical-align:middle;color:#0077B5">business</span> LinkedIn</label><input type="url" id="profileLinkedin" placeholder="https://linkedin.com/in/deinname" /></div>
-            <div class="form-group"><label><span class="material-icons-round" style="font-size:16px;vertical-align:middle">language</span> Website</label><input type="url" id="profileWebsite" placeholder="https://deine-website.de" /></div>
+            <div class="form-group"><label for="profileInstagram"><span class="material-icons-round" style="font-size:16px;vertical-align:middle;color:#E1306C" aria-hidden="true">photo_camera</span> Instagram</label><input type="url" id="profileInstagram" placeholder="https://instagram.com/deinname" /></div>
+            <div class="form-group"><label for="profileLinkedin"><span class="material-icons-round" style="font-size:16px;vertical-align:middle;color:#0077B5" aria-hidden="true">business</span> LinkedIn</label><input type="url" id="profileLinkedin" placeholder="https://linkedin.com/in/deinname" /></div>
+            <div class="form-group"><label for="profileWebsite"><span class="material-icons-round" style="font-size:16px;vertical-align:middle" aria-hidden="true">language</span> Website</label><input type="url" id="profileWebsite" placeholder="https://deine-website.de" /></div>
             <button class="btn-sm btn-primary" onclick="saveFieldInline('socialLinks')">Speichern</button>
             <button class="btn-sm btn-outline" onclick="cancelFieldInline('socialLinks')">Abbrechen</button>
           </div>
@@ -2001,23 +2007,23 @@
             <h2>Persönliche Daten</h2>
           </div>
           <div class="settings-field settings-field-company" id="settingsCompanyField" style="display:none">
-            <label>Firma</label>
+            <label for="settingsCompany">Firma</label>
             <input type="text" id="settingsCompany" placeholder="Dein Firmenname" />
           </div>
           <div class="settings-field">
-            <label>Vorname</label>
+            <label for="settingsFirstName">Vorname</label>
             <input type="text" id="settingsFirstName" placeholder="Vorname" />
           </div>
           <div class="settings-field">
-            <label>Nachname</label>
+            <label for="settingsLastName">Nachname</label>
             <input type="text" id="settingsLastName" placeholder="Nachname" />
           </div>
           <div class="settings-field">
-            <label>E-Mail-Adresse</label>
+            <label for="settingsEmail">E-Mail-Adresse</label>
             <input type="email" id="settingsEmail" placeholder="deine@email.de" />
           </div>
           <div class="settings-field">
-            <label>Telefon (optional)</label>
+            <label for="settingsPhone">Telefon (optional)</label>
             <input type="tel" id="settingsPhone" placeholder="+49 123 456789" />
           </div>
           <button class="btn-primary settings-save-btn" onclick="savePersonalSettings()">Änderungen speichern</button>
@@ -2030,21 +2036,21 @@
             <h2>Passwort ändern</h2>
           </div>
           <div class="settings-field">
-            <label>Aktuelles Passwort</label>
+            <label for="settingsCurrentPw">Aktuelles Passwort</label>
             <div class="settings-password-wrap">
               <input type="password" id="settingsCurrentPw" placeholder="Aktuelles Passwort" autocomplete="current-password" />
               <button type="button" class="settings-pw-toggle" aria-label="Passwort anzeigen" onclick="toggleSettingsPw('settingsCurrentPw', this)"><span class="material-icons-round">visibility_off</span></button>
             </div>
           </div>
           <div class="settings-field">
-            <label>Neues Passwort</label>
+            <label for="settingsNewPw">Neues Passwort</label>
             <div class="settings-password-wrap">
               <input type="password" id="settingsNewPw" placeholder="Neues Passwort (min. 8 Zeichen)" autocomplete="new-password" />
               <button type="button" class="settings-pw-toggle" aria-label="Passwort anzeigen" onclick="toggleSettingsPw('settingsNewPw', this)"><span class="material-icons-round">visibility_off</span></button>
             </div>
           </div>
           <div class="settings-field">
-            <label>Neues Passwort bestätigen</label>
+            <label for="settingsConfirmPw">Neues Passwort bestätigen</label>
             <div class="settings-password-wrap">
               <input type="password" id="settingsConfirmPw" placeholder="Passwort wiederholen" autocomplete="new-password" />
               <button type="button" class="settings-pw-toggle" aria-label="Passwort anzeigen" onclick="toggleSettingsPw('settingsConfirmPw', this)"><span class="material-icons-round">visibility_off</span></button>
@@ -2085,10 +2091,10 @@
           <div class="settings-2fa-row">
             <div class="settings-2fa-label">
               <span class="material-icons-round">mail_lock</span>
-              <span>E-Mail-2FA</span>
+              <span id="settings2faLabelText">E-Mail-2FA</span>
             </div>
             <label class="toggle-switch">
-              <input type="checkbox" id="settings2faToggle" onchange="toggle2faSetting(this)" />
+              <input type="checkbox" id="settings2faToggle" aria-labelledby="settings2faLabelText" onchange="toggle2faSetting(this)" />
               <span class="toggle-slider"></span>
             </label>
           </div>
@@ -2193,12 +2199,12 @@
             <h2><span class="fs-num">1</span> Grundlagen</h2>
             <p class="step-intro" id="clIntro1">Mit klaren Angaben erhältst du mehr passende Anfragen. Du kannst alles später ändern.</p>
             <div class="form-group">
-              <label id="clTitleLabel">Titel deines Services</label>
+              <label id="clTitleLabel" for="createTitle">Titel deines Services</label>
               <small class="form-hint" id="clTitleHint">Kurz, konkret, mit Mehrwert. Beispiel: „DJ für Hochzeiten in Berlin – Vinyl &amp; House“.</small>
               <input type="text" id="createTitle" placeholder="z.B. Professionelle DJ-Services für jedes Event" />
             </div>
             <div class="form-group">
-              <label>Kategorie</label>
+              <label for="createCategory">Kategorie</label>
               <small class="form-hint">Bestimmt, in welchen Suchergebnissen du auftauchst.</small>
               <select id="createCategory">
                 <option value="">Wähle eine Kategorie</option>
@@ -2215,21 +2221,21 @@
               </select>
             </div>
             <div class="form-group">
-              <label>Beschreibung</label>
+              <label for="createDescription">Beschreibung</label>
               <small class="form-hint">Was bekommt der Gast genau? Was macht dich besonders? Mind. 80 Zeichen werden empfohlen.</small>
               <textarea id="createDescription" rows="5" placeholder="Beschreibe deinen Service detailliert..."></textarea>
             </div>
             <div class="form-row">
               <div class="form-group">
-                <label id="clPriceLabel">Preisspanne (€)</label>
-                <small class="form-hint" id="clPriceHint">Mindestpreis ist Pflicht. „Bis“-Wert ist optional und zeigt deine Spanne für größere Events.</small>
+                <label id="clPriceLabel" for="createPrice">Preisspanne (€) — Gesamtpreis</label>
+                <small class="form-hint" id="clPriceHint">Mindestpreis ist Pflicht. „Bis“-Wert ist optional und zeigt deine Spanne für größere Events. <strong>Bitte den Gesamtpreis angeben</strong> — also den Betrag, den Privatkunden am Ende zahlen, einschließlich Umsatzsteuer (§ 3 PAngV). Ob du Umsatzsteuer ausweist, stellst du unter „Mein Geschäft“ ein.</small>
                 <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
-                  <input type="number" id="createPrice" min="0" placeholder="von z.B. 450" />
-                  <input type="number" id="createPriceMax" min="0" placeholder="bis (optional)" />
+                  <input type="number" id="createPrice" min="0" aria-label="Preisspanne von (€)" placeholder="von z.B. 450" />
+                  <input type="number" id="createPriceMax" min="0" aria-label="Preisspanne bis (€, optional)" placeholder="bis (optional)" />
                 </div>
               </div>
               <div class="form-group">
-                <label>Preismodell</label>
+                <label for="createPriceModel">Preismodell</label>
                 <small class="form-hint">Wie ist der Preis kalkuliert? Pro Event = Pauschale; Pro Stunde = stundenbasiert.</small>
                 <select id="createPriceModel">
                   <option value="Pro Event">Pro Event</option>
@@ -2247,7 +2253,7 @@
             <h2><span class="fs-num">2</span> Details &amp; Verfügbarkeit</h2>
             <p class="step-intro">Diese Angaben filtern Anfragen vor – je präziser, desto besser passt es.</p>
             <div class="form-group">
-              <label>Region / Stadt</label>
+              <label for="createRegion">Region / Stadt</label>
               <small class="form-hint">Hauptstandort. Falls du überregional arbeitest, schreib das in die Beschreibung.</small>
               <div class="city-autocomplete-wrap">
                 <input type="text" id="createRegion" placeholder="Stadt eingeben…" autocomplete="off" />
@@ -2274,21 +2280,21 @@
             </div>
             <div class="form-row">
               <div class="form-group">
-                <label>Verfügbar ab</label>
+                <label for="createDateFrom">Verfügbar ab</label>
                 <small class="form-hint">Erstes Datum, ab dem du Buchungen annimmst.</small>
                 <input type="text" id="createDateFrom" placeholder="TT.MM.JJJJ" autocomplete="off" />
               </div>
               <div class="form-group">
-                <label>Verfügbar bis (optional)</label>
+                <label for="createDateTo">Verfügbar bis (optional)</label>
                 <small class="form-hint">Leer lassen = unbegrenzt verfügbar.</small>
                 <input type="text" id="createDateTo" placeholder="TT.MM.JJJJ" autocomplete="off" />
               </div>
             </div>
             <div class="form-row form-row-time">
               <div class="form-group">
-                <label>Uhrzeit von</label>
+                <label for="createTimeFromH">Uhrzeit von</label>
                 <div class="time-picker-wrap">
-                  <select id="createTimeFromH" class="time-select">
+                  <select id="createTimeFromH" class="time-select" aria-label="Uhrzeit von — Stunde">
                     <option value="0">00</option><option value="1">01</option><option value="2">02</option><option value="3">03</option>
                     <option value="4">04</option><option value="5">05</option><option value="6">06</option><option value="7">07</option>
                     <option value="8">08</option><option value="9">09</option><option value="10">10</option><option value="11">11</option>
@@ -2297,15 +2303,15 @@
                     <option value="20">20</option><option value="21">21</option><option value="22">22</option><option value="23">23</option>
                   </select>
                   <span class="time-sep">:</span>
-                  <select id="createTimeFromM" class="time-select time-select-min">
+                  <select id="createTimeFromM" class="time-select time-select-min" aria-label="Uhrzeit von — Minute">
                     <option value="00" selected>00</option><option value="15">15</option><option value="30">30</option><option value="45">45</option>
                   </select>
                 </div>
               </div>
               <div class="form-group">
-                <label>Uhrzeit bis</label>
+                <label for="createTimeToH">Uhrzeit bis</label>
                 <div class="time-picker-wrap">
-                  <select id="createTimeToH" class="time-select">
+                  <select id="createTimeToH" class="time-select" aria-label="Uhrzeit bis — Stunde">
                     <option value="0">00</option><option value="1">01</option><option value="2">02</option><option value="3">03</option>
                     <option value="4">04</option><option value="5">05</option><option value="6">06</option><option value="7">07</option>
                     <option value="8">08</option><option value="9">09</option><option value="10">10</option><option value="11">11</option>
@@ -2314,14 +2320,14 @@
                     <option value="20">20</option><option value="21">21</option><option value="22" selected>22</option><option value="23">23</option>
                   </select>
                   <span class="time-sep">:</span>
-                  <select id="createTimeToM" class="time-select time-select-min">
+                  <select id="createTimeToM" class="time-select time-select-min" aria-label="Uhrzeit bis — Minute">
                     <option value="00" selected>00</option><option value="15">15</option><option value="30">30</option><option value="45">45</option>
                   </select>
                 </div>
               </div>
             </div>
             <div class="form-group duration-group">
-              <label>Dauer (Std.)</label>
+              <label for="createDuration">Dauer (Std.)</label>
               <small class="form-hint">Wie lange dauert dein Einsatz im Schnitt? Beispiel: DJ-Set 4–6 Std., Catering-Service 3–4 Std.</small>
               <div class="duration-stepper">
                 <button type="button" class="dur-btn dur-down" id="durDown" aria-label="Verringern"><span class="material-icons-round">remove</span></button>
@@ -2336,12 +2342,12 @@
                 <span class="ibt-text">
                   <span class="material-icons-round">bolt</span>
                   <span>
-                    <strong>Sofortbuchung aktivieren</strong>
+                    <strong id="createInstantBookText">Sofortbuchung aktivieren</strong>
                     <small>Gäste können freie Termine direkt buchen &amp; bezahlen – ohne Anfrage.</small>
                   </span>
                 </span>
                 <label class="toggle-switch">
-                  <input type="checkbox" id="createInstantBook" />
+                  <input type="checkbox" id="createInstantBook" aria-labelledby="createInstantBookText" />
                   <span class="toggle-slider"></span>
                 </label>
               </label>
@@ -2392,7 +2398,7 @@
               </div>
             </div>
             <div class="form-group">
-              <label><span id="clFeaturesLabel">Leistungen</span> <span style="font-weight:400; color:var(--text-light);">(suchen oder anklicken)</span></label>
+              <label for="featureSearchInput"><span id="clFeaturesLabel">Leistungen</span> <span style="font-weight:400; color:var(--text-light);">(suchen oder anklicken)</span></label>
               <small class="form-hint" id="clFeaturesHint">Wähle alles aus, was im Preis enthalten ist. Mindestens 3 Leistungen werden empfohlen – das erhöht deine Sichtbarkeit.</small>
               <div class="feature-search-wrap">
                 <span class="material-icons-round feature-search-icon">search</span>
@@ -2538,7 +2544,7 @@
             <h1 style="margin:0 0 4px;display:flex;align-items:center;gap:10px"><span class="material-icons-round" style="font-size:32px;color:var(--primary)">assignment</span> Auftragsboard</h1>
             <p style="margin:0;color:var(--text-light);font-size:14px">Offene Buchungen, Zahlungen &amp; Event-Tag-Bestätigungen.</p>
           </div>
-          <span style="background:rgba(255,56,92,0.12);color:var(--primary);padding:6px 12px;border-radius:20px;font-size:12px;font-weight:600">BETA</span>
+          <span style="background:rgba(255,56,92,0.12);color:var(--primary-text);padding:6px 12px;border-radius:20px;font-size:12px;font-weight:600">BETA</span>
         </div>
         <!-- Storno-Antraege, zweiter Platz. Der Dienstleister arbeitet hier,
              nicht auf dem Board — und er hat 72 Stunden Frist. Eine Frist auf
@@ -3292,15 +3298,15 @@ Datum: ___________________________________________________
             <h2>Nachricht senden</h2>
             <form class="contact-form" onsubmit="sendContactMessage(event)">
               <div class="form-group">
-                <label>Dein Name</label>
+                <label for="contactName">Dein Name</label>
                 <input type="text" id="contactName" placeholder="Max Mustermann" required />
               </div>
               <div class="form-group">
-                <label>E-Mail</label>
+                <label for="contactEmail">E-Mail</label>
                 <input type="email" id="contactEmail" placeholder="deine@email.de" required />
               </div>
               <div class="form-group">
-                <label>Betreff</label>
+                <label for="contactSubject">Betreff</label>
                 <select id="contactSubject">
                   <option value="allgemein">Allgemeine Anfrage</option>
                   <option value="technisch">Technisches Problem</option>
@@ -3311,7 +3317,7 @@ Datum: ___________________________________________________
                 </select>
               </div>
               <div class="form-group">
-                <label>Deine Nachricht</label>
+                <label for="contactMessage">Deine Nachricht</label>
                 <textarea rows="5" id="contactMessage" placeholder="Beschreibe dein Anliegen..." required></textarea>
               </div>
               <div id="contactSuccess" class="contact-success" style="display:none">
@@ -3476,7 +3482,7 @@ Datum: ___________________________________________________
         <p>Sandro Salvaggio, Anschrift wie oben.</p>
 
         <h2>Aufsichtsrechtlich relevante Hinweise</h2>
-        <p>Die Eventbörse UG (haftungsbeschränkt) erbringt <strong>keine</strong> erlaubnispflichtigen Tätigkeiten im Sinne des Zahlungsdiensteaufsichtsgesetzes (ZAG). Die Plattform vermittelt zwischen Kunden und Dienstleistern; Zahlungen werden über den lizenzierten Zahlungsdienstleister <strong>Stripe Payments Europe Ltd.</strong>, Irland, abgewickelt (Direct-Charges-Modell).</p>
+        <p>Die Eventbörse UG (haftungsbeschränkt) erbringt <strong>keine</strong> erlaubnispflichtigen Tätigkeiten im Sinne des Zahlungsdiensteaufsichtsgesetzes (ZAG). Die Plattform vermittelt zwischen Kunden und Dienstleistern; Zahlungen werden über den lizenzierten Zahlungsdienstleister <strong>Stripe Payments Europe Ltd.</strong>, Irland, abgewickelt (Stripe Connect Express mit Destination Charges und Application Fee; der Dienstleister ist über <code>on_behalf_of</code> als Zahlungsempfänger gesetzt).</p>
 
         <h2>EU-Streitbeilegung und Verbraucherstreitbeilegung</h2>
         <p>Die durch die Europäische Kommission betriebene Online-Streitbeilegungsplattform (OS-Plattform) wurde zum <strong>20.07.2025</strong> endgültig eingestellt. Auf einen Link wird daher nicht mehr verwiesen.</p>
@@ -3574,11 +3580,11 @@ Datum: ___________________________________________________
       </div>
       <form class="modal-form" onsubmit="handleLogin(event)">
         <div class="form-group">
-          <label>E-Mail</label>
+          <label for="loginEmail">E-Mail</label>
           <input type="email" id="loginEmail" placeholder="deine@email.de" required autocomplete="username webauthn" />
         </div>
         <div class="form-group">
-          <label>Passwort</label>
+          <label for="loginPassword">Passwort</label>
           <div class="password-wrapper">
             <input type="password" id="loginPassword" placeholder="Dein Passwort" required />
             <button type="button" class="password-toggle" tabindex="-1" aria-label="Passwort anzeigen">
@@ -3621,7 +3627,7 @@ Datum: ___________________________________________________
       </div>
       <form class="modal-form" onsubmit="handleLoginOtpVerify(event)">
         <div class="form-group">
-          <label>E-Mail-Code</label>
+          <label for="loginOtpCode">E-Mail-Code</label>
           <input type="text" id="loginOtpCode" class="otp-code-input" placeholder="123456" inputmode="numeric" autocomplete="one-time-code" maxlength="6" required />
         </div>
         <p class="passkey-note otp-login-note">Kein biometrisches Verfahren? Mit verifizierter E-Mail und diesem zusätzlichen Schritt bleibt dein Konto geschützt.</p>
@@ -3690,11 +3696,11 @@ Datum: ___________________________________________________
           <div class="reg-collapsible-inner reg-section">
             <div class="form-row">
               <div class="form-group">
-                <label>Firmenname</label>
+                <label for="regCompany">Firmenname</label>
                 <input type="text" id="regCompany" placeholder="Meine Firma GmbH" />
               </div>
               <div class="form-group">
-                <label>USt-IdNr. <small>(optional)</small></label>
+                <label for="regVatId">USt-IdNr. <small>(optional)</small></label>
                 <input type="text" id="regVatId" placeholder="DE123456789" />
               </div>
             </div>
@@ -3715,20 +3721,30 @@ Datum: ___________________________________________________
         <div class="reg-section">
           <div class="form-row">
             <div class="form-group">
-              <label>Vorname</label>
+              <label for="regFirstName">Vorname</label>
               <input type="text" id="regFirstName" placeholder="Max" required />
             </div>
             <div class="form-group">
-              <label>Nachname</label>
+              <label for="regLastName">Nachname</label>
               <input type="text" id="regLastName" placeholder="Mustermann" required />
             </div>
           </div>
+          <!-- Nickname: ohne ihn findet die Personensuche niemanden. Die Regel
+               ist dieselbe wie serverseitig (eb_handle_gueltig): 3–24 Zeichen,
+               Kleinbuchstaben, Ziffern, Punkt, Unterstrich. -->
           <div class="form-group">
-            <label>E-Mail</label>
+            <label for="regHandle">Nickname <small>(so finden dich Freunde)</small></label>
+            <input type="text" id="regHandle" placeholder="max.mustermann" required
+                   minlength="3" maxlength="24" pattern="[a-z0-9._]{3,24}"
+                   autocomplete="username" inputmode="latin" />
+            <small class="form-hint">3–24 Zeichen · Kleinbuchstaben, Ziffern, Punkt, Unterstrich</small>
+          </div>
+          <div class="form-group">
+            <label for="regEmail">E-Mail</label>
             <input type="email" id="regEmail" placeholder="deine@email.de" required />
           </div>
           <div class="form-group">
-            <label>Passwort</label>
+            <label for="regPassword">Passwort</label>
             <div class="password-wrapper">
               <input type="password" id="regPassword" placeholder="Min. 8 Zeichen" required minlength="8" />
               <button type="button" class="password-toggle" tabindex="-1" aria-label="Passwort anzeigen">
@@ -3815,11 +3831,11 @@ Datum: ___________________________________________________
         <div id="stripeCompanyFields" class="reg-collapsible reg-collapsed" style="margin-top:4px">
           <div class="reg-collapsible-inner reg-section">
             <div class="form-group">
-              <label>Firmenname</label>
+              <label for="stripeCompanyName">Firmenname</label>
               <input type="text" id="stripeCompanyName" placeholder="Muster GmbH" autocomplete="organization" />
             </div>
             <div class="form-group">
-              <label>USt-IdNr. <small>(optional)</small></label>
+              <label for="stripeCompanyVat">USt-IdNr. <small>(optional)</small></label>
               <input type="text" id="stripeCompanyVat" placeholder="DE123456789" />
             </div>
           </div>
@@ -3851,7 +3867,7 @@ Datum: ___________________________________________________
       </div>
       <form class="modal-form" onsubmit="handleRegisterOtpVerify(event)">
         <div class="form-group">
-          <label>Bestätigungscode</label>
+          <label for="regOtpCode">Bestätigungscode</label>
           <input type="text" id="regOtpCode" class="otp-code-input" placeholder="123456" inputmode="numeric" autocomplete="one-time-code" maxlength="6" required />
         </div>
         <p class="passkey-note otp-login-note">Gib den Code ein, den wir dir per E-Mail geschickt haben, um deine Registrierung abzuschließen.</p>
@@ -3906,7 +3922,7 @@ Datum: ___________________________________________________
       </div>
       <form class="modal-form" onsubmit="handleForgotPassword(event)">
         <div class="form-group">
-          <label>E-Mail</label>
+          <label for="forgotEmail">E-Mail</label>
           <input type="email" id="forgotEmail" placeholder="deine@email.de" required />
         </div>
         <p class="forgot-success" id="forgotSuccess" style="display:none"></p>
@@ -3931,7 +3947,7 @@ Datum: ___________________________________________________
       </div>
       <form class="modal-form" onsubmit="handleResetPassword(event)">
         <div class="form-group">
-          <label>Neues Passwort</label>
+          <label for="resetNewPassword">Neues Passwort</label>
           <div class="password-wrapper">
             <input type="password" id="resetNewPassword" placeholder="Min. 8 Zeichen" required minlength="8" />
             <button type="button" class="password-toggle" tabindex="-1" aria-label="Passwort anzeigen">
@@ -3940,7 +3956,7 @@ Datum: ___________________________________________________
           </div>
         </div>
         <div class="form-group">
-          <label>Passwort bestätigen</label>
+          <label for="resetConfirmPassword">Passwort bestätigen</label>
           <div class="password-wrapper">
             <input type="password" id="resetConfirmPassword" placeholder="Passwort wiederholen" required minlength="8" />
             <button type="button" class="password-toggle" tabindex="-1" aria-label="Passwort anzeigen">
@@ -3991,7 +4007,7 @@ Datum: ___________________________________________________
       </div>
       <form class="modal-form" onsubmit="submitCounterOffer(event)">
         <div class="form-group">
-          <label>Dein Preisvorschlag</label>
+          <label for="counterOfferAmount">Dein Preisvorschlag</label>
           <div class="money-input-wrap">
             <span class="money-currency">€</span>
             <input type="text" inputmode="decimal" id="counterOfferAmount" placeholder="0,00" required autocomplete="off" oninput="moneyInputFilter(this)" />
@@ -4004,7 +4020,7 @@ Datum: ___________________________________________________
           </div>
         </div>
         <div class="form-group">
-          <label>Nachricht (optional)</label>
+          <label for="counterOfferMsg">Nachricht (optional)</label>
           <textarea rows="3" id="counterOfferMsg" placeholder="Erkläre deinen Preisvorschlag..."></textarea>
         </div>
         <button type="submit" class="btn-primary btn-block">
@@ -4030,11 +4046,11 @@ Datum: ___________________________________________________
           <!-- Loaded by JS -->
         </div>
         <div class="form-group">
-          <label>Originalpreis</label>
+          <label for="negOriginalPrice">Originalpreis</label>
           <input type="text" id="negOriginalPrice" readonly />
         </div>
         <div class="form-group">
-          <label>Dein Angebot</label>
+          <label for="negOfferPrice">Dein Angebot</label>
           <div class="money-input-wrap">
             <span class="money-currency">€</span>
             <input type="text" inputmode="decimal" id="negOfferPrice" placeholder="0,00" required autocomplete="off" oninput="moneyInputFilter(this)" />
@@ -4047,11 +4063,11 @@ Datum: ___________________________________________________
           </div>
         </div>
         <div class="form-group">
-          <label>Event-Datum</label>
+          <label for="negDate">Event-Datum</label>
           <input type="text" id="negDate" required placeholder="Datum wählen" />
         </div>
         <div class="form-group">
-          <label>Nachricht an den Anbieter</label>
+          <label for="negMessage">Nachricht an den Anbieter</label>
           <textarea rows="3" id="negMessage" placeholder="Beschreibe dein Event und warum dein Preis fair ist..."></textarea>
         </div>
         <button type="submit" class="btn-primary btn-block">
@@ -4085,7 +4101,7 @@ Datum: ___________________________________________________
           <span class="star-rating-label" id="starRatingLabel">Klicke auf einen Stern</span>
         </div>
         <div class="form-group">
-          <label>Dein Feedback</label>
+          <label for="reviewText">Dein Feedback</label>
           <textarea rows="4" id="reviewText" placeholder="Beschreibe deine Erfahrung mit diesem Anbieter..." required></textarea>
         </div>
         <button type="submit" class="btn-primary btn-block">

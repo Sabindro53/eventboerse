@@ -7,11 +7,24 @@ share: internal
 
 # Testing
 
-> Seit 2026-08-01 gibt es eine **automatisierte E2E-Suite** (Playwright, 287 Tests
-> in 13 Suiten) als blockierendes Gate in `pr-check.yml`. Vorher: 0 Tests — die
-> letzten Produktionsfehler (Verlaufsschrift nach Minify, Suche ohne Treffer,
-> doppelte CSS-Regeln) waren alle Regressionen, die diese Suite gefangen hätte.
+> Seit 2026-08-01 gibt es eine **automatisierte E2E-Suite** (Playwright) als
+> blockierendes Gate in `pr-check.yml`. Vorher: 0 Tests — die letzten
+> Produktionsfehler (Verlaufsschrift nach Minify, Suche ohne Treffer, doppelte
+> CSS-Regeln) waren alle Regressionen, die diese Suite gefangen hätte.
 > Manueller Smoke-Test bleibt für Backend-Flows (Login, Stripe live).
+>
+> **Die Größe der Suite steht hier bewusst nicht.** Sie wächst mit fast jedem
+> PR; eine Handzahl in dieser Notiz wäre nach einer Woche falsch und würde
+> gelesen, als wäre sie gemessen. Gemessen wird sie von `scripts/kontext.mjs`
+> gegen `npx playwright test --list`, und die geprüfte Angabe steht in
+> `CLAUDE.md`. Genau diese Notiz stand bis zum 15.09.2026 auf „287 Tests in 13
+> Suiten" — bei einem Vielfachen davon.
+>
+> **Die Tabelle unten ist unvollständig und war es immer.** Sie führt die
+> Suiten des Ursprungsbestands; seither sind Dutzende dazugekommen, die hier
+> nie eingetragen wurden. Wer wissen will, was geprüft wird, liest
+> `tests/e2e/` — nicht diese Tabelle. Eine Liste, die vollständig aussieht und
+> es nicht ist, ist schlimmer als gar keine.
 
 ## Pyramide
 
@@ -20,7 +33,7 @@ share: internal
        │ Manual E2E  │   ← Backend-Flows bei Release (Login, Stripe live)
        └──────┬──────┘
        ┌──────┴───────┐
-       │  Playwright  │   ← 287 Tests, blockierend in pr-check.yml (NEU 2026-08)
+       │  Playwright  │   ← blockierend in pr-check.yml (NEU 2026-08)
        └──────┬───────┘
        ┌──────┴───────────────┐
        │ Auto-Audit (KI)      │   ← claude-auto-audit.yml
@@ -39,7 +52,7 @@ Keine Unit-Tests aktuell — Codebase ist hauptsächlich UI-Glue + REST-Wrapper,
 | `wissensbasis.spec.js` | Fachfragen beantwortet, Off-Topic abgelehnt, **0 Leckage** (nur 10-Produkt, Verbotsmuster-Scan) | Fand real die Webhook-Signatur-Leckage |
 | `css-minify.spec.js` | Gegen **minifiziertes** CSS (csso-cli\@4.0.2 --no-restructure wie Deploy): Verlaufsschrift statisch + computed styles | Regression ae3f624 |
 | `design-system.spec.js` | Chips sichtbar; Konflikt-Ratsche (max. 56 Alt-Konflikte); Token-Eindeutigkeit | Klassenkollision .ai-suggestions |
-| `barrierefreiheit.spec.js` | axe-core WCAG AA, **beide Farbmodi** × 4 Seiten; Fokus; Dot-Labels | Stand 0 Verstöße halten (vorher 97 Nodes) |
+| `barrierefreiheit.spec.js` | axe-core WCAG 2.0/2.1/**2.2** AA, beide Farbmodi × **5 Routen, abgemeldet** (`browse`, `detail`, `board`, `aktuelles`, `freunde`); Fokus; Dot-Labels | **Deckt 5 von 34 Seiten.** Die Suite hält, was sie misst — sie hat nie mehr gemessen. Was daneben liegt, steht in [[30-Betrieb/Barrierefreiheit-Abdeckung]]: 40 Knoten, 20 `critical` |
 | `verbindungen.spec.js` | **HQ-Zugang** (keine Schlüssel im HTML, serverseitige `manage_options`-Prüfung, Theme-Pfad gesperrt, noindex) + **Connector-Katalog** (kein Zustand, alle 15 Fähigkeiten deklariert, Copilot-Kontingent ehrlich, keine Geheimnisse) + **Oberfläche** (ohne API-Antwort darf nichts „verbunden" zeigen) + **CSP** (`csp-hq.php` rechnet den Header in PHP durch — die JS-Tests blockieren GitHub selbst und sehen einen CSP-Verstoß als dasselbe Bild) | Das HQ war faktisch offen; ein Katalog mit Status wäre eine Lüge in Dateiform |
 | `kern.spec.js` | **Impuls-Ehrlichkeit** (nach dem Ereignis ist die Bahn leer, keine `infinite`-Animation) + **Autonomie** (jede Grenze begründet, Finance löst nie aus) + **Ensemble** (nur offene Gewichte, Rollen eindeutig) + Tastaturzugang | Eine Dauer-Animation zeigt Arbeit, die nicht stattfindet |
 | `ki-abwehr.spec.js` | **Fremdtext am Modell** (Kontext nur eingezäunt, Zaunmarke pro Lauf zufällig, Regel in der Systemnachricht, Injektionsfunde gezählt statt zitiert, Geheimnisse brechen weiter ab) + **KI-Sammler** (jeder Pflicht-Sammler ausgeschlossen, Googlebot/Bingbot ausdrücklich NICHT, Referenzdatei ohne Drift, kein `/hq` in robots.txt) | Der Code-Prüfer liest PR-Diffs — einen PR darf jeder öffnen. Die Verbotsmuster existierten längst, wurden aber nur im Quarantäne-Tor angewandt |

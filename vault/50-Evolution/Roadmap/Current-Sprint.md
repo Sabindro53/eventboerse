@@ -16,8 +16,68 @@ Zahlen ihrer Zeit — die sind Historie, kein Ist-Stand. Der Ensemble-Kontext
 liest diese Datei von oben; ein Modell, das „68 Tests" als aktuell meldet, hat
 einen alten Abschnitt gelesen und nicht diesen.
 
-- **Playwright-Suite: 1169 Tests in 79 Suiten**, blockierendes Gate in `pr-check.yml`.
+- **Playwright-Suite: 1234 Tests in 85 Suiten**, blockierendes Gate in `pr-check.yml`.
   Läuft seit dem Self-Hosting auch ohne Netzzugang vollständig durch
+
+## Offen aus der Oberflächenprüfung (2026-09-15)
+
+Gemessen, berichtet, **nicht beauftragt** — der Inhaber entscheidet über die
+Reihenfolge. Vollständig in [[30-Betrieb/Barrierefreiheit-Abdeckung]] und
+[[20-System/Frontend/Design-System-Drift]].
+
+Die ersten vier sind Handgriffe ohne Gestaltungsrisiko und in einem Zug zu
+machen:
+
+- [ ] **Vierzehn `for`-Attribute in `app-shell.html`.** Schließt **alle 20
+      kritischen** WCAG-Verstöße auf einmal. Acht davon auf `create-listing` —
+      der Seite, auf der Angebot entsteht; einer am Schalter für die
+      Zwei-Faktor-Anmeldung
+- [ ] **Der schwarze Knopf auf schwarzem Grund** (`auftraege`, dunkel,
+      `#000000` auf `#121212` = 1,12 : 1). Er ist der Ausweg aus einer
+      Störung und erscheint nur, wenn das Laden fehlschlug — wer ihn braucht,
+      sieht ihn nicht. Aus eigener Arbeit am Storno-Vorgang
+- [ ] **Der zweite unsichtbare Text** (`create-listing`, dunkel,
+      `.create-payout-title` 1,15 : 1). Feste Flächenfarbe `#fff8e8`, die den
+      Farbmodus nicht mitmacht, heller Text darauf
+- [ ] **`SEITEN` in `barrierefreiheit.spec.js` aus den `id="page-…"`
+      ableiten** — angemeldet, in der Rolle der Seite, mit Gegenprobe auf die
+      wirklich aktive Seite. Danach bringt jede neue Seite ihre Prüfung mit
+
+Gestaltungsentscheidungen, die dem Inhaber gehören:
+
+- [ ] **Markenfarbe als Text** — `#FF385C` auf Weiß = 3,51 : 1 an sieben
+      Stellen (`business`-Kicker, Kontaktseite, Links auf AGB und
+      Datenschutz). Die Token `--primary-text` / `--accent-text` gibt es seit
+      dem 01.08.2026 und sie werden 23× benutzt; hier eben nicht
+- [ ] **Die drei Einstiege der Landeseite auf eigenen Grund stellen.** Sie
+      haben keinen Hintergrund, nur `rgba(255,255,255,.14)` + `blur(8px)`;
+      bis die Marquee-Bilder da sind (~3,5 s), steht Weiß auf Hell. **Kein Tor
+      kann das melden** — axe meldet über Verläufen `incomplete`
+- [ ] **Landeseite auf die Skala zurückführen, die `auftraege` schon benutzt**
+      (41 vs. 10 sichtbare Schriftgrößen, 21 vs. 0 Schatten)
+- [ ] **Die Kennzeichnung „KI-generierter Inhalt" ist der kleinste Text der
+      Anwendung** (9–10 px). `recht.mjs` prüft, *dass* sie dasteht; wie groß
+      sie ist, prüft niemand — und ihr Zweck ist das Gelesenwerden
+- [ ] **Mobilleisten-Beschriftung bei 8,32 px** („Profil", „Suche") — die
+      Hauptnavigation am Telefon
+
+## Alte PRs — gesichtet, nicht entschieden (2026-09-15)
+
+Neun offene PRs, **alle** `mergeable_state: dirty`. Auf Wunsch des Inhabers
+gesichtet und berichtet; nichts geschlossen, nichts gemergt.
+
+| PR | Lage |
+|---|---|
+| #228 | inhaltlich bereits auf `main` |
+| #199 | durch #228 überholt |
+| #217, #218, #219, #222 | Routine-PRs vom 27.–30.08. mit **älteren** erzeugten Ständen als `main` |
+| #271 | Tagesstand von heute (8/8 Gebiete, einen Tag frischer als `main`) |
+| #221 | echter Einzeiler (`aria-label`), **nicht** auf `main` |
+| #46 | 3 Monate alt, +5334/−421 über 14 Dateien; liefert AASA als **statische Datei**, während `main` sie über eine Route mit geprüfter `EB_APPLE_TEAM_ID` ausliefert |
+
+**Vorschlag, unentschieden:** den Inhalt von #221 frisch nehmen und mit einem
+neu erzeugten Tagesstand in **einem** PR landen, die übrigen sieben mit Grund
+schließen.
 
 ## UX-Abschlussstand (2026-09-13)
 
@@ -225,7 +285,7 @@ Details, Abnahme und offene Betriebsfragen: [[UX-Abschluss-2026-09-13]].
   ersten Modellaufruf greift
 - **Befund → Arbeit steht.** `scripts/auftragsstrom.mjs` macht aus
   Journal-Befunden eine Warteschlange mit Herkunft, aus der der Scout zieht
-- **Freigegebener Rahmen: 15 Dateien** (`scripts/lib/sichere-dateien.mjs`,
+- **Freigegebener Rahmen: 14 Dateien** (`scripts/lib/sichere-dateien.mjs`,
   geteilt von Autopilot und Auftragsstrom). Die Aufnahmekriterien stehen als
   Test: höchstens 1200 Zeilen, 8 Auth-, 20 Geld-, 12 Upload-Vorkommen — **im
   Code gemessen, nicht im Fließtext**. Nie aufnehmen: `board/`,
@@ -302,6 +362,7 @@ Ein Eintrag ohne Messung ist erfundene Arbeit und gehört nicht hierher.
 | ~~**`⚡ HQ-Puls` scheitert wiederholt**~~ — **behoben am 14.09.2026.** Nachgemessen war es schlimmer als gemeldet: **55 Läufe in Folge rot** (13.09. 02:06 bis 14.09.), bei 11 von 11 arbeitenden Rollen. Rot war `agent.mjs --check` mit „Verbotsmuster im Journal: E-Mail-Adresse" — bei 400 Einträgen keine Auskunft, sondern ein Rätsel. Drei Fehler griffen ineinander: der Befund nannte die Fundstelle nicht, die Ausnahme für die eigene Support-Adresse hat nie gegriffen (negativer Lookahead in einem unverankerten Muster — die Adresse trifft ab Index 1), und der Fund hatte keine Folge: Schritt 12 lud mit `if: always()` genau das beanstandete Journal auf den Server, der nächste Lauf holte es zurück | Gefiltert wird jetzt im **Schreibpfad**, für das ganze Journal — so heilt auch die vorgeladene Spur. Ein beanstandeter Eintrag behält seine Buchhaltung, verliert den Inhalt und steht als `gefiltert` da. `--check` bleibt unverändert der Rückhalt: **Verhindern ist grün, Verseuchung ist rot.** 17 Tests, 9 Mutationen. **Am echten System belegt, nicht nur am Prüfstand:** Lauf **#1719** (08:06) entschärfte den Eintrag „Lina Okafor, 13.09. 20:05" namentlich und meldete `gefiltert : 1` bei 400 Einträgen — der Eintrag war also **noch da**, nicht aus dem Deckel gefallen (19 Minuten Abstand zum letzten roten Lauf, in denen das Journal um elf Einträge wächst). Die Endabrechnung sind **56** rote Läufe, nicht 55: #1718 um 07:47 kam nach dem Schreiben dieser Zeile | — |
 | ~~**Dem Dienstleister fehlt die Tagesansicht**~~ — **behoben am 14.09.2026.** Im echten Browser gemessen, drei Aufträge gestellt (24.12., 20.09., 05.10.): die Karten standen in genau dieser Reihenfolge — der nächste Termin in der Mitte, Heiligabend oben, weil `_renderAuftraegeJobs()` über den Board-Blob lief, ohne zu sortieren. Eine **Uhrzeit** stand nirgends auf der Seite, obwohl `card.times` sie seit den Mehrfachzeiten trägt. Wege zu einer Tages-/Agenda-Ansicht in der ganzen Anwendung: **0** | `board/46-dienstleister-termine.js` gruppiert nach Tag (Heute · Morgen · Wochentag · Ohne Datum · Vergangen), sortiert nach Datum **und** Uhrzeit und liest die Zeiten über `ebKartenZeiten()` statt über den Spiegel `startTime`. **Keine eigene Seite `/termine`** — die wäre eine zweite Liste derselben Aufträge und damit eine zweite Wahrheit. Kein Auftrag fällt heraus (auch keiner ohne Datum), Vergangenes steht getrennt und zuletzt und behält seine Knöpfe, „heute" ist der lokale Tag. 13 Tests, 11 Mutationen — eine davon hat eine **tote Wache** gefunden und bekam ihr Subjekt, statt an der Seite verkleidet zu werden | — |
 | ~~**Beim Weiterleiten einer Aktivität verfielen Anlass und Ort**~~ — **behoben am 14.09.2026.** `ebAktivitaetPlanen()` baut aus einem Eintrag einen Entwurf für die gemeinsame Planung; mit gestellter Sozial-API nachgemessen kamen Titel, Datum und Quell-Adresse an, `sozGruppeTyp` blieb **leer**, und `location` war im Entwurf vorhanden, wurde aber nirgends abgelegt. Der Planer hatte gerade „Museum" in Köln angeklickt und tippte beides erneut ab | Die Kategorie kommt aus dem Bestand (`art` kennt nur `sport` und `ort`; das brauchbare Wort steht in `kategorie` und ist schon deutsch) über den **einen** Ausdruck `ebAktivitaetKategorie()`, den vorher nur der Filter hatte. Der Ort landet im **Startposten** — `eb_groups` hat keine Ortsspalte, und eine Schema-Änderung für eine Angabe, die am Vorhaben mehr sagt als an der Gruppe, wäre der teurere Weg. 10 Tests, 9 Mutationen. **Der erste Anlauf meldete den falschen Befund** („kommt gar nicht an") — ohne gestellte API steht `/freunde` zu Recht auf Störung, und dann gibt es das Formular gar nicht | — |
+| **Abschnitt 10a der Datenschutzerklärung wird durch den Nickname unwahr** — am 15.09.2026 im Text nachgelesen: *„Auffindbarkeit ist freiwillig und widerruflich. Ohne selbst gesetzten Suchnamen sind Sie über die Freundessuche nicht auffindbar."* Seit PR #283 ist das Feld bei der Registrierung **Pflicht** (`required pattern="[a-z0-9._]{3,24}"`), und `eb_handles_nachtragen()` würde Bestandskonten einen zuteilen. Das Widerrufsrecht bleibt (leerer Handle → wieder unauffindbar), die Freiwilligkeit der **Vergabe** nicht. Dieselbe Klasse wie der Rechnungsempfänger, der drei Monate lang zugesagt wurde, ohne mitzulesen: der Text bleibt stehen, während der Code weiterzieht | **Der Nachtrag ist bis dahin opt-in** (`define( 'EB_HANDLE_NACHTRAG', true );` in `wp-config.php`) — ohne die Konstante bleibt alles wie bisher, ausgeführt belegt in `social.spec.js`, 4 Tests, 4 Mutationen. **Zwei Dinge sind Inhaber-Sache und werden hier NICHT gemacht:** den Absatz 10a anpassen (ein Modell schreibt bei Eventbörse keine Rechtstexte, `vault/40-Governance/` bleibt außen vor) und danach die Konstante setzen — dieselbe Hand, derselbe Moment. Ein Entwurf liegt im PR-Text | **Inhaber** (Rechtstext + Schalter) |
 | Die Landeseite trägt 105 endlos laufende Deko-Animationen, zusammen 257 ms Hauptthread je 3 s (Median aus drei verschachtelten Runden: 646 → 389 ms) | Gestaltungsentscheidung des Inhabers, **keine** Aufräumarbeit — siehe `AGENTS.md` §6 | Inhaber |
 | Der Board-Slot der Mobilleiste führt für Dienstleister ins Planungs-Board, nicht zu den Aufträgen. Dokumentierte Entscheidung, kein Versehen | Produktentscheidung des Inhabers | Inhaber |
 

@@ -49,6 +49,21 @@ require_once get_template_directory() . '/includes/payments/storno-routen.php';
 // `kontaktschutz.spec.js` die Einbindung ausdruecklich mit.
 require_once get_template_directory() . '/includes/chat/kontaktschutz.php';
 
+// PStTG (DAC7): die Angaben, die wir bis zum 31. Januar ans BZSt melden
+// muessen. Fuer vermittelte persoenliche Dienstleistungen gibt es KEINE
+// Bagatellgrenze — die Ausnahme des § 4 Abs. 5 Nr. 4 gilt nur fuer den
+// Verkauf von Waren. Erhoben wird beim Auszahlungsweg, nicht bei der
+// Registrierung; die Begruendung steht im Kopf des Moduls.
+require_once get_template_directory() . '/includes/steuer/psttg.php';
+require_once get_template_directory() . '/includes/steuer/psttg-routen.php';
+
+// Die Rechnung ueber unsere Vermittlungsprovision (§ 14 UStG). Bis zum
+// 22.09.2026 floss die Provision ueber application_fee_amount ab, ohne dass
+// es einen Beleg dafuer gab — der Dienstleister konnte sie nicht als
+// Vorsteuer ziehen, wir hatten keinen Ausgangsbeleg. Ohne EB_STEUERNUMMER
+// oder EB_UST_ID in wp-config.php wird bewusst KEIN Beleg erzeugt.
+require_once get_template_directory() . '/includes/steuer/provisionsrechnung.php';
+
 /**
  * Self-Hosted Avatar-Generator (Server-Seite).
  *
@@ -3831,7 +3846,7 @@ add_filter( 'rest_post_dispatch', function( $response ) {
  * ueberschreiben; die Begruendung steht in includes/social/plan.php.
  */
 if ( ! defined( 'EB_DB_VERSION' ) ) {
-    define( 'EB_DB_VERSION', '3.1' );
+    define( 'EB_DB_VERSION', '3.2' );
 }
 
 /**
@@ -4144,6 +4159,9 @@ function eb_maybe_create_tables() {
                 $fehlt[] = substr( $tab_social, strlen( $wpdb->prefix ) );
             }
         }
+
+        // 3.2 — jeder Bestandsnutzer bekommt einen Nickname.
+        eb_handles_nachtragen();
 
         if ( empty( $fehlt ) ) {
             update_option( 'eb_db_version', EB_DB_VERSION );

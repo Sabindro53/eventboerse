@@ -84,7 +84,7 @@ aus wie ein Haus ohne Grenzen.
 **Stand:** 6 von 11 Schicht-Rollen arbeiten an Dateien innerhalb des
 Rahmens. Die übrigen Befunde sind für Menschen, nicht für den Autopiloten.
 
-Der Rahmen umfasst **15 Dateien** (`scripts/lib/sichere-dateien.mjs`). Die
+Der Rahmen umfasst **14 Dateien** (`scripts/lib/sichere-dateien.mjs`). Die
 Aufnahmekriterien stehen als Test, nicht als Absatz: höchstens 1200 Zeilen,
 8 Auth-, 20 Geld- und 12 Upload-Vorkommen — **im Code gemessen, nicht im
 Fließtext**. Eine Erweiterung ist eine Sicherheitsentscheidung des Inhabers.
@@ -127,6 +127,46 @@ nächste Log, und Logs sind bei einem öffentlichen Repo öffentlich.
 **Ein Fund ist mit einem Commit nicht behoben.** Zuerst beim Anbieter
 zurückziehen, dann über die Historie reden — in dieser Reihenfolge.
 **Stand:** 304 Dateien, 97 Commits, 899 Blobs, **0 Funde**.
+
+**Daneben steht GitHubs Push Protection, und sie ist nachweislich scharf.**
+Am 23.09.2026 unfreiwillig belegt: ein Testprüfstein mit dem echten
+Live-Präfix eines Stripe-Schlüssels — erfunden, aber formgleich — ließ den
+Push mit `GH013` abprallen, unter Angabe von Datei und Zeile. Das ist **das
+genaue Gegenteil des toten Gitleaks-Scans**: ein Schutz, der wirklich
+auslöst.
+
+Der angebotene Freigabe-Link („To push, follow this URL to allow the secret")
+wurde **nicht** benutzt. Er ist der Weg, auf dem solche Schutzvorrichtungen
+sterben: einmal durchgewunken, weil man es ja besser weiß, und beim dritten
+Mal winkt man den echten durch. Geändert wurde stattdessen der Prüfstein —
+seine **Gestalt** war für das, was der Test misst, ohnehin belanglos.
+
+**Ein schlüsselförmiger Platzhalter ist deshalb im ganzen Repository zu
+meiden**, auch in Tests, Beispielen und Kommentaren.
+
+**Und der erklärende Kommentar über diesen Vorfall war selbst der nächste
+Fund.** Er nannte das Präfix wörtlich; `geheimnisse.mjs` schlug prompt an —
+zwei Absätze unter der Regel, die genau das verbietet. Zwölfte Fundstelle
+dieser Klasse, und die erste, bei der **Kommentarabzug die falsche Antwort
+wäre**: anders als bei `recht.mjs`, `kontext.mjs` oder den Mutationsproben
+ist das Subjekt dieses Prüfers die **Datei**, nicht der Code. Ein echter
+Schlüssel in einem Kommentar ist ein echter Schlüssel. Also weicht der Text,
+nie der Prüfer.
+
+`geheimnisse.spec.js` löst dasselbe seit jeher mit einem Kniff, der hier
+übersehen wurde: `'sk_live_' + 'A1b2…'`. Zusammengesetzt zur Laufzeit, steht
+das Literal nirgends in der Datei — *„ein Test, der einen gültigen Schlüssel
+enthielte, wäre selbst das Leck, das er verhindern soll."*
+
+**Offener Posten, nicht behoben:** `arbeitsbaum()` in `geheimnisse.mjs` liest
+`git show HEAD:…` — es misst also den **committeten Stand**, nicht die Platte,
+und heisst trotzdem „Arbeitsbaum". Für den PR-Check ist das richtig (dort ist
+HEAD der Vorschlag), lokal ist es eine Falle: eine geänderte, nicht
+committete Datei bleibt unsichtbar, und der Bericht sieht grün aus. Genau
+darauf bin ich am 23.09. hereingefallen — der Fund stand weiter im Bericht,
+nachdem die Zeile längst geändert war. Ob zusätzlich der echte Arbeitsbaum
+gescannt werden soll, ist eine **Entscheidung über einen Sicherheitsprüfer**
+und keine Aufräumarbeit; das Etikett ist bis dahin irreführend.
 
 ### Workflows, die es nur scheinbar gibt
 
@@ -1872,7 +1912,7 @@ durch), und drei Anläufe sind eine bessere Chance, keine Garantie. Die Zahl
 der erfassten Gebiete steht in jedem Lauf im Bericht.
 
 ```bash
-npx playwright test tests/e2e/aktivitaeten.spec.js   # 39 Tests, an Prüfstücken
+npx playwright test tests/e2e/aktivitaeten.spec.js   # 41 Tests, an Prüfstücken
 ```
 
 #### Die Ansicht: Reiter „⚡ Jetzt"
@@ -2030,8 +2070,8 @@ Kategorie, `_feedRadarGruppen` ist Karten-Clustering, und `/collaborations`
 Dienstleister→Dienstleister, keine gemeinsame Planung.
 
 ```bash
-npx playwright test tests/e2e/social.spec.js           # 44 Tests, PHP wirklich ausgefuehrt
-npx playwright test tests/e2e/freunde-ansicht.spec.js  # 14 Tests, echter Browser
+npx playwright test tests/e2e/social.spec.js           # 48 Tests, PHP wirklich ausgefuehrt
+npx playwright test tests/e2e/freunde-ansicht.spec.js  # 18 Tests, echter Browser
 ```
 
 **Eigene Tabellen, nicht das Board.** `eb_board_projects` ist EIN JSON-Blob je
@@ -2121,6 +2161,62 @@ Hinter einem Proxy meint `REMOTE_ADDR` alle Besucher gemeinsam — ein
 IP-gebundener Deckel wäre dort entweder wirkungslos oder er sperrte
 Unbeteiligte. Alle vier Eimer (`social_suche`, `social_anfrage`,
 `social_gruppe`, `social_beitritt`) hängen an `'u' . $user_id`.
+
+#### Der Nachtrag hebt Entscheidung 1 auf — deshalb ist er opt-in
+
+Seit dem 15.09.2026 ist der Nickname bei der Registrierung Pflicht, und
+bestehende Konten sollen auf Wunsch des Inhabers „einfach einen passenden"
+bekommen. `eb_handles_nachtragen()` tut das — und **hebt damit genau die
+Einwilligung auf, auf der Entscheidung 1 steht.** Ein Bestandskonto wird
+auffindbar, ohne dass irgendjemand etwas gesetzt hat.
+
+Das ist keine Aufräumarbeit, sondern eine **Aussage in der
+Datenschutzerklärung**, und sie gehört dorthin, bevor sie zutrifft. Der
+Nachtrag läuft deshalb nur mit einer Konstante in `wp-config.php`:
+
+```php
+define( 'EB_HANDLE_NACHTRAG', true );
+```
+
+Derselbe Opt-in-Weg wie bei `EB_APPLE_TEAM_ID`: **ohne sie bleibt alles, wie
+es ist**, und „nicht eingerichtet" sieht anders aus als „eingerichtet". Der
+Code ist fertig und wartet; er ist nicht abgeschaltet. Der Schalter wird in
+demselben Augenblick gesetzt, in dem die Datenschutzerklärung den Nachtrag
+nennt — dieselbe Hand, derselbe Moment.
+
+**Ein Modell schreibt hier keinen Rechtstext.** Der Entwurf für den Absatz
+liegt beim Inhaber; `vault/40-Governance/` bleibt außerhalb dessen, was ein
+Modell anfasst.
+
+##### `strtolower()` hat jeden führenden Umlaut gefressen
+
+Beim Ausführen des Nachtrags am Prüfstand gefunden — nicht beim Lesen:
+
+```
+„Änne Großmann"  ->  nne.grossmann      (das Ä fehlt ganz)
+„Bo Ötzi"        ->  bo.tzi
+```
+
+`eb_handle_vorschlag()` schrieb **zuerst klein** und übersetzte danach.
+`strtolower()` arbeitet aber **byteweise**: „Ä" sind zwei UTF-8-Bytes, keines
+davon ein ASCII-Großbuchstabe. Der Umlaut erreichte also unverändert eine
+Tabelle, die nur „ä" kannte, und fiel eine Zeile später dem
+`[^a-z0-9._]`-Filter zum Opfer.
+
+Das traf **jeden** Namen, der mit einem Umlaut beginnt — und der Handle ist
+genau das, wonach andere diese Person suchen. Umgeschrieben wird jetzt vor dem
+Kleinschreiben, mit beiden Schreibweisen in der Tabelle.
+
+**`mb_strtolower` wäre der kürzere Weg und der unsicherere:** mbstring ist
+keine Voraussetzung, die WordPress garantiert — dieselbe Begründung wie beim
+Kontaktschutz, wo dieselbe Falle schon einmal stand.
+
+**Gefunden hat es der Prüfstand, nicht der Diff.** Vier Tests in
+`social.spec.js` führen den Nachtrag wirklich aus: einmal ohne die Konstante
+(0 Handles), einmal mit (die zwei Konten bekommen ihren), und ein zweiter Lauf
+tut nichts mehr. Vier Mutationen, jede macht die Suite rot: Riegel entfernt ·
+Umschrift wieder nach dem Kleinschreiben · Abschluss-Marke nie gesetzt · der
+Nachtrag setzt nie einen Handle.
 
 #### Die Rollen und was sie sehen
 
@@ -3114,6 +3210,157 @@ npx playwright test tests/e2e/storno.spec.js          # 8 Tests, PHP wirklich au
 npx playwright test tests/e2e/storno-ansicht.spec.js  # 15 Tests, echter Browser
 ```
 
+### Der Webhook hörte auf zwei von zehn Ereignissen
+
+Am 23.09.2026 am **Live-Konto** gemessen, nachdem der Stripe-Konnektor
+freigeschaltet war — die Messung, die in PR #283 ausdrücklich als *„nicht
+belegt"* ausgewiesen werden musste.
+
+| | |
+|---|---|
+| Stripe sendet an `…/v1/stripe/webhook` | **2** Ereignisse |
+| `eb_stripe_webhook()` behandelt | **10** |
+
+Acht `case`-Zweige waren unerreichbar. **Dieselbe Klasse wie der tote
+Gitleaks-Scan, diesmal auf dem Geldweg:** der Empfänger ist da, er ist
+richtig, und sein Subjekt erreicht ihn nicht.
+
+**Der teuerste davon belegt es in seinem eigenen Kommentar.**
+`eb_booking_record_refund()` in `includes/booking.php` trägt die Zeile
+*„signed webhooks refresh rather than invent settlement"* und verhindert
+sorgfältig, dass ein verspätetes `refund.created` ein bestätigtes Ergebnis
+auf `pending` zurückdreht. Er ist **für einen Webhook gebaut, den nie jemand
+abonniert hat.**
+
+**Die Wirkung ist enger als sie klingt, und das gehört dazu.** Der Storno-Weg
+aus der App bucht die Erstattung **synchron** (`functions.php:9788`, direkt
+nach dem Stripe-Aufruf). Kaputt war der Fall daneben: **eine Erstattung, die
+im Stripe-Dashboard ausgelöst wird**, bewegt Geld und erreicht das Board nie.
+Wer eine Diagnose stellt, ohne den synchronen Pfad zu sehen, meldet einen
+gebrochenen Storno-Vorgang, den es nicht gibt — und sucht am falschen Ende.
+
+Die Rangfolge, jede Zeile am Code gemessen:
+
+| Ereignis | Empfänger | Folge des Fehlens |
+|---|---|---|
+| `refund.created/updated/failed` | `eb_booking_record_refund()` | Dashboard-Erstattung erreicht das Board nie |
+| `charge.updated` | `eb_stripe_reconcile_payment()` | centgenauer Gebührenabgleich erst über den **Stundencron** (`eb_stripe_reconcile_cron`) |
+| `transfer.created` | Audit-Log | Auszahlung ans Anbieterkonto unprotokolliert |
+| `payment_intent.payment_failed/canceled` | **NOOP** | nichts — der Zweig tut ausdrücklich nichts |
+| `account.updated` | `…handle_account_updated()` | nichts, solange live gepollt wird (s. u.) |
+
+#### Zwei Ereignisse werden BEWUSST nicht abonniert
+
+**Die NOOP-Zweige bleiben aus.** Ein Abonnement erzeugte bei jedem
+Fehlversuch einen Aufruf, der nichts tut. Verkehr ohne Wirkung anzufordern
+ist dasselbe wie ein Prüfer ohne Subjekt, nur andersherum.
+
+**`account.updated` wäre ein Tor gewesen, das nie auslöst.** Es erreicht uns
+nur über einen Endpunkt mit **Connect-Geltungsbereich** (*„Events from →
+Connected accounts"*) — am vorhandenen Konto-Endpunkt eingetragen käme es
+nie an. Genau diesen Griff hätte ich fast getan; die Stripe-Dokumentation hat
+ihn verhindert, nicht das Nachdenken.
+
+**Und ein zweiter Endpunkt wäre aktiv schädlich gewesen.** Er trägt ein
+**eigenes** Signaturgeheimnis, `eb_stripe_webhook()` kennt genau eines
+(`eb_stripe_webhook_secret()`) — jede Connect-Lieferung fiele mit 400 durch,
+bis Stripe den Endpunkt abschaltet. Reihenfolge also: **zweites Geheimnis im
+Code, dann der Endpunkt.** Solange das aussteht, trägt der Fall ohnehin:
+`eb_stripe_connect_state_for_user()` fragt Stripe bei **jeder** Buchung live
+(`functions.php:8894`), der Status ist also nie veraltet, wenn es darauf
+ankommt.
+
+#### Was NICHT kaputt war, und warum das hierher gehört
+
+Die fünf Live-PaymentIntents tragen alle `transfer_data: null`,
+`on_behalf_of: null`, `application_fee_amount: null` — also **keine**
+Destination Charge. Das sah nach dem teuersten denkbaren Fund aus: Geld, das
+zu 100 % auf dem Plattformkonto landet.
+
+Es ist keiner. Nachgemessen an der Historie:
+
+| | |
+|---|---|
+| Live-Zahlungen | 13.05. – **02.06.2026** |
+| `transfer_data[destination]` im Code seit | **26.08.2026** (`74e7900`) |
+| `metadata[offer_id]` seit | **14.09.2026** (#268) |
+
+Ihre Metadaten tragen fünf Schlüssel, der heutige Buchungspfad setzt
+vierzehn und der Admin-Pfad sechs — sie stammen aus **keinem** der beiden.
+Es sind Zahlungen einer älteren Fassung. **Ein Prüfer, der aus dem falschen
+Grund rot meldet, kostet mehr als keiner**; wer hier „repariert", baut an
+einem Pfad um, der funktioniert.
+
+#### Der Konnektor darf lesen, nicht schreiben
+
+`PostWebhookEndpointsWebhookEndpoint` → *„Your API key does not have the
+required permissions."* Das Abonnement ist deshalb eine **Handlung des
+Inhabers im Dashboard**, kein Commit. Auf einem Live-Konto werden
+Schreibrechte auch nicht durchprobiert: jeder erfolgreiche Versuch wäre eine
+echte Änderung.
+
+**Damit es nicht wieder still verrottet, misst es jetzt ein Tor.**
+
+```bash
+node scripts/stripe-webhook.mjs           # Bericht (Tagesroutine)
+node scripts/stripe-webhook.mjs --check   # Exit 1 bei Drift ODER ohne Schlüssel
+```
+
+Gebaut wie `workflows.mjs`, aus demselben Grund: **die Liste liegt bei
+Stripe und in keiner Datei dieses Repositories.** Ohne Schlüssel wird nicht
+durchgewunken — genau diese Verwechslung („nicht geprüft" sieht aus wie „in
+Ordnung") ließ den toten Secret-Scanner vier Monate wie Schutz aussehen.
+
+**Bevorzugt wird `EB_STRIPE_READ_KEY`**, ein eingeschränkter Schlüssel mit
+Leserecht auf Webhook-Endpunkte; `EB_STRIPE_SECRET_KEY` ist der Rückfall,
+damit das Tor sofort misst statt als Leiche dazuliegen. Der Schlüssel
+erscheint **nie** in der Ausgabe — Logs sind bei einem öffentlichen
+Repository öffentlich.
+
+**Blockierend ist nur, was derselbe Commit beheben kann.** Ein fehlendes Abo
+ist es (abonnieren *oder* mit Grund nach `OHNE_ABO`), ein überzähliges Abo
+bei Stripe nicht — das wird gemeldet und quittiert ohnehin mit 200.
+
+In der **Tagesroutine** läuft es als Bericht, nicht als Tor: dieselbe
+Entscheidung wie bei den Nachbarschritten, die Routine soll den Zustand
+festhalten und nicht nachts rot werden. Und ein Live-Schlüssel hat in einem
+PR-Lauf über fremde Zweige nichts zu suchen.
+
+Neun Mutationen, jede macht die Suite rot: Begründung geleert · Kommentare
+nicht mehr abgezogen · fehlendes Abo nicht gemeldet · Abo ohne Empfänger
+nicht gemeldet · veraltete Begründung nicht gemeldet · ohne Schlüssel still
+grün · Rumpf nicht begrenzt · abgeschaltete Endpunkte zählen mit · der
+Auszug liefert nichts (Gegenprobe, **4 rot**).
+
+**Die elfte Kommentar-Falle war vorhergesehen.** Dieses Skript nennt
+`case 'refund.created':` in seinem eigenen Kopfkommentar. Gemessen wird
+deshalb von vornherein nach Abzug der Kommentare, über `phpOhneKommentare()`
+— den Griff, der seit dem 13.09. genau dafür existiert.
+
+```bash
+npx playwright test tests/e2e/stripe-webhook.spec.js   # 13 Tests, 9 Mutationen
+```
+
+#### Was hier NICHT entschieden wird
+
+- **Chargebacks haben gar keinen Empfänger.** `charge.dispute.created` kommt
+  im ganzen Code nicht vor. Bei einer Destination Charge zieht Stripe den
+  Betrag vom **Plattformkonto** ein — der Anbieter behält seine Auszahlung.
+  Ob und wie zurückgeholt wird, ist eine AGB-Frage, keine Aufräumarbeit.
+- **Das Stripe-Konto ist `business_type: individual`.** Es läuft auf eine
+  natürliche Person, während Impressum und Provisionsrechnung die **UG i. G.**
+  als Aussteller führen. Spätestens mit der Eintragung müssen
+  Rechnungsaussteller und Zahlungsempfänger dieselbe Person sein.
+- **Null verbundene Konten** (`/v1/accounts` ist leer). Der Buchungspfad
+  lehnt ohne aktives Connect-Konto mit 409 ab — heute ist also **keine
+  Buchung bezahlbar**. Vor dem Start gehört dieser Weg einmal echt
+  durchlaufen.
+- **Die API-Version ist nirgends festgeschrieben.** Der Endpunkt steht auf
+  `2026-03-25.dahlia`, unsere Aufrufe nehmen die Kontovorgabe. Das zu pinnen
+  wäre richtig — aber es ändert die **Gestalt jeder Antwort**, die der Code
+  liest, und ist ohne Gegenprobe im Testmodus genau die Sorte Änderung, die
+  eine laufende Kasse stilllegt.
+
 ### Der Provisionssatz stand elfmal im Code — und einmal in wp-config.php
 
 Am 14.09.2026 beim Durchgehen des Dienstleister-Bereichs gemessen.
@@ -3684,8 +3931,16 @@ Prüfer, der sich im Maßstab irrt, ist gefährlicher als keiner.
 
 **Die echte Fundstelle lag auf der Landeseite:** 25 Galerie-Punkte auf den
 Inseratskarten mit **7×7 px** Trefferfläche. axe meldet sie als `target-size`,
-Schweregrad `serious` — und es war der **einzige** WCAG-2.2-Verstoß der
-gesamten Anwendung.
+Schweregrad `serious` — und es war der einzige WCAG-2.2-Verstoß **auf den fünf
+Seiten, die dieses Tor misst**.
+
+**Hier stand „der einzige Verstoß der gesamten Anwendung", und das war
+falsch.** Der Satz deckte 34 Seiten, die Messung deckte fünf. Am 15.09.2026
+über die übrigen gemessen: **40 verstoßende Knoten, 20 davon `critical`** —
+siehe den Abschnitt „Ein Tor, das fünf von vierunddreißig Seiten misst" weiter
+unten. Der alte Satz bleibt hier als Protokoll stehen, weil eine
+stillschweigend korrigierte Entwarnung aussieht, als hätte sie nie anders
+gelautet.
 
 **Die Abstands-Ausnahme greift ausgerechnet hier nicht.** SC 2.5.8 erlaubt
 kleinere Flächen, wenn 24-px-Kreise um die Mitten sich nicht schneiden. Bei
@@ -3715,8 +3970,391 @@ sichtbare Punkt **nicht** mitwächst — sonst wäre die Regel dadurch erfüllt,
 dass jemand die Punkte aufbläst und die Karten aussehen wie eine Perlenkette.
 
 ```bash
-npx playwright test tests/e2e/barrierefreiheit.spec.js   # 14 Tests, axe + Zielgrößen
+npx playwright test tests/e2e/barrierefreiheit.spec.js   # 10 Tests, axe über 32 Seiten
 ```
+
+### Ein Tor, das fünf von vierunddreißig Seiten misst
+
+Am 15.09.2026 bei einer Prüfung von Nutzerfreundlichkeit und Gestaltung
+gefunden. `barrierefreiheit.spec.js` führt seine Seiten als Handliste — fünf
+Routen, und zwar **abgemeldet**, also `board` und `freunde` in ihrem
+Ausgeloggt-Zustand. `app-shell.html` trägt **34** Seiten.
+
+**Die Abdeckung stand an vier Stellen und war viermal verschieden:**
+
+| Stelle | behauptet |
+|---|---|
+| Kopfkommentar der Suite | „× 6 Kernseiten" |
+| `Claude-Kontext.md` | „× 6 Kernseiten" |
+| `Testing.md` | „× 4 Seiten" |
+| CLAUDE.md (oben) | „der gesamten Anwendung" |
+| **gemessen** | **5** |
+
+Keine davon richtig, und die vierte war die teuerste — sie hat aus einer
+Messung über ein Sechstel der Anwendung eine Aussage über das Ganze gemacht.
+**Dieselbe Klasse wie der tote Gitleaks-Scan:** ein Prüfer, dessen Subjekt nur
+ein Ausschnitt ist, gibt eine Entwarnung, die er nicht decken kann. Über
+EN 301 549 ist das zugleich ein BFSG-Thema.
+
+Gemessen mit `wcag2a, wcag2aa, wcag21aa, wcag22aa`, beiden Farbmodi,
+angemeldet in der Rolle der jeweiligen Seite — 26 der 29 offenen Seiten
+(`admin` braucht echte Rechte, `home` und `profile` sind Weiterleitungen):
+
+| | |
+|---|---|
+| verstoßende Knoten | **40** |
+| davon `critical` | **20** |
+| betroffene Seiten | 6 — `settings`, `create-listing`, `auftraege`, `business`, `notifications`, `contact` |
+| je Regel | `select-name` 14 · `label` 6 · `color-contrast` 20 |
+
+**Alle zwanzig kritischen haben EINE Ursache:** `<label>` steht neben seinem
+Feld statt mit ihm verbunden. Am Bildschirm ist alles beschriftet; ein
+Screenreader sagt auf `create-listing` sechsmal „Kombinationsfeld" ohne Namen —
+auf der Seite, auf der ein Dienstleister sein Inserat anlegt. Einer der sechs
+ist `#settings2faToggle`, der Schalter für die Zwei-Faktor-Anmeldung.
+
+**Zwei Texte sind im Dunkelmodus unsichtbar**, beide aus derselben Ursache:
+eine Fläche mit fest geschriebener Farbe, die den Farbmodus nicht mitmacht,
+und ein Text darauf, der sein Token nimmt.
+
+```
+auftraege       #000000 auf #121212  = 1,12 : 1   .btn-link „Erneut versuchen"
+create-listing  #e8e8e8 auf #fff8e8  = 1,15 : 1   .create-payout-title
+```
+
+Der erste ist der **Ausweg aus einer Störung** — er erscheint nur, wenn das
+Laden der Storno-Anträge fehlschlug. Wer ihn braucht, sieht ihn nicht.
+
+**Die Markenfarbe als Text ist der größte Einzelposten:** `#FF385C` auf Weiß
+ergibt 3,51 : 1 an sieben Knoten. Die Gegenregel steht seit dem 01.08.2026 in
+dieser Datei und wird 23× befolgt — `--primary-text` / `--accent-text` für
+Text, `#FF385C` für Flächen und Icons. Es fehlt kein Token, nur seine Anwendung.
+
+**Was axe strukturell nicht sieht:** über einem Verlauf oder Bild meldet es
+`incomplete`, nicht `violation`. Genau dort liegen die drei Einstiege der
+Landeseite (`rgba(255,255,255,.14)` + `blur(8px)`, also kein eigener Grund) —
+bis die Marquee-Bilder da sind, steht Weiß auf Hell. Kein Tor wird das je
+melden; es steht deshalb im Vault und nicht in einer Testdatei.
+
+**Der Handgriff am Tor:** `SEITEN` aus den `id="page-…"` ableiten statt
+aufzählen. Zwei Dinge gehören dazu, beide teuer gelernt — **angemeldet messen**
+(abgemeldet fallen `auftraege`, `business` und `my-listings` auf die Landeseite
+zurück) und **nachsehen, welche Seite wirklich aktiv wurde**. Ohne die
+Gegenprobe zählt man dieselbe Seite mehrfach und hält das für Abdeckung; genau
+daran war die erste Fassung dieser Messung mit **46** statt 40 Knoten falsch.
+
+#### Ausgeführt — und die Zahl wurde beim Weiten größer, nicht kleiner
+
+Am selben Tag umgesetzt. Das Tor misst jetzt **32 der 34 Seiten** in beiden
+Farbmodi; die zwei übrigen sind nachgewiesene Weiterleitungen (`home` →
+`browse`, `profile` → `provider`), deren Ziel selbst gemessen wird. **`admin`
+ist dabei** — die Annahme darüber, es brauche „echte Rechte", war falsch:
+`isAdmin: true` am Messkonto genügt, nachgemessen.
+
+Und genau das hat die Zahl bewegt. Gemessen wurden **58** Knoten statt 40:
+
+| | |
+|---|---|
+| 20 `critical` | zehn Bedienelemente ohne Namen (in beiden Modi gezählt) |
+| 16 | Weiß auf `#FF385C` am Feed-Kontaktknopf, 3,51 : 1 bei 12 px |
+| 3 | im Dunkelmodus unlesbar (1,12 · 1,15 · **1,51**) |
+| 9 | Markenfarbe als Text auf hell |
+| 10 | Statusfarben ohne Dunkelwert |
+
+Der Unterschied ist **kein Widerspruch, sondern der Subjektwechsel**: vorher
+in der Rolle der jeweiligen Seite, jetzt auf JEDER Seite angemeldet — und mit
+`isAdmin`. Erst dadurch rendern der Feed-Kontaktknopf und drei
+Admin-Bedienelemente, die alle drei kaputt waren. **Eine Abdeckung, die man
+weitet, findet mehr; eine Zahl, die dabei sinkt, wäre das verdächtige
+Ergebnis.**
+
+Drei Befunde daneben, jeder für sich die bekannte Klasse:
+
+- **`.btn-link` war in KEINER Stylesheet-Datei definiert.** Der Knopf „Erneut
+  versuchen" bekam also die Browservorgabe `color: buttontext` = #000. Ein
+  Klassenname ist keine Gestaltung — dieselbe Klasse wie `escHtml`, den es
+  nicht gab.
+- **`release-vision.css` trug einen Dunkelmodus für `[data-theme="dark"]`.**
+  Dieses Projekt schaltet über `body.dark-mode`; `data-theme` wird **nirgends**
+  gesetzt. Zwei Zeilen mit fertigen, richtigen Dunkelfarben, die nie ein
+  einziges Mal gegriffen haben. Zwei Zeilen darüber führen beide Selektoren —
+  es war ein Vergessen, kein Entwurf.
+- **37 statt 10 Beschriftungen.** axe meldete zehn, weil es bei `<input>` einen
+  `placeholder` als Notnamen durchgehen lässt und bei `<select>` nicht. Ein
+  Platzhalter verschwindet beim Tippen — genau dann braucht ihn jemand.
+  Gemessen wird jetzt die **Bedingung** (jede Formularbeschriftung nennt ihr
+  Feld), nicht die zehn Fälle, die axe zufällig sieht.
+
+**Und vier Icon-Ligaturen wären durch die Reparatur erst gefährlich
+geworden.** `<label><span class="material-icons-round">auto_awesome</span>
+Suche</label>` hat als Textinhalt „auto_awesome Suche". Solange kein `for=`
+dastand, kam der Name vom Platzhalter; mit `for=` liest ein Screenreader die
+Ligatur vor. `aria-hidden="true"` an genau diesen vier Spans — eine Reparatur,
+die man zu Ende messen muss, statt sie zu beschließen.
+
+**Elf Mutationen, neun rot.** `.btn-link` weg · Dunkel-Statusfarben weg ·
+zurück auf den toten `[data-theme]` · abgemeldet gemessen · Handliste statt
+Ableitung · Ableitung gekürzt · erfundene Weiterleitung · ein `for=` weg ·
+`aria-labelledby` am 2FA-Schalter weg.
+
+Zwei überleben, **beide legitim und beide belegt**:
+
+1. **Die drei Dunkelflächen von `create-payout` sind ein Satz.**
+   `body.dark-mode .create-payout-notice` (0,2,1) schlägt
+   `.create-payout-notice.is-warning` (0,2,0) — jede Zeile einzeln zu
+   entfernen ändert nichts, alle drei zusammen machen die Suite rot. Wer die
+   erste löscht, weil die anderen dastehen, holt den Befund zurück.
+2. **Die Gegenprobe auf die aktive Seite kann sich nicht selbst prüfen.**
+   Entfernt man sie *und* misst abgemeldet, ist die Suite grün — über 32
+   Seiten, die alle dieselbe Landeseite sind. Mit Gegenprobe ist derselbe
+   Zustand rot. Das Paar ist der Beleg, nicht die einzelne Mutation.
+
+**Und die Mutationsprobe selbst hat einmal Schaden angerichtet.** Der erste
+Läufer setzte mit `git checkout --` zurück — bei noch nicht committeter Arbeit
+löscht das die Arbeit. Die neun Proben danach liefen gegen den alten Stand und
+meldeten Unsinn (unter anderem „rot", weil der `-g`-Filter ins Leere lief und
+Playwright deshalb mit 1 endet). Gesichert wird jetzt per **Kopie**, der
+Läufer prüft am Ende, dass der Baum byte-identisch zurück ist, und ein
+Lauf ohne getroffenen Test gilt als **ungültig**, nicht als Treffer.
+Dieselbe Lehre wie beim Messgerät, das sein Subjekt verändert.
+
+Vollständig mit allen Kontrastwerten: [[30-Betrieb/Barrierefreiheit-Abdeckung]]
+und [[20-System/Frontend/Design-System-Drift]].
+
+### Ein Token, das es nie gab — und der Wächter, der genau danach sucht
+
+Gemeldet am 15.09.2026 vom Inhaber: *„unter profil ist das hier in white,
+sollte aber dark sein."* Die vier Kacheln unter `/profile` (Meine Planung,
+Merkliste, Freunde & Gruppen, Nachrichten) standen weiß auf `#121212`.
+
+```css
+.journey-actions button { background: var(--white, #fff); … }
+```
+
+**`--white` ist im ganzen Projekt nirgends definiert.** Damit gilt immer der
+Rückfallwert `#fff` — in **beiden** Farbmodi. Gemessen im echten Browser:
+
+| | vorher | nachher |
+|---|---:|---:|
+| Kachel dunkel | `rgb(255,255,255)` | `rgb(18,18,18)` |
+| Titel `#CCCCCC` darauf | **1,61 : 1** | **11,67 : 1** |
+| Unterzeile `#999999` | **2,85 : 1** | **6,58 : 1** |
+| Kachel hell | `rgb(255,255,255)` | unverändert |
+
+`var(--bg)` ist der Wert, den die Nachbarkarten derselben Seite
+(`provider-profile-card`, `provider-fact-card`) ohnehin tragen. Der Hellmodus
+ändert sich dadurch um **kein Pixel** — nachgemessen, nicht angenommen.
+
+**Ohne Rückfallwert ist es schlimmer, nicht besser.** In `discovery.css` stand
+`var(--white)` viermal **ohne** Fallback. Dann ist die Deklaration *invalid at
+computed-value time*: sie fällt ganz aus, und die Fläche wird `transparent` —
+sie fehlt also, statt nur falsch zu sein.
+
+#### Der Wächter existierte und konnte die Datei nicht sehen
+
+`design-system.spec.js` trägt seit dem 01.08.2026 den Test *„kein Stylesheet
+benutzt eine Variable, die keines definiert"* — gebaut für genau diese Klasse,
+nachdem `ui-enhancements.css` dreizehn erfundene Namen benutzte. Er war grün.
+Zwei Löcher:
+
+1. **Die Dateiliste stand von Hand da** — `styles.css`, `ui-enhancements.css`,
+   `eb-hq-evolution.css`. `journeys.css` und `discovery.css` waren **nie
+   Subjekt**. Sie kommt jetzt aus den Stellen, die Stylesheets wirklich
+   ausliefern (`index.php`, Dev-Shell, `hq.html`, `functions.php`); wer eine
+   neue CSS-Datei einbindet, bekommt ihre Prüfung geschenkt.
+2. **Ein Rückfallwert entschuldigte.** Im Test stand: *„Ein Rückfallwert ist
+   eine bewusste Entscheidung und deshalb erlaubt."* Für eine **Länge** stimmt
+   das. Für eine **Fläche** ist der Rückfall der Fehler — das Literal gilt dann
+   in beiden Farbmodi, und genau so sah der gemeldete Zustand aus. Deshalb
+   waren auch `--bg-card`, `--card-bg`, `--bg-light`, `--bg-soft`,
+   `--primary-ultralight`, `--danger` und `--pp-runden` in `styles.css`
+   undefiniert, obwohl diese Datei **gelesen wurde**.
+
+**`--pp-runden` ist der schärfste davon.** Der Kommentar bei `.ai-popper` sagt
+seit dem 13.09.2026, die Rundenzahl stehe *„an EINER Stelle für alle vier
+Animationen"* — sie stand **viermal** als Rückfallwert da, weil das Token
+fehlte. Die Aussage stimmt erst jetzt.
+
+#### Was NICHT umgestellt wurde, und warum
+
+`.sa-modal` benutzte `var(--card-bg, #1e1e2e)` — ein **dunkles** Literal.
+Jedes Kind dieses Dialogs setzt `color: #fff` fest; ein modusfolgendes Token
+hätte dort weiße Schrift auf weißem Grund ergeben. Die Fläche trägt jetzt das
+Literal mit Begründung. **Vor dem Umstellen die Textfarben ansehen**, sonst
+repariert man eine Fläche kaputt.
+
+Ebenso blieben `.akt-karte` und `.legal-table th` optisch unverändert: beide
+hatten längst eine eigene `body.dark-mode`-Regel, dort war nie etwas kaputt.
+Das gehört hierher, weil ich es zuerst als Fund gezählt hatte und die Messung
+es widerlegt hat.
+
+**Wirklich behoben sind drei Flächen:** die gemeldeten Profil-Kacheln,
+`.storno-eintrag` (deren Rand im Dunkelmodus behandelt war, die Fläche nicht —
+eigene Arbeit) und der Hover von `.ac-nav-btn`, der im Dunkelmodus *dunkler*
+statt heller wurde.
+
+#### Abstände
+
+Am selben Ort gemessen (390 / 768 / 1280 px): `margin-top: 24px`,
+**`margin-bottom: 0`** — die Kacheln stießen ohne Abstand an „Über mich".
+Dazu Radius `14px`, während dieselben Nachbarkarten `16px` tragen
+(`--radius-lg`). Beides angeglichen. Der Seitenrand am Telefon (12 px gegen
+16 px ab Tablet) gehört dem Seitencontainer, nicht dieser Komponente — gemeldet,
+nicht angefasst.
+
+#### Und die siebte Kommentar-Falle
+
+Der reparierte Wächter meldete beim ersten Lauf `styles.css: --x` — das war
+der **erklärende Kommentar** über den neuen Token, der `var(--x, literal)` als
+Beispiel nennt, geschrieben in derselben Stunde. Für JS, PHP und HTML gibt es
+den gemeinsamen Griff längst; für CSS fehlte er. `tests/e2e/lib/css-code.js`
+schließt das und arbeitet **zeichenweise**: ein Ausdruck über Kommentargrenzen
+schnitte in `content: "/*"` mitten in eine Zeichenkette.
+
+Sechs Mutationen: `--white` zurück · `--danger`-Definition entfernt · zurück
+auf die Handliste · Kommentare nicht mehr abgezogen · Grund der verwaisten
+Datei geleert — jede macht die Suite rot. Die sechste, *„Rückfallwert
+entschuldigt wieder"*, überlebt **allein** und ist deshalb als **Paar**
+belegt: mit zurückgeholtem `--white` rot, mit beidem grün.
+
+**`mobile-overrides.css` wird nirgends ausgeliefert** (10 KB, fremdes Lila
+`#7c3aed`) — und steht trotzdem im Autopilot-Rahmen. Ein zweiter Test verlangt
+für jedes nicht ausgelieferte Stylesheet einen **Grund**, wie bei den
+Phantom-Workflows: stilllegen heißt eintragen, nicht verschweigen. Das Löschen
+ist eine Entscheidung des Inhabers.
+
+```bash
+npx playwright test tests/e2e/design-system.spec.js   # 5 Tests, 6 Mutationen
+```
+
+### Vier Rechtstexte, die etwas anderes sagten als der Code
+
+Am 22.09.2026 auf Wunsch des Inhabers geprüft: *„damit alles Kriterien für
+eine UG in Deutschland zu gründen klappt."* Vollständiger Befund:
+`vault/40-Governance/Legal/Launch-Befund-UG.md`.
+
+**Das Impressum begründete die ZAG-Freiheit mit einem fremden Sachverhalt.**
+Es nannte ein *„Direct-Charges-Modell"*; `functions.php:8891` fährt
+`transfer_data[destination]` + `on_behalf_of` + `application_fee_amount`. Der
+einzige Direct-Charge-Pfad trägt `[ADMIN-TEST]`.
+
+Das ist kein falsches Wort: **dieser Satz ist die Begründung** dafür, dass wir
+keine ZAG-Erlaubnis brauchen, und sie hängt daran, auf wessen Konto die
+Zahlung entsteht. Unsere **eigenen AGB sagten es richtig** — zwei Rechtstexte
+derselben Plattform, ein Geldweg, zwei Beschreibungen.
+
+`zahlungsmodell.spec.js` misst jetzt den **Code**, nicht eine Konstante:
+welche Felder an Stripe gehen, entscheidet das Modell. Ein Konstantenname
+lässt sich umbenennen, ohne dass jemand an die Datei denkt.
+
+**Die Mutation „Erkennung gibt immer destination" überlebte zuerst** — die
+übrigen Tests prüfen die Felder ohnehin direkt. Eine Wache ohne beobachtbare
+Wirkung ist eine Behauptung; dieselbe Klasse wie `ebAuftragSchluessel()`
+hinter seiner Gruppierung. Sie nimmt den Rumpf jetzt als Argument.
+
+#### PStTG: keine Bagatellgrenze für Dienstleistungen
+
+```bash
+npx playwright test tests/e2e/psttg.spec.js   # 6 Tests, 6 Mutationen
+```
+
+PStTG/DAC7 kam im ganzen Projekt **null Mal** vor. Nachgeschlagen statt
+angenommen: die Grenze des § 4 Abs. 5 Nr. 4 (unter 30 Fälle **und** unter
+2.000 €) gilt nur für den **Verkauf von Waren**. Für vermittelte persönliche
+Dienstleistungen — § 5 Abs. 1 Nr. 2, also DJ, Catering, Fotografie — meldet
+man **ab dem ersten Euro**, bis zum 31. Januar des Folgejahres. Ein Verstoß
+ist eine Ordnungswidrigkeit.
+
+**Erhoben wird beim Auszahlungsweg, nicht bei der Registrierung.** Das ist
+die wichtigste Entscheidung darin, und sie ist **datenschutz**rechtlich
+begründet: meldepflichtig ist nur, wer Vergütung erhält (§ 4 Abs. 4) — ein
+Eventplaner nie. Geburtsdatum und Steuer-ID von jedem Registrierten
+einzusammeln wäre eine Erhebung auf Vorrat gegen Art. 5 Abs. 1 lit. c DSGVO.
+Ein Test hält die Registrierung davon frei.
+
+**Nichts wird halb gespeichert.** Fällt ein Feld durch, wird gar nichts
+geschrieben — sonst stünde ein Anbieter mit gültiger Steuer-ID und
+unsinnigem Geburtsdatum da, und die Vollständigkeitsprüfung meldete „fertig".
+
+**Und die eigene Zusatzregel hätte rechtmäßige Eingaben abgewiesen.** Die
+erste Fassung verbot eine führende Null in der Steuer-ID — die amtliche
+Beispielnummer `02476291358` hat eine. Sie hätte Dienstleister von ihrer
+Auszahlung abgehalten, also genau der Fehlalarm, vor dem der Kommentar
+daneben **im selben Commit** warnte. Die Prüfziffer nach ISO/IEC 7064
+MOD 11,10 trägt die Erkennung allein.
+
+#### Die Provision floss ohne Beleg
+
+```bash
+npx playwright test tests/e2e/provisionsrechnung.spec.js   # 7 Tests, 8 Mutationen
+```
+
+`application_fee_amount` zog bei jeder Buchung ab, und es gab **keine
+Rechnung** von uns an den Dienstleister (§ 14 UStG). Er konnte die Provision
+nicht als Vorsteuer ziehen, wir hatten keinen Ausgangsbeleg.
+
+**Die Steuer wird herausgerechnet, nicht aufgeschlagen.** Stripe zieht die
+Fee vom Zahlbetrag ab — sie **ist** der Bruttobetrag unserer Leistung. Wer
+19 % aufschlägt, stellt mehr in Rechnung, als eingenommen wurde.
+
+**Ohne Steuernummer entsteht kein Beleg.** § 14 Abs. 4 Nr. 2 verlangt sie;
+eine UG in Gründung hat sie nicht. Ein Beleg ohne sie berechtigt nicht zum
+Vorsteuerabzug und müsste berichtigt werden. Opt-in über `EB_STEUERNUMMER`
+bzw. `EB_UST_ID` in `wp-config.php`, derselbe Weg wie `EB_APPLE_TEAM_ID`.
+
+**Der Frühausstieg verbraucht keine Rechnungsnummer.** Jede Wache steht
+**vor** dem Hochzählen — sonst risse jeder abgewiesene Aufruf eine Lücke in
+die Folge, und Lücken muss man bei einer Prüfung erklären können.
+Hochgezählt wird in **einem** Statement: `get_option` + `update_option` hätte
+das Rennen, bei dem zwei Buchungen dieselbe Nummer bekommen.
+
+**Ein unklarer Steuerfall wird gemeldet, nicht geraten.** Drittland, fehlende
+oder fremde USt-IdNr → der Posten geht an einen Menschen. Eine zu Unrecht
+angewandte Reverse-Charge-Regel schuldet die Steuer trotzdem.
+
+#### Die Platzhalter, die nach der Eintragung unwahr werden
+
+```bash
+npx playwright test tests/e2e/impressum.spec.js   # 6 Tests, 4 Mutationen
+```
+
+Nur das Impressum trägt unausgefüllte Platzhalter. **Drei davon kann es vor
+der Eintragung nicht geben** — Registernummer, USt-IdNr und W-IdNr vergeben
+Amtsgericht und BZSt. Sie sind der ehrliche Zustand „i. G.".
+
+**Die Gefahr ist das stille Falschwerden danach**: mit der Eintragung wird
+das Impressum unvollständig, ohne dass jemand etwas ändert. Dieselbe Sorte
+wie Apples Händlerstatus. Das Tor hält deshalb das **Paar** — Platzhalter und
+Zusatz „i. G." müssen zusammen da sein und zusammen verschwinden.
+
+**Der erste Entwurf war selbst ein Prüfer ohne Subjekt, und alle drei
+Mutationen überlebten ihn.** Jede zeigte einen eigenen Fehler: `textAusHtml()`
+lässt **Entities** stehen, also trifft `/i\.\s*G\./` niemals `i.&nbsp;G.` ·
+die Erkennung hing ersatzweise am Wort **„Vorgründung"**, dem Marketing-Banner
+derselben Seite · und die Pflichtangaben wurden am **Etikett** gemessen statt
+am Wert, sodass „gelöscht statt gefüllt" durchkam — der gefährlichste Ausgang.
+
+**Und das Etikett traf zuerst die Prosa.** „Handelsregister" steht auf der
+Seite zuerst im erklärenden Satz und erst hundert Zeichen später in der
+Datenzeile; `search()` mass die Erklärung. Zehnte Fundstelle dieser Klasse.
+Gemessen wird jetzt **jede** Fundstelle, und das Etikett ist das der
+Datenzeile (`Registernummer:`), nicht das Wort daneben.
+
+#### „inkl. MwSt." ist nicht immer wahr
+
+```bash
+npx playwright test tests/e2e/preisangabe.spec.js   # 5 Tests, 5 Mutationen
+```
+
+Die B2B-AGB versprachen *„Brutto, USt ausgewiesen"*, das Formular bot
+„Preisspanne (€)". „inkl./zzgl. USt" kam im ganzen Frontend **nicht** vor
+(§ 3 PAngV verlangt den Gesamtpreis).
+
+**Der Zusatz gilt nur, wo er stimmt.** Ein Kleinunternehmer nach § 19 UStG
+weist keine Umsatzsteuer aus; ihm „inkl. MwSt." unterzuschieben wäre eine
+Falschaussage auf **seinem** Angebot. `ebPreisHinweis()` sagt deshalb
+„Gesamtpreis" — wahr in beiden Fällen — und ergänzt „inkl. USt." nur bei
+`smallBusiness === false`, also wenn er es ausdrücklich gesagt hat.
 
 ### Der Kontext wird nachgemessen
 
@@ -3830,7 +4468,7 @@ npm run test:smoke      # nur Routen-Smoke-Tests
 npm run test:css        # CSS-Minify-Regression (Verlaufsschrift)
 ```
 
-1169 Tests in 79 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
+1234 Tests in 85 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
 Sätze), Gebühren (centgenau, JS↔PHP-Parität), Wissensbasis (Antworten +
 Leckage-Schutz), Zufluss (Quarantäne-Tor + Demo-Feed-Ehrlichkeit),
 Verbindungen (HQ-Zugang + Connector-Katalog), Auftragsstrom (Herkunft +
@@ -3965,8 +4603,13 @@ je Position, Anlegen/Bearbeiten/Ablauf), **Pflichtchecks** (Selbstbuchungs-
 schutz, Demo-Toggle, Board-Picker, Listings), Radar (Umkreis, lokale Position,
 Migrations-Verhalten), Vision-Release, Kern
 (Impuls-Ehrlichkeit + Autonomie + offenes Ensemble), **Barrierefreiheit**
-(axe über beide Farbmodi — seit dem 10.09.2026 auch WCAG **2.2**; die
-Galerie-Punkte sind 24 px breit und sehen weiter aus wie 7 px), Design-System,
+(axe über beide Farbmodi und seit dem 15.09.2026 über **32 der 34 Seiten**,
+angemeldet und mit `isAdmin` — die zwei übrigen sind nachgewiesene
+Weiterleitungen, deren Ziel selbst gemessen wird; die Seitenliste kommt aus
+der Shell, und auf jeder Seite wird nachgesehen, welche wirklich aktiv wurde;
+seit dem 10.09.2026 auch WCAG **2.2**; jede Formularbeschriftung nennt ihr
+Feld, statt nur daneben zu stehen; die Galerie-Punkte sind 24 px breit und
+sehen weiter aus wie 7 px), Design-System,
 CSS-Minify. `pr-check.yml` blockiert PRs bei
 Fehlern. Die Rechtsablage-Suite prüft zusätzlich private Speicherung,
 Versionshistorie, Aufgabenstatus und den amtlichen Quellenmonitor.
@@ -4230,11 +4873,11 @@ Push auf `main` → GitHub Actions (`.github/workflows/ionos-deploy.yml`) → SF
 |-------|--------|
 | `app.js` | **Generiert** aus `js/modules/**` via `./build-app-js.sh` — nie von Hand editieren |
 | `js/modules/` | Quelle des Frontends: 31 Module in `core/`, `search/`, `chat/`, `payments/`, `board/`, `ai/`, `ui/`, `social/` (Reihenfolge: `modules.list`) |
-| `styles.css` | ~17 700 Zeilen CSS, mobile-first |
+| `styles.css` | ~17 900 Zeilen CSS, mobile-first |
 | `app-shell.html` | **Einzige Quelle des SPA-Bodys** (PHP-frei). Body-Markup NUR hier editieren. |
 | `index.php` | WordPress-Template: PHP-Head (Per-Page-Meta) + `readfile(app-shell.html)` + `wp_footer()`. Body NICHT direkt editieren. |
 | `index.html` | Lokale Dev-Shell, **generiert** via `./build-index-html.sh` (= `index.local-head.html` + `app-shell.html` + `index.local-foot.html`). Nicht von Hand editieren. |
-| `functions.php` | WordPress-Theme: REST API (132 Routen), Asset-Registrierung — 22 davon in `includes/social/` (Freunde, Gruppen, gemeinsamer Plan) |
+| `functions.php` | WordPress-Theme: REST API (135 Routen), Asset-Registrierung — 22 davon in `includes/social/` (Freunde, Gruppen, gemeinsamer Plan) |
 | `webauthn.php` | Passkey/WebAuthn ohne Composer-Dependencies |
 
 **JS-Workflow (seit 2026-08, kein Drift):** Frontend-Änderungen NUR in `js/modules/**`,
@@ -4255,7 +4898,7 @@ Alle Navigation läuft über `navigateTo(page, data, skipHistory)`. Seiten-Token
 
 Base: `/wp-json/eventboerse/v1/`. Aufgebaut per `_apiUrl(endpoint)` (fällt auf relativen Pfad zurück wenn `eventboerseApi.restUrl` nicht gesetzt). Authentifizierung per WordPress-Nonce → `X-WP-Nonce` Header via `_apiHeaders()`.
 
-132 Route-Registrierungen (`register_rest_route`), grob gruppiert nach: Auth, Nutzer, WebAuthn, 2FA, Listings, Messaging, Reviews, Payments, Favoriten, Admin, Rechtsablage, **Freunde & Gruppen** (`includes/social/routen.php`), **gemeinsamer Plan** (`includes/social/plan-routen.php`), Utilities.
+135 Route-Registrierungen (`register_rest_route`), grob gruppiert nach: Auth, Nutzer, WebAuthn, 2FA, Listings, Messaging, Reviews, Payments, Favoriten, Admin, Rechtsablage, **Freunde & Gruppen** (`includes/social/routen.php`), **gemeinsamer Plan** (`includes/social/plan-routen.php`), **PStTG-Angaben** (`includes/steuer/psttg-routen.php`), Utilities.
 
 **Gezählt wird über alle PHP-Dateien, nicht nur `functions.php`.** Bis zum 09.09.2026 las `kontext.mjs` nur die eine Datei — und meldete „106 behauptet, 106 gemessen" für eine Anwendung mit 124 Routen, sobald die ersten ausgelagert waren. Ein Prüfer, der sein Subjekt nur zur Hälfte kennt, gibt eine Entwarnung, die er nicht decken kann.
 

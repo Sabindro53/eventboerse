@@ -741,7 +741,7 @@ test.describe('Neuronaler Kern', () => {
           belege: [{ file: 'js/modules/core/02-router-navigation.js', line: 59, excerpt: "document.addEventListener('click'" }],
         },
         dateien: {
-          zieldateien: ['js/modules/core/02-router-navigation.js', 'mobile-overrides.css'],
+          zieldateien: ['js/modules/core/02-router-navigation.js', 'ui-enhancements.css'],
           geaendert: [], diff_stat: '',
         },
         mitarbeiter: [
@@ -770,7 +770,7 @@ test.describe('Neuronaler Kern', () => {
     });
     expect(r.live).toBe(true);
     expect(r.mitarbeiter).toBe(4);
-    expect(r.dateien).toEqual(['js/modules/core/02-router-navigation.js', 'mobile-overrides.css', 'openrouter/auto-ux']);
+    expect(r.dateien).toEqual(['js/modules/core/02-router-navigation.js', 'ui-enhancements.css', 'openrouter/auto-ux']);
     expect(r.lieferstufen).toBe(7);
     expect(r.text).toContain('Navigation verständlicher machen');
     expect(r.text).toContain('Repo-Beleg');

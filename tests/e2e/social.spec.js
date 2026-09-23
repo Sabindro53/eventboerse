@@ -511,3 +511,68 @@ test.describe('Der Rahmen: Deckel, Erlaubnis, Schema', () => {
     expect(koerper).not.toContain('rand(');
   });
 });
+
+test.describe('Der Handle-Nachtrag ist opt-in — ausgeführt, nicht gelesen', () => {
+  // ── WARUM DIESER SCHALTER EXISTIERT ───────────────────────────────────
+  //
+  // Die Doktrin zur Personensuche lautet seit dem 09.09.2026: „Das Setzen
+  // IST die Einwilligung." Ein Nachtrag hebt genau das auf — bestehende
+  // Konten werden auffindbar, ohne dass jemand etwas gesetzt hat. Das ist
+  // eine Aussage in der Datenschutzerklärung, und sie gehört dorthin,
+  // BEVOR sie zutrifft.
+  //
+  // Derselbe Opt-in-Weg wie bei `EB_APPLE_TEAM_ID`: ohne die Konstante
+  // bleibt alles, wie es ist. Der Code ist fertig und wartet; er ist nicht
+  // abgeschaltet. Eine Zeile in `wp-config.php` startet ihn.
+  //
+  // Geprüft wird das AUSGEFÜHRT. Ein Muster im Quelltext belegt nur, dass
+  // das Wort dasteht — genau daran sind in diesem Projekt schon fünf
+  // Prüfungen gescheitert.
+
+  test('ohne die Konstante setzt der Nachtrag keinen einzigen Handle', async () => {
+    const s = stand();
+    expect(s.nachtrag_ohne_schalter, 'der Nachtrag lief ohne Freigabe').toBe(0);
+    expect(s.handles_ohne_schalter, 'ein Bestandskonto wurde ohne Freigabe auffindbar')
+      .toEqual(['', '']);
+  });
+
+  test('mit der Konstante läuft er wirklich — und die Gegenprobe gehört dazu', async () => {
+    // Ohne diese Hälfte bestünde „tut nie etwas" beide Tests, und der
+    // Schalter wäre ein Aus-Schalter statt eines Ein-Schalters.
+    const s = stand();
+    expect(s.nachtrag_mit_schalter, 'der Nachtrag tut auch mit Freigabe nichts')
+      .toBeGreaterThanOrEqual(2);
+    expect(s.handles_mit_schalter[0]).toBeTruthy();
+    expect(s.handles_mit_schalter[1]).toBeTruthy();
+  });
+
+  test('Umlaute überleben die Umschrift — auch am Wortanfang', async () => {
+    // ── DER FEHLER, DEN ERST DAS AUSFÜHREN GEZEIGT HAT ──────────────────
+    //
+    // `eb_handle_vorschlag` schrieb zuerst klein und übersetzte danach.
+    // `strtolower()` arbeitet BYTEWEISE: „Ä" sind zwei UTF-8-Bytes, keines
+    // davon ein ASCII-Großbuchstabe. Der Umlaut erreichte die Tabelle also
+    // unverändert, die nur „ä" kannte, und fiel dem `[^a-z0-9._]`-Filter
+    // zum Opfer:
+    //
+    //     „Änne Großmann"  ->  nne.grossmann
+    //     „Bo Ötzi"        ->  bo.tzi
+    //
+    // Das traf jeden Namen, der mit einem Umlaut beginnt — und der Handle
+    // ist genau das, wonach andere diese Person suchen.
+    const s = stand();
+    expect(s.handles_mit_schalter[0], 'der führende Umlaut ist verschwunden')
+      .toBe('aenne.grossmann');
+    expect(s.handles_mit_schalter[1], 'der Umlaut im zweiten Wort ist verschwunden')
+      .toBe('bo.oetzi');
+  });
+
+  test('ein zweiter Lauf tut nichts mehr', async () => {
+    // Ohne die Abschluss-Marke stünde bei JEDER Anfrage ein `get_users`
+    // über alle Konten ohne Handle. Auf dem kleinen PHP-Pool von IONOS ist
+    // das genau die Last, die am 22.08.2026 die Website hängen ließ.
+    const s = stand();
+    expect(s.nachtrag_marke).toBe('fertig');
+    expect(s.nachtrag_zweiter_lauf).toBe(0);
+  });
+});
