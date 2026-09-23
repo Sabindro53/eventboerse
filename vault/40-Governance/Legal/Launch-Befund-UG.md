@@ -12,7 +12,7 @@ Rechtsberatung: verglichen wurden die Aussagen unserer Rechtsseiten mit dem
 Code, der sie einlösen soll. Was ein Notar, ein Steuerberater oder ein Anwalt
 entscheiden muss, steht unten getrennt und ist als solches benannt.
 
-## Stand nach der Umsetzung (22.09.2026, abends)
+## Stand nach der Umsetzung (23.09.2026, abends)
 
 | Fund | Stand |
 |---|---|
@@ -21,10 +21,58 @@ entscheiden muss, steht unten getrennt und ist als solches benannt.
 | 3 · Provision ohne Rechnung | **gebaut**, wartet auf die Steuernummer |
 | 4 · Preisangabe ohne Gesamtpreis | **behoben** |
 | 5 · Vier Platzhalter im Impressum | **offen — und vor der Eintragung nicht schließbar** |
+| 6 · Stripe-Webhook hörte auf 2 von 10 Ereignissen | **behoben am 23.09.**, Tor misst es täglich |
+
+Alles ist am **23.09.2026** mit PR #283 (`1482814`) auf `main` gelandet und
+live ausgeliefert; `site-monitor.yml` bestätigt den Stand am gemergten Commit.
 
 **Die Reihenfolge ist keine Prioritätenliste, sondern eine Abhängigkeit.**
 Fund 3 und die drei Platzhalter aus Fund 5 lassen sich erst schließen, wenn
-die UG eingetragen ist und ihre Nummern hat. Alles andere ist getan.
+die UG eingetragen ist und ihre Nummern hat.
+
+### Fund 6 · Der Webhook hörte auf zwei von zehn Ereignissen
+
+Erst möglich, nachdem der Stripe-Konnektor freigeschaltet war — vorher stand
+diese Messung im PR ausdrücklich als *„nicht belegt"*.
+
+`eb_stripe_webhook()` behandelt **zehn** Ereignisse, der Live-Endpunkt sendete
+**zwei**. Acht `case`-Zweige unerreichbar, darunter
+`eb_booking_record_refund()`, das ausdrücklich für signierte Webhooks gebaut
+ist. **Eine Erstattung aus dem Stripe-Dashboard bewegte Geld und erreichte das
+Buchungsboard nie.** Der Storno-Weg aus der App war nicht betroffen — der bucht
+synchron.
+
+Gesetzt am 23.09.: `charge.updated`, `refund.created`, `refund.updated`,
+`refund.failed`, `transfer.created`. Rücklesewert über die API: **sieben**,
+`url`, `status` und `api_version` unverändert.
+
+Bewusst **nicht** gesetzt: `payment_intent.payment_failed` und `.canceled`
+(NOOP-Zweige) sowie `account.updated` — letzteres erreicht uns nur über einen
+Endpunkt mit Connect-Geltungsbereich, und der bräuchte erst ein zweites
+Signaturgeheimnis im Code.
+
+**Die API ersetzt, die Oberfläche ergänzt.** `enabled_events` per API ist ein
+Ersetzen: mit nur den fünf neuen wären die zwei Zahlungsereignisse gelöscht und
+**keine Buchung mehr erfasst worden**. Der Schreibweg bleibt gesperrt
+(`webhook_write` ist dem Konnektor bewusst nicht erteilt).
+
+### Was am Stripe-Konto darüber hinaus gemessen wurde
+
+Diese drei sind **keine** Rechtstext-Funde, aber sie stehen vor dem Release:
+
+- **`business_type: individual`** — das Konto läuft auf eine natürliche Person,
+  während Impressum und Provisionsrechnung die UG i. G. als Aussteller führen.
+  Spätestens mit der Eintragung müssen beide dieselbe Person sein.
+- **Null verbundene Konten.** Ohne ein aktives Connect-Konto lehnt der
+  Buchungspfad mit 409 ab — **heute ist keine Buchung bezahlbar**, und der
+  Onboarding-Weg wurde live nie durchlaufen.
+- **Chargebacks hatten keinen Empfänger** — behoben am 23.09.2026. Der
+  Vorgang wird jetzt festgehalten und einmal an den Betreiber gemeldet, samt
+  Beweisfrist, **ohne einen Cent zu bewegen**. Bei einer Destination Charge
+  zieht Stripe vom Plattformkonto ein, der Anbieter behält seine Auszahlung.
+  **Ob er dafür einsteht, steht in keiner AGB dieser Plattform** — deshalb
+  wird es nicht im Code entschieden. Zwei Dinge fehlen: die AGB-Klausel und
+  drei Haken im Stripe-Dashboard.
 
 ### Was beim Umsetzen dazugekommen ist
 
