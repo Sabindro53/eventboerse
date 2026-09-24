@@ -1,7 +1,7 @@
 {
   "version": 2,
   "hinweis": "Erzeugt von scripts/aktivitaeten.mjs. Nicht von Hand bearbeiten.",
-  "stand": "2026-09-23T03:35:37.772Z",
+  "stand": "2026-09-24T03:35:54.240Z",
   "gebiete": [
     {
       "stadt": "Köln",
@@ -3070,6 +3070,7 @@
         "lon": 6.96002
       },
       "entfernungKm": 0.1,
+      "webseite": "https://www.museum-ludwig.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/633480736",
@@ -3091,6 +3092,7 @@
         "lon": 6.96005
       },
       "entfernungKm": 0.1,
+      "webseite": "https://filmforumnrw.de",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/2154861456",
@@ -3112,6 +3114,7 @@
         "lon": 6.96082
       },
       "entfernungKm": 0.2,
+      "webseite": "https://www.koelner-philharmonie.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/633480737",
@@ -3133,6 +3136,7 @@
         "lon": 6.96059
       },
       "entfernungKm": 0.2,
+      "webseite": "https://www.senftoepfchen-theater.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/774756974",
@@ -3175,6 +3179,7 @@
         "lon": 6.95931
       },
       "entfernungKm": 0.2,
+      "webseite": "https://museenkoeln.de/artothek/seite.aspx?s=542",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/4085306199",
@@ -3196,6 +3201,7 @@
         "lon": 6.96041
       },
       "entfernungKm": 0.3,
+      "webseite": "https://www.timeride.de/koeln",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/9775190117",
@@ -3217,6 +3223,7 @@
         "lon": 6.95427
       },
       "entfernungKm": 0.4,
+      "webseite": "https://www.koelnisches-stadtmuseum.de",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/618164720",
@@ -3238,6 +3245,7 @@
         "lon": 6.95399
       },
       "entfernungKm": 0.4,
+      "webseite": "https://www.kolumba.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/5739097722",
@@ -3259,6 +3267,7 @@
         "lon": 6.96186
       },
       "entfernungKm": 0.4,
+      "webseite": "https://medizinmuseum.cologne/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/9693015066",
@@ -3280,6 +3289,7 @@
         "lon": 6.96195
       },
       "entfernungKm": 0.5,
+      "webseite": "https://www.haenneschen.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/260728717",
@@ -3301,6 +3311,7 @@
         "lon": 6.95024
       },
       "entfernungKm": 0.6,
+      "webseite": "https://nsdok.de/Start",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/78605265",
@@ -3322,6 +3333,7 @@
         "lon": 6.95121
       },
       "entfernungKm": 0.6,
+      "webseite": "https://www.theateramdom.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/566148999",
@@ -3406,6 +3418,7 @@
         "lon": 6.96003
       },
       "entfernungKm": 0.9,
+      "webseite": "https://www.horizont-theater.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/643554530",
@@ -3448,6 +3461,7 @@
         "lon": 6.95044
       },
       "entfernungKm": 0.9,
+      "webseite": "https://rautenstrauch-joest-museum.de/Startseite",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/3396039255",
@@ -3469,6 +3483,7 @@
         "lon": 6.94495
       },
       "entfernungKm": 1,
+      "webseite": "https://gloria.koeln/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/257905592",
@@ -3490,6 +3505,7 @@
         "lon": 6.94642
       },
       "entfernungKm": 1,
+      "webseite": "https://www.ksk-koeln.de/de/home/ihre-sparkasse/geldgeschichte.html",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/442135084",
@@ -3553,6 +3569,7 @@
         "lon": 6.94617
       },
       "entfernungKm": 1,
+      "webseite": "https://www.kollwitz.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/3364570531",
@@ -3574,6 +3591,7 @@
         "lon": 6.96248
       },
       "entfernungKm": 1,
+      "webseite": "https://www.senfmuehle.net/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/3416691017",
@@ -3595,6 +3613,7 @@
         "lon": 6.95821
       },
       "entfernungKm": 1.1,
+      "webseite": "https://metropolis-koeln.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/256221801",
@@ -3616,6 +3635,7 @@
         "lon": 6.94395
       },
       "entfernungKm": 1.2,
+      "webseite": "https://www.koelnischerkunstverein.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/643068699",
@@ -3658,6 +3678,7 @@
         "lon": 6.94516
       },
       "entfernungKm": 1.2,
+      "webseite": "https://www.turistarama.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/1770563596",
@@ -3679,6 +3700,7 @@
         "lon": 6.94227
       },
       "entfernungKm": 1.2,
+      "webseite": "https://koeln.premiumkino.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/2093703654",
@@ -3700,6 +3722,7 @@
         "lon": 6.9525
       },
       "entfernungKm": 1.2,
+      "webseite": "https://kabarett-a-z.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/2561886822",
@@ -3721,6 +3744,7 @@
         "lon": 6.94395
       },
       "entfernungKm": 1.2,
+      "webseite": "https://filmclub-813.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/6959854245",
@@ -3742,6 +3766,7 @@
         "lon": 6.93982
       },
       "entfernungKm": 1.3,
+      "webseite": "https://www.cineplex.de/koeln/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/2439165336",
@@ -3763,6 +3788,7 @@
         "lon": 6.93997
       },
       "entfernungKm": 1.3,
+      "webseite": "https://scala.koeln/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/2583505835",
@@ -3784,6 +3810,7 @@
         "lon": 6.94339
       },
       "entfernungKm": 1.3,
+      "webseite": "https://www.deutsches-tanzarchiv.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/2865852452",
@@ -3805,6 +3832,7 @@
         "lon": 6.96501
       },
       "entfernungKm": 1.3,
+      "webseite": "https://teamescape.com/koeln/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/10278245122",
@@ -3847,6 +3875,7 @@
         "lon": 6.93645
       },
       "entfernungKm": 1.6,
+      "webseite": "https://www.theaterimbauturm.de",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/570692795",
@@ -3868,6 +3897,7 @@
         "lon": 6.9368
       },
       "entfernungKm": 1.6,
+      "webseite": "https://www.volksbuehne-rudolfplatz.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/570694025",
@@ -3910,6 +3940,7 @@
         "lon": 6.93508
       },
       "entfernungKm": 1.6,
+      "webseite": "https://www.stadtgarten.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/7635404829",
@@ -3931,6 +3962,7 @@
         "lon": 6.95823
       },
       "entfernungKm": 1.8,
+      "webseite": "https://www.odeon-koeln.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/442702960",
@@ -3952,6 +3984,7 @@
         "lon": 6.9656
       },
       "entfernungKm": 1.8,
+      "webseite": "https://www.openairkino.koeln/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/4208442902",
@@ -3973,6 +4006,7 @@
         "lon": 6.93312
       },
       "entfernungKm": 1.8,
+      "webseite": "https://www.hinterhofsalon.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/10761843173",
@@ -3994,6 +4028,7 @@
         "lon": 6.93548
       },
       "entfernungKm": 1.9,
+      "webseite": "https://www.ateliertheater.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/54020150",
@@ -4015,6 +4050,7 @@
         "lon": 6.9379
       },
       "entfernungKm": 1.9,
+      "webseite": "https://www.off-broadway.de",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/283419882",
@@ -4036,6 +4072,7 @@
         "lon": 6.93603
       },
       "entfernungKm": 1.9,
+      "webseite": "https://theaterimhof.wordpress.com/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/772522952",
@@ -4057,6 +4094,7 @@
         "lon": 6.93949
       },
       "entfernungKm": 2,
+      "webseite": "https://www.adventurerooms-koeln.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/9293555638",
@@ -4078,6 +4116,7 @@
         "lon": 6.94491
       },
       "entfernungKm": 2.1,
+      "webseite": "https://www.metropol-theater-koeln.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/441666353",
@@ -4099,6 +4138,7 @@
         "lon": 6.95593
       },
       "entfernungKm": 2.2,
+      "webseite": "https://www.theater-am-sachsenring.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/2345358823",
@@ -4120,6 +4160,7 @@
         "lon": 6.94942
       },
       "entfernungKm": 2.3,
+      "webseite": "https://www.orangerie-theater.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/293147739",
@@ -4141,6 +4182,7 @@
         "lon": 6.95558
       },
       "entfernungKm": 2.3,
+      "webseite": "https://www.comedia-koeln.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/487083035",
@@ -4162,6 +4204,7 @@
         "lon": 6.94917
       },
       "entfernungKm": 2.3,
+      "webseite": "https://www.kulturkirche-koeln.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/2111971110",
@@ -4183,6 +4226,7 @@
         "lon": 6.93466
       },
       "entfernungKm": 2.3,
+      "webseite": "https://geologie.uni-koeln.de/geomuseum",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/6240480851",
@@ -4246,6 +4290,7 @@
         "lon": 6.94027
       },
       "entfernungKm": 2.7,
+      "webseite": "https://www.kino-hole.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/3354691743",
@@ -4288,6 +4333,7 @@
         "lon": 6.92187
       },
       "entfernungKm": 2.7,
+      "webseite": "https://www.thephotobookmuseum.com/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/6960216315",
@@ -4309,6 +4355,7 @@
         "lon": 7.00168
       },
       "entfernungKm": 3,
+      "webseite": "https://www.lichtspiele-kalk.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/5221829513",
@@ -4372,6 +4419,7 @@
         "lon": 7.0046
       },
       "entfernungKm": 3.3,
+      "webseite": "https://www.schauspiel.koeln/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/766477984",
@@ -4393,6 +4441,7 @@
         "lon": 6.91357
       },
       "entfernungKm": 3.3,
+      "webseite": "https://www.zamus.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/3469981820",
@@ -4414,6 +4463,7 @@
         "lon": 6.91223
       },
       "entfernungKm": 3.4,
+      "webseite": "https://www.domid.org/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/6227667062",
@@ -4477,6 +4527,7 @@
         "lon": 6.98237
       },
       "entfernungKm": 5,
+      "webseite": "https://welt.unter.koeln/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/603582311",
@@ -4498,6 +4549,7 @@
         "lon": 7.04119
       },
       "entfernungKm": 6.6,
+      "webseite": "https://www.cassiopeia-buehne.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/4624194091",
@@ -4519,6 +4571,7 @@
         "lon": 6.86566
       },
       "entfernungKm": 7,
+      "webseite": "https://www.toyota-collection.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/10178408952",
@@ -4540,6 +4593,7 @@
         "lon": 6.87535
       },
       "entfernungKm": 9,
+      "webseite": "https://www.uci-kinowelt.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/1547098411",
@@ -4603,6 +4657,7 @@
         "lon": 6.82445
       },
       "entfernungKm": 9.4,
+      "webseite": "https://www.roemergrab.de",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/3097141267",
@@ -4624,6 +4679,7 @@
         "lon": 7.08585
       },
       "entfernungKm": 9.8,
+      "webseite": "https://hsk.koeln",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/280843747",
@@ -4666,6 +4722,7 @@
         "lon": 6.98801
       },
       "entfernungKm": 10.5,
+      "webseite": "https://www.cineplex.de/leverkusen/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/293514914",
@@ -4687,6 +4744,7 @@
         "lon": 6.98151
       },
       "entfernungKm": 10.5,
+      "webseite": "https://www.kolonie-museum.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/1359830120",
@@ -4729,6 +4787,7 @@
         "lon": 6.98972
       },
       "entfernungKm": 10.6,
+      "webseite": "https://forumleverkusen.de",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/3872554959",
@@ -4771,6 +4830,7 @@
         "lon": 7.09674
       },
       "entfernungKm": 10.9,
+      "webseite": "https://www.wahnerheide-koenigsforst.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/2330814917",
@@ -4834,6 +4894,7 @@
         "lon": 6.81453
       },
       "entfernungKm": 12.5,
+      "webseite": "https://www.berli-huerth.de",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/423885688",
@@ -4897,6 +4958,7 @@
         "lon": 6.90536
       },
       "entfernungKm": 12.9,
+      "webseite": "https://agent-y.de",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/7279800370",
@@ -4918,6 +4980,7 @@
         "lon": 6.92241
       },
       "entfernungKm": 13.1,
+      "webseite": "https://heimatvereinhitdorf.wordpress.com/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/1782849884",
@@ -4939,6 +5002,7 @@
         "lon": 6.90522
       },
       "entfernungKm": 13.2,
+      "webseite": "https://www.zoomkino.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/272089111",
@@ -4981,6 +5045,7 @@
         "lon": 6.91906
       },
       "entfernungKm": 13.5,
+      "webseite": "https://www.matchboxtheater.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/1782843866",
@@ -5044,6 +5109,7 @@
         "lon": 7.0059
       },
       "entfernungKm": 13.8,
+      "webseite": "https://www.jungestheater.net/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/5870415385",
@@ -5065,6 +5131,7 @@
         "lon": 7.00634
       },
       "entfernungKm": 13.8,
+      "webseite": "https://studiobuehne-leverkusen.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/5870419385",
@@ -5086,6 +5153,7 @@
         "lon": 7.00473
       },
       "entfernungKm": 13.9,
+      "webseite": "https://www.scala-cinema-lev.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/365574086",
@@ -5107,6 +5175,7 @@
         "lon": 7.15522
       },
       "entfernungKm": 14.1,
+      "webseite": "https://www.bensbergerbuehnenbande.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/2499283017",
@@ -5128,6 +5197,7 @@
         "lon": 7.15762
       },
       "entfernungKm": 14.2,
+      "webseite": "https://www.conrads-couch.de",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/7706877762",
@@ -5149,6 +5219,7 @@
         "lon": 7.16015
       },
       "entfernungKm": 14.4,
+      "webseite": "https://www.cineplex.de/bergisch-gladbach",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/9845997660",
@@ -5170,6 +5241,7 @@
         "lon": 6.7738
       },
       "entfernungKm": 0,
+      "webseite": "https://www.ns-gedenkstaetten.de/nrw/duesseldorf",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/1577235652",
@@ -5191,6 +5263,7 @@
         "lon": 6.77559
       },
       "entfernungKm": 0.2,
+      "webseite": "https://www.kommoedchen.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/253876259",
@@ -5212,6 +5285,7 @@
         "lon": 6.77109
       },
       "entfernungKm": 0.2,
+      "webseite": "https://www.schifffahrtmuseum.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/307436292",
@@ -5233,6 +5307,7 @@
         "lon": 6.77575
       },
       "entfernungKm": 0.2,
+      "webseite": "https://www.kunstsammlung.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/671436239",
@@ -5254,6 +5329,7 @@
         "lon": 6.77332
       },
       "entfernungKm": 0.2,
+      "webseite": "https://filmkunstkinos.de/kinos/cinema/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/1577234965",
@@ -5296,6 +5372,7 @@
         "lon": 6.77578
       },
       "entfernungKm": 0.2,
+      "webseite": "https://www.kunsthalle-duesseldorf.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/1577235480",
@@ -5317,6 +5394,7 @@
         "lon": 6.77593
       },
       "entfernungKm": 0.2,
+      "webseite": "https://www.kunstsammlung.de/de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/3478983042",
@@ -5359,6 +5437,7 @@
         "lon": 6.77074
       },
       "entfernungKm": 0.4,
+      "webseite": "https://www.duesseldorf.de/filmmuseum",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/1560610032",
@@ -5380,6 +5459,7 @@
         "lon": 6.77086
       },
       "entfernungKm": 0.4,
+      "webseite": "https://www.duesseldorf.de/filmmuseum/black-box.html",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/1640116452",
@@ -5401,6 +5481,7 @@
         "lon": 6.77109
       },
       "entfernungKm": 0.5,
+      "webseite": "https://www.duesseldorf.de/hetjens/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/1560610035",
@@ -5422,6 +5503,7 @@
         "lon": 6.7813
       },
       "entfernungKm": 0.6,
+      "webseite": "https://www.duesseldorf.de/theatermuseum/index.shtml",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/336252050",
@@ -5443,6 +5525,7 @@
         "lon": 6.77302
       },
       "entfernungKm": 0.6,
+      "webseite": "https://www.duesseldorf.de/heineinstitut.html",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/671436231",
@@ -5464,6 +5547,7 @@
         "lon": 6.78113
       },
       "entfernungKm": 0.6,
+      "webseite": "https://www.theateranderkoe.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/788677717",
@@ -5485,6 +5569,7 @@
         "lon": 6.77274
       },
       "entfernungKm": 0.6,
+      "webseite": "https://www.marionettentheater-duesseldorf.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/1560610041",
@@ -5506,6 +5591,7 @@
         "lon": 6.7699
       },
       "entfernungKm": 0.6,
+      "webseite": "https://www.duesseldorf.de/stadtmuseum",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/1560610195",
@@ -5548,6 +5634,7 @@
         "lon": 6.78329
       },
       "entfernungKm": 0.7,
+      "webseite": "https://www.dhaus.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/6310482655",
@@ -5569,6 +5656,7 @@
         "lon": 6.7731
       },
       "entfernungKm": 0.8,
+      "webseite": "https://www.kunstpalast.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/254342155",
@@ -5653,6 +5741,7 @@
         "lon": 6.76025
       },
       "entfernungKm": 1,
+      "webseite": "https://theaterluegallee.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/1674269138",
@@ -5674,6 +5763,7 @@
         "lon": 6.78791
       },
       "entfernungKm": 1,
+      "webseite": "https://www.malkasten.org/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/3051807899",
@@ -5695,6 +5785,7 @@
         "lon": 6.76671
       },
       "entfernungKm": 1,
+      "webseite": "https://www.kunst-im-tunnel.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/3432190041",
@@ -5716,6 +5807,7 @@
         "lon": 6.76564
       },
       "entfernungKm": 1.1,
+      "webseite": "https://www.apollo-variete.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/3390783148",
@@ -5737,6 +5829,7 @@
         "lon": 6.78937
       },
       "entfernungKm": 1.2,
+      "webseite": "https://filmkunstkinos.de/kinos/bambi/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/241429162",
@@ -5758,6 +5851,7 @@
         "lon": 6.78048
       },
       "entfernungKm": 1.2,
+      "webseite": "https://www.fft-duesseldorf.de/de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/1803647569",
@@ -5779,6 +5873,7 @@
         "lon": 6.77397
       },
       "entfernungKm": 1.2,
+      "webseite": "https://www.kunstsammlung.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/6284442744",
@@ -5800,6 +5895,7 @@
         "lon": 6.78449
       },
       "entfernungKm": 1.3,
+      "webseite": "https://filmkunstkinos.de/kinos/atelier/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/241429075",
@@ -5821,6 +5917,7 @@
         "lon": 6.78446
       },
       "entfernungKm": 1.3,
+      "webseite": "https://www.savoy-theater.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/1548651378",
@@ -5842,6 +5939,7 @@
         "lon": 6.78535
       },
       "entfernungKm": 1.4,
+      "webseite": "https://theater-der-klaenge.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/5308064437",
@@ -5863,6 +5961,7 @@
         "lon": 6.79332
       },
       "entfernungKm": 1.5,
+      "webseite": "https://www.fft-duesseldorf.de/de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/702299246",
@@ -5884,6 +5983,7 @@
         "lon": 6.79394
       },
       "entfernungKm": 1.6,
+      "webseite": "https://www.ufa-duesseldorf.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/241429149",
@@ -5905,6 +6005,7 @@
         "lon": 6.79522
       },
       "entfernungKm": 1.6,
+      "webseite": "https://www.dhaus.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/339158418",
@@ -5947,6 +6048,7 @@
         "lon": 6.78677
       },
       "entfernungKm": 1.8,
+      "webseite": "https://www.puppentheater.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/1572644191",
@@ -5989,6 +6091,7 @@
         "lon": 6.8006
       },
       "entfernungKm": 1.9,
+      "webseite": "https://www.capitol-theater.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/4734333859",
@@ -6010,6 +6113,7 @@
         "lon": 6.79995
       },
       "entfernungKm": 1.9,
+      "webseite": "https://tanzhaus-nrw.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/4734333860",
@@ -6031,6 +6135,7 @@
         "lon": 6.80265
       },
       "entfernungKm": 2,
+      "webseite": "https://www.filmwerkstatt-duesseldorf.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/4434775613",
@@ -6052,6 +6157,7 @@
         "lon": 6.80252
       },
       "entfernungKm": 2,
+      "webseite": "https://www.philara.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/5386930338",
@@ -6073,6 +6179,7 @@
         "lon": 6.75156
       },
       "entfernungKm": 2.2,
+      "webseite": "https://www.uci-kinowelt.de/kinoinformation/duesseldorf/50",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/4796419971",
@@ -6094,6 +6201,7 @@
         "lon": 6.77856
       },
       "entfernungKm": 2.3,
+      "webseite": "https://filmkunstkinos.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/669641439",
@@ -6115,6 +6223,7 @@
         "lon": 6.81591
       },
       "entfernungKm": 3.1,
+      "webseite": "https://www.event-theater-schwanenhoefe.de",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/2414713148",
@@ -6157,6 +6266,7 @@
         "lon": 6.82248
       },
       "entfernungKm": 3.5,
+      "webseite": "https://www.theaterkantine.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/3388822048",
@@ -6199,6 +6309,7 @@
         "lon": 6.74983
       },
       "entfernungKm": 3.6,
+      "webseite": "https://www.duesseldorf.de/aquazoo/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/5468662274",
@@ -6220,6 +6331,7 @@
         "lon": 6.74981
       },
       "entfernungKm": 3.6,
+      "webseite": "https://www.duesseldorf.de/aquazoo/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/5468662275",
@@ -6262,6 +6374,7 @@
         "lon": 6.71968
       },
       "entfernungKm": 4.1,
+      "webseite": "https://www.cinestar.de/kino-duesseldorf/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/6170800976",
@@ -6283,6 +6396,7 @@
         "lon": 6.83325
       },
       "entfernungKm": 4.4,
+      "webseite": "https://www.kabarettflin.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/4315823433",
@@ -6304,6 +6418,7 @@
         "lon": 6.8236
       },
       "entfernungKm": 5,
+      "webseite": "https://remise.de/duesseldorf",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/6284480266",
@@ -6325,6 +6440,7 @@
         "lon": 6.7727
       },
       "entfernungKm": 5,
+      "webseite": "https://www.baeder-duesseldorf.de/baeder-und-saunen/hallenbaeder/gartenhallenbad-unterrath/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/6284658975",
@@ -6367,6 +6483,7 @@
         "lon": 6.8475
       },
       "entfernungKm": 6.3,
+      "webseite": "https://arbeitskreis-kultur.de/startseite/ak-forum-am-schloss-eller/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/1551976770",
@@ -6388,6 +6505,7 @@
         "lon": 6.69581
       },
       "entfernungKm": 6.4,
+      "webseite": "https://www.rlt-neuss.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/252601444",
@@ -6409,6 +6527,7 @@
         "lon": 6.69549
       },
       "entfernungKm": 6.4,
+      "webseite": "https://www.hitch.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/320695007",
@@ -6430,6 +6549,7 @@
         "lon": 6.69609
       },
       "entfernungKm": 6.5,
+      "webseite": "https://rheinisches-schuetzenmuseum.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/943474917",
@@ -6451,6 +6571,7 @@
         "lon": 6.69017
       },
       "entfernungKm": 6.7,
+      "webseite": "https://www.altepost.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/288038090",
@@ -6493,6 +6614,7 @@
         "lon": 6.85086
       },
       "entfernungKm": 8.4,
+      "webseite": "https://www.baeder-duesseldorf.de/baeder/hallenbaeder/familienbad-niederheid/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/6284707943",
@@ -6514,6 +6636,7 @@
         "lon": 6.73855
       },
       "entfernungKm": 8.6,
+      "webseite": "https://www.museum-kaiserswerth.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/1094642115",
@@ -6535,6 +6658,7 @@
         "lon": 6.84879
       },
       "entfernungKm": 9.4,
+      "webseite": "https://kino-ratingen.eu",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/1987022126",
@@ -6556,6 +6680,7 @@
         "lon": 6.84701
       },
       "entfernungKm": 9.4,
+      "webseite": "https://www.stadt-ratingen.de/kultur-und-tourismus/museum-ratingen",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/2734528598",
@@ -6577,6 +6702,7 @@
         "lon": 6.84435
       },
       "entfernungKm": 9.7,
+      "webseite": "https://www.stadtwerke-ratingen.de/baeder/freibad-angerbad",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/2927464447",
@@ -6598,6 +6724,7 @@
         "lon": 6.86934
       },
       "entfernungKm": 9.9,
+      "webseite": "https://www.schloss-benrath.de/entdecken/naturkundemuseum/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/4227162332",
@@ -6619,6 +6746,7 @@
         "lon": 6.86883
       },
       "entfernungKm": 9.9,
+      "webseite": "https://www.schloss-benrath.de/museumsshop",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/6284575432",
@@ -6640,6 +6768,7 @@
         "lon": 6.87161
       },
       "entfernungKm": 10,
+      "webseite": "https://www.schloss-benrath.de/entdecken/museum-fuer-gartenkunst/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/4227219441",
@@ -6787,6 +6916,7 @@
         "lon": 6.94882
       },
       "entfernungKm": 12.3,
+      "webseite": "https://www.lokschuppen-hochdahl.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/1788937519",
@@ -6808,6 +6938,7 @@
         "lon": 6.6472
       },
       "entfernungKm": 12.3,
+      "webseite": "https://thomas-schuette-stiftung.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/4109359058",
@@ -6829,6 +6960,7 @@
         "lon": 6.9277
       },
       "entfernungKm": 12.6,
+      "webseite": "https://www.wilhelm-fabry-museum.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/292260649",
@@ -6850,6 +6982,7 @@
         "lon": 6.9294
       },
       "entfernungKm": 12.7,
+      "webseite": "https://www.luxlichtspiele.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/296235034",
@@ -6871,6 +7004,7 @@
         "lon": 6.87283
       },
       "entfernungKm": 12.9,
+      "webseite": "https://hausbuergel.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/1558180648",
@@ -6955,6 +7089,7 @@
         "lon": 6.63711
       },
       "entfernungKm": 15.1,
+      "webseite": "https://www.deutschestextilmuseum.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/487881203",
@@ -6997,6 +7132,7 @@
         "lon": 6.63533
       },
       "entfernungKm": 15.2,
+      "webseite": "https://www.historischefeuerwehr.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/5110188181",
@@ -7018,6 +7154,7 @@
         "lon": 6.63618
       },
       "entfernungKm": 15.3,
+      "webseite": "https://www.museumburglinn.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/482469292",
@@ -7123,6 +7260,7 @@
         "lon": 6.58193
       },
       "entfernungKm": 17.5,
+      "webseite": "https://kufa-reloaded.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/940559461",
@@ -7144,6 +7282,7 @@
         "lon": 6.52086
       },
       "entfernungKm": 17.7,
+      "webseite": "https://www.heimatverein-willich.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/4210440475",
@@ -7165,6 +7304,7 @@
         "lon": 6.94916
       },
       "entfernungKm": 18,
+      "webseite": "https://www.schauplatz.de/programm.html",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/527393838",
@@ -7207,6 +7347,7 @@
         "lon": 6.98187
       },
       "entfernungKm": 18.7,
+      "webseite": "https://ubz-heiligenhaus.de/wald-und-wassermuseum/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/577924100",
@@ -7228,6 +7369,7 @@
         "lon": 6.55945
       },
       "entfernungKm": 18.8,
+      "webseite": "https://www.kunstmuseenkrefeld.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/527192595",
@@ -7270,6 +7412,7 @@
         "lon": 7.46526
       },
       "entfernungKm": 0.1,
+      "webseite": "https://www.keyandfree.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/6101149960",
@@ -7291,6 +7434,7 @@
         "lon": 7.46408
       },
       "entfernungKm": 0.2,
+      "webseite": "https://www.apotheken-museum.de",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/11416707256",
@@ -7333,6 +7477,7 @@
         "lon": 7.46474
       },
       "entfernungKm": 0.4,
+      "webseite": "https://schauburg-kino.com",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/12052247975",
@@ -7354,6 +7499,7 @@
         "lon": 7.46301
       },
       "entfernungKm": 0.4,
+      "webseite": "https://www.dortmund.de/dortmund-erleben/freizeit-und-kultur/museen/museum-fuer-kunst-und-kulturgeschichte/startseite/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/way/23718610",
@@ -7375,6 +7521,7 @@
         "lon": 7.46015
       },
       "entfernungKm": 0.5,
+      "webseite": "https://www.dortmund.de/dortmund-erleben/freizeit-und-kultur/museen/schauraum-comic-cartoon/index-2.html",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/11753736050",
@@ -7396,6 +7543,7 @@
         "lon": 7.45735
       },
       "entfernungKm": 0.6,
+      "webseite": "https://www.enigmania.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/11390832230",
@@ -7438,6 +7586,7 @@
         "lon": 7.45378
       },
       "entfernungKm": 0.9,
+      "webseite": "https://www.fletch-bizzel.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/357857726",
@@ -7459,6 +7608,7 @@
         "lon": 7.453
       },
       "entfernungKm": 0.9,
+      "webseite": "https://www.hmkv.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/4747029532",
@@ -7480,6 +7630,7 @@
         "lon": 7.45314
       },
       "entfernungKm": 0.9,
+      "webseite": "https://dortmunder-u.de/museum-ostwall/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/12442209338",
@@ -7501,6 +7652,7 @@
         "lon": 7.45928
       },
       "entfernungKm": 1,
+      "webseite": "https://www.dortmund.de/de/leben_in_dortmund/sport/schwimmbaeder/nordbad/index.html",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/11079663508",
@@ -7522,6 +7674,7 @@
         "lon": 7.46271
       },
       "entfernungKm": 1.2,
+      "webseite": "https://www.sweetsixteen-kino.de/roxy/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/360805003",
@@ -7585,6 +7738,7 @@
         "lon": 7.4718
       },
       "entfernungKm": 1.9,
+      "webseite": "https://www.mondomio.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/9710802022",
@@ -7648,6 +7802,7 @@
         "lon": 7.4528
       },
       "entfernungKm": 2.3,
+      "webseite": "https://www.theaterimdepot.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/660583811",
@@ -7669,6 +7824,7 @@
         "lon": 7.44263
       },
       "entfernungKm": 2.3,
+      "webseite": "https://deutsches-industrielack-museum.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/12442201783",
@@ -7711,6 +7867,7 @@
         "lon": 7.49507
       },
       "entfernungKm": 2.4,
+      "webseite": "https://www.keyandfree.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/6105269267",
@@ -7732,6 +7889,7 @@
         "lon": 7.45794
       },
       "entfernungKm": 2.5,
+      "webseite": "https://dortmund.de/naturmuseum",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/way/25405572",
@@ -7774,6 +7932,7 @@
         "lon": 7.42076
       },
       "entfernungKm": 3.5,
+      "webseite": "https://www.dasa-dortmund.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/277138370",
@@ -7879,6 +8038,7 @@
         "lon": 7.43413
       },
       "entfernungKm": 4.6,
+      "webseite": "https://www.sportwelt-dortmund.de/freibaeder/hardenberg/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/way/25424473",
@@ -7900,6 +8060,7 @@
         "lon": 7.4103
       },
       "entfernungKm": 5.1,
+      "webseite": "https://www.industriedenkmal-stiftung.de/denkmale/kokerei-hansa",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/way/23341046",
@@ -7942,6 +8103,7 @@
         "lon": 7.38358
       },
       "entfernungKm": 5.7,
+      "webseite": "https://www.dortmund.de/dortmund-erleben/freizeit-und-kultur/museen/westfaelisches-schulmuseum/index-2.html",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/1710965479",
@@ -7984,6 +8146,7 @@
         "lon": 7.46725
       },
       "entfernungKm": 5.8,
+      "webseite": "https://www.theater-olpketal.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/8639021140",
@@ -8005,6 +8168,7 @@
         "lon": 7.5509
       },
       "entfernungKm": 6.5,
+      "webseite": "https://www.tridelta.de/de/magnetmuseum",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/8638913853",
@@ -8026,6 +8190,7 @@
         "lon": 7.34959
       },
       "entfernungKm": 8,
+      "webseite": "https://basis-datensysteme.de/museumluedo/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/855366330",
@@ -8068,6 +8233,7 @@
         "lon": 7.37622
       },
       "entfernungKm": 8.7,
+      "webseite": "https://www.buv-kleinzeche.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/13343376700",
@@ -8110,6 +8276,7 @@
         "lon": 7.56795
       },
       "entfernungKm": 9.1,
+      "webseite": "https://studio7theater.de",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/13687973754",
@@ -8152,6 +8319,7 @@
         "lon": 7.56816
       },
       "entfernungKm": 10.2,
+      "webseite": "https://www.hof-grundmann.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/11986723256",
@@ -8194,6 +8362,7 @@
         "lon": 7.32078
       },
       "entfernungKm": 10.7,
+      "webseite": "https://endstation-kino.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/803633110",
@@ -8215,6 +8384,7 @@
         "lon": 7.56943
       },
       "entfernungKm": 11,
+      "webseite": "https://www.theateramfluss.de",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/13032341101",
@@ -8236,6 +8406,7 @@
         "lon": 7.34502
       },
       "entfernungKm": 11.2,
+      "webseite": "https://www.dwr.de/startseite/mutterhaus/angebote/museum",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/1673452687",
@@ -8299,6 +8470,7 @@
         "lon": 7.52416
       },
       "entfernungKm": 11.6,
+      "webseite": "https://www.lippescape.de",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/6592231586",
@@ -8320,6 +8492,7 @@
         "lon": 7.52005
       },
       "entfernungKm": 11.8,
+      "webseite": "https://www.luenen.de/de/mein-luenen/museum/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/12860956381",
@@ -8362,6 +8535,7 @@
         "lon": 7.33431
       },
       "entfernungKm": 11.9,
+      "webseite": "https://www.theater-intern.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/12182021750",
@@ -8383,6 +8557,7 @@
         "lon": 7.52243
       },
       "entfernungKm": 12,
+      "webseite": "https://www.cineworld-luenen.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/444394610",
@@ -8404,6 +8579,7 @@
         "lon": 7.33619
       },
       "entfernungKm": 12.1,
+      "webseite": "https://escaperoom-witten.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/1348532613",
@@ -8425,6 +8601,7 @@
         "lon": 7.45562
       },
       "entfernungKm": 12.1,
+      "webseite": "https://www.hagenbad.de/baeder/freibad-suedufer-hengstey",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/way/25015256",
@@ -8446,6 +8623,7 @@
         "lon": 7.33738
       },
       "entfernungKm": 12.2,
+      "webseite": "https://www.burg-kino-witten.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/523013318",
@@ -8509,6 +8687,7 @@
         "lon": 7.33408
       },
       "entfernungKm": 12.7,
+      "webseite": "https://www.kulturforum-witten.de/de/saalbauhauswitten/saalbau/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/671359928",
@@ -8530,6 +8709,7 @@
         "lon": 7.42979
       },
       "entfernungKm": 12.7,
+      "webseite": "https://onikon.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/1591352741",
@@ -8551,6 +8731,7 @@
         "lon": 7.28225
       },
       "entfernungKm": 12.7,
+      "webseite": "https://www.zauberkasten.de",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/1756602272",
@@ -8572,6 +8753,7 @@
         "lon": 7.28215
       },
       "entfernungKm": 12.7,
+      "webseite": "https://www.puzzleum.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/11133663723",
@@ -8593,6 +8775,7 @@
         "lon": 7.43178
       },
       "entfernungKm": 12.8,
+      "webseite": "https://theater-am-stiftsplatz.de",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/13267321287",
@@ -8614,6 +8797,7 @@
         "lon": 7.5855
       },
       "entfernungKm": 12.9,
+      "webseite": "https://www.elsebad.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/way/23516982",
@@ -8635,6 +8819,7 @@
         "lon": 7.27847
       },
       "entfernungKm": 13.1,
+      "webseite": "https://www.bodaborg.de/bochum/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/1103094168",
@@ -8677,6 +8862,7 @@
         "lon": 7.27769
       },
       "entfernungKm": 13.1,
+      "webseite": "https://www.uci-kinowelt.de/kinoprogramm/bochum-ruhr-park/46",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/6166772110",
@@ -8719,6 +8905,7 @@
         "lon": 7.58945
       },
       "entfernungKm": 13.7,
+      "webseite": "https://www.stadtmuseum-bergkamen.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/1414224408",
@@ -8740,6 +8927,7 @@
         "lon": 7.26095
       },
       "entfernungKm": 14.2,
+      "webseite": "https://www.suite-magic.de",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/12837411903",
@@ -8845,6 +9033,7 @@
         "lon": 7.32543
       },
       "entfernungKm": 15,
+      "webseite": "https://www.lwl.org/LWL/Kultur/wim/portal/S/henrichenburg/ort/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/3203128566",
@@ -8929,6 +9118,7 @@
         "lon": 7.68584
       },
       "entfernungKm": 15.4,
+      "webseite": "https://www.kino-unna.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/256908978",
@@ -8950,6 +9140,7 @@
         "lon": 7.24497
       },
       "entfernungKm": 15.5,
+      "webseite": "https://www.telekom-historik.de",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/11909558492",
@@ -9034,6 +9225,7 @@
         "lon": 7.32448
       },
       "entfernungKm": 16.1,
+      "webseite": "https://katielli.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/1248161592",
@@ -9076,6 +9268,7 @@
         "lon": 7.26001
       },
       "entfernungKm": 16.3,
+      "webseite": "https://www.ruhr-uni-bochum.de/kgi/institut/kusa/kusa.htm",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/638775065",
@@ -9097,6 +9290,7 @@
         "lon": 7.22578
       },
       "entfernungKm": 16.6,
+      "webseite": "https://www.theaterkohlenpott.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/506573993",
@@ -9118,6 +9312,7 @@
         "lon": 7.22881
       },
       "entfernungKm": 16.8,
+      "webseite": "https://www.bochum.de/stadtarchiv",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/698845031",
@@ -9181,6 +9376,7 @@
         "lon": 7.34091
       },
       "entfernungKm": 16.9,
+      "webseite": "https://50erjahremuseumdatteln.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/12471806339",
@@ -9223,6 +9419,7 @@
         "lon": 7.22108
       },
       "entfernungKm": 17.2,
+      "webseite": "https://www.kunstmuseumbochum.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/384826531",
@@ -9244,6 +9441,7 @@
         "lon": 7.21682
       },
       "entfernungKm": 17.5,
+      "webseite": "https://arcade-lounge.de/unsere-standorte/locations/bochum",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/7769436077",
@@ -9265,6 +9463,7 @@
         "lon": 7.51313
       },
       "entfernungKm": 17.5,
+      "webseite": "https://www.osthausmuseum.de/web/de/keom/museum/hohenhofhagenerimpuls/hohenhofhagenerimpuls.html",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/9779424475",
@@ -9286,6 +9485,7 @@
         "lon": 7.21686
       },
       "entfernungKm": 17.6,
+      "webseite": "https://capitol.bochumerkinos.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/1116378141",
@@ -9328,6 +9528,7 @@
         "lon": 7.21672
       },
       "entfernungKm": 17.6,
+      "webseite": "https://rätselraum.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/7022845525",
@@ -9349,6 +9550,7 @@
         "lon": 7.21638
       },
       "entfernungKm": 17.7,
+      "webseite": "https://www.casablanca-bochum.de",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/30913756",
@@ -9391,6 +9593,7 @@
         "lon": 13.40691
       },
       "entfernungKm": 0.2,
+      "webseite": "https://www.illuseum-berlin.de",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/5875331486",
@@ -9412,6 +9615,7 @@
         "lon": 13.4089
       },
       "entfernungKm": 0.3,
+      "webseite": "https://koerperwelten.de/ausstellung/berlin/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/3676215899",
@@ -9433,6 +9637,7 @@
         "lon": 13.40847
       },
       "entfernungKm": 0.3,
+      "webseite": "https://www.officiallittlebigcity.com/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/6834779786",
@@ -9475,6 +9680,7 @@
         "lon": 13.40614
       },
       "entfernungKm": 0.4,
+      "webseite": "https://zille-museum.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/1476011662",
@@ -9496,6 +9702,7 @@
         "lon": 13.40588
       },
       "entfernungKm": 0.4,
+      "webseite": "https://escape-zone.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/4516609992",
@@ -9517,6 +9724,7 @@
         "lon": 13.40603
       },
       "entfernungKm": 0.4,
+      "webseite": "https://www.designpanoptikum.com",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/5119217259",
@@ -9538,6 +9746,7 @@
         "lon": 13.40123
       },
       "entfernungKm": 0.4,
+      "webseite": "https://www.humboldtforum.org",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/8413352835",
@@ -9559,6 +9768,7 @@
         "lon": 13.40191
       },
       "entfernungKm": 0.5,
+      "webseite": "https://www.hoefekino.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/343650200",
@@ -9622,6 +9832,7 @@
         "lon": 13.40219
       },
       "entfernungKm": 0.5,
+      "webseite": "https://www.museum-blindenwerkstatt.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/1653339015",
@@ -9643,6 +9854,7 @@
         "lon": 13.40192
       },
       "entfernungKm": 0.5,
+      "webseite": "https://www.annefrank.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/2164030082",
@@ -9664,6 +9876,7 @@
         "lon": 13.40799
       },
       "entfernungKm": 0.5,
+      "webseite": "https://www.hanfmuseum.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/4838662169",
@@ -9685,6 +9898,7 @@
         "lon": 13.41198
       },
       "entfernungKm": 0.5,
+      "webseite": "https://td.berlin",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/5249346659",
@@ -9706,6 +9920,7 @@
         "lon": 13.39753
       },
       "entfernungKm": 0.5,
+      "webseite": "https://www.dhm.de/zeughauskino/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/6582271201",
@@ -9790,6 +10005,7 @@
         "lon": 13.39702
       },
       "entfernungKm": 0.6,
+      "webseite": "https://www.dhm.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/3203167561",
@@ -9811,6 +10027,7 @@
         "lon": 13.4016
       },
       "entfernungKm": 0.7,
+      "webseite": "https://www.sophiensaele.com/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/229948256",
@@ -9832,6 +10049,7 @@
         "lon": 13.3955
       },
       "entfernungKm": 0.7,
+      "webseite": "https://www.theater-im-palais.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/545733901",
@@ -9853,6 +10071,7 @@
         "lon": 13.39508
       },
       "entfernungKm": 0.7,
+      "webseite": "https://www.gorki.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/1457124704",
@@ -9874,6 +10093,7 @@
         "lon": 13.39909
       },
       "entfernungKm": 0.7,
+      "webseite": "https://www.magicum-berlin.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/4511961891",
@@ -9895,6 +10115,7 @@
         "lon": 13.39752
       },
       "entfernungKm": 0.7,
+      "webseite": "https://www.smb.museum/museen-einrichtungen/friedrichswerdersche-kirche/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/9277014760",
@@ -9937,6 +10158,7 @@
         "lon": 13.41645
       },
       "entfernungKm": 0.8,
+      "webseite": "https://outopia-berlin.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/4528315394",
@@ -9958,6 +10180,7 @@
         "lon": 13.39637
       },
       "entfernungKm": 0.8,
+      "webseite": "https://boulezsaal.de",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/4716921527",
@@ -10042,6 +10265,7 @@
         "lon": 13.39436
       },
       "entfernungKm": 1,
+      "webseite": "https://galli-berlin.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/4508022333",
@@ -10063,6 +10287,7 @@
         "lon": 13.39533
       },
       "entfernungKm": 1,
+      "webseite": "https://samuraimuseum.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/4725890783",
@@ -10105,6 +10330,7 @@
         "lon": 13.3889
       },
       "entfernungKm": 1.1,
+      "webseite": "https://www.admiralspalast.theater/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/66917188",
@@ -10126,6 +10352,7 @@
         "lon": 13.39243
       },
       "entfernungKm": 1.1,
+      "webseite": "https://www.hugenottenmuseum-berlin.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/545060231",
@@ -10168,6 +10395,7 @@
         "lon": 13.416
       },
       "entfernungKm": 1.1,
+      "webseite": "https://www.stadtentwicklung.berlin.de/planen/stadtmodelle/de/ausstellung.shtml",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/3513338376",
@@ -10210,6 +10438,7 @@
         "lon": 13.402
       },
       "entfernungKm": 1.1,
+      "webseite": "https://www.circus-berlin.de/de/the-unveiling-of-our-hoff-museum/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/5051474599",
@@ -10231,6 +10460,7 @@
         "lon": 13.39626
       },
       "entfernungKm": 1.1,
+      "webseite": "https://www.jsc.art",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/5493352632",
@@ -10252,6 +10482,7 @@
         "lon": 13.38888
       },
       "entfernungKm": 1.2,
+      "webseite": "https://www.palast.berlin/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/66917094",
@@ -10273,6 +10504,7 @@
         "lon": 13.38862
       },
       "entfernungKm": 1.2,
+      "webseite": "https://www.quatsch-comedy-club.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/66917098",
@@ -10294,6 +10526,7 @@
         "lon": 13.39273
       },
       "entfernungKm": 1.2,
+      "webseite": "https://www.bundestag.de/deutscherdom",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/545074057",
@@ -10315,6 +10548,7 @@
         "lon": 13.39655
       },
       "entfernungKm": 1.2,
+      "webseite": "https://ackerstadtpalast.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/895509940",
@@ -10336,6 +10570,7 @@
         "lon": 13.41303
       },
       "entfernungKm": 1.2,
+      "webseite": "https://kino-bar.berlin/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/7141376790",
@@ -10357,6 +10592,7 @@
         "lon": 13.38715
       },
       "entfernungKm": 1.2,
+      "webseite": "https://www.hdg.de/traenenpalast/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/8888473363",
@@ -10378,6 +10614,7 @@
         "lon": 13.39586
       },
       "entfernungKm": 1.2,
+      "webseite": "https://zbarberlin.com/kino-z-inema/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/9079726511",
@@ -10399,6 +10636,7 @@
         "lon": 13.38699
       },
       "entfernungKm": 1.3,
+      "webseite": "https://www.komische-oper-berlin.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/318525456",
@@ -10420,6 +10658,7 @@
         "lon": 13.38633
       },
       "entfernungKm": 1.4,
+      "webseite": "https://willy-brandt.de/ausstellungen/ausstellungen/forum-berlin/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/1867566597",
@@ -10441,6 +10680,7 @@
         "lon": 13.41132
       },
       "entfernungKm": 1.4,
+      "webseite": "https://pfefferberg-theater.de",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/3925275757",
@@ -10462,6 +10702,7 @@
         "lon": 13.40082
       },
       "entfernungKm": 1.5,
+      "webseite": "https://acudkino.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/609911082",
@@ -10483,6 +10724,7 @@
         "lon": 13.40098
       },
       "entfernungKm": 1.5,
+      "webseite": "https://www.acud-theater.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/8589954014",
@@ -10504,6 +10746,7 @@
         "lon": 13.3914
       },
       "entfernungKm": 1.5,
+      "webseite": "https://disgustingfoodmuseum.berlin/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/9272790617",
@@ -10525,6 +10768,7 @@
         "lon": 13.38726
       },
       "entfernungKm": 1.6,
+      "webseite": "https://www.mfk-berlin.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/292738889",
@@ -10546,6 +10790,7 @@
         "lon": 13.38191
       },
       "entfernungKm": 1.6,
+      "webseite": "https://www.deutschestheater.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/345806623",
@@ -10567,6 +10812,7 @@
         "lon": 13.41843
       },
       "entfernungKm": 1.6,
+      "webseite": "https://www.bat-berlin.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/1246402206",
@@ -10588,6 +10834,7 @@
         "lon": 13.38167
       },
       "entfernungKm": 1.6,
+      "webseite": "https://www.madametussauds.com/berlin/de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/4388867424",
@@ -10609,6 +10856,7 @@
         "lon": 13.38
       },
       "entfernungKm": 1.7,
+      "webseite": "https://www.iaaw.hu-berlin.de/de/region/ostasien/seminar/mori",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/429739550",
@@ -10630,6 +10878,7 @@
         "lon": 13.3814
       },
       "entfernungKm": 1.7,
+      "webseite": "https://www.deutschestheater.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/1445221277",
@@ -10651,6 +10900,7 @@
         "lon": 13.39068
       },
       "entfernungKm": 1.7,
+      "webseite": "https://www.mauermuseum.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/2401869345",
@@ -10672,6 +10922,7 @@
         "lon": 13.38247
       },
       "entfernungKm": 1.7,
+      "webseite": "https://www.exitroom.berlin/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/4516695689",
@@ -10693,6 +10944,7 @@
         "lon": 13.42044
       },
       "entfernungKm": 1.7,
+      "webseite": "https://www.final-escape.com/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/4531573192",
@@ -10714,6 +10966,7 @@
         "lon": 13.38486
       },
       "entfernungKm": 1.7,
+      "webseite": "https://www.catinthebag.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/4531607993",
@@ -10735,6 +10988,7 @@
         "lon": 13.40776
       },
       "entfernungKm": 1.8,
+      "webseite": "https://www.lichtblick-kino.org/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/339825650",
@@ -10756,6 +11010,7 @@
         "lon": 13.39807
       },
       "entfernungKm": 1.8,
+      "webseite": "https://www.mirakulum.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/613229739",
@@ -10777,6 +11032,7 @@
         "lon": 13.41622
       },
       "entfernungKm": 1.8,
+      "webseite": "https://www.theater-on.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/1246402205",
@@ -10819,6 +11075,7 @@
         "lon": 13.42024
       },
       "entfernungKm": 1.8,
+      "webseite": "https://www.berlin.de/museum-pankow/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/6880841995",
@@ -10840,6 +11097,7 @@
         "lon": 13.43032
       },
       "entfernungKm": 2,
+      "webseite": "https://yorck.de/kinos/filmtheater-am-friedrichshain",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/1863569258",
@@ -10861,6 +11119,7 @@
         "lon": 13.426
       },
       "entfernungKm": 2,
+      "webseite": "https://koepi137.net/peliculoso.html",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/6697621223",
@@ -10882,6 +11141,7 @@
         "lon": 13.37977
       },
       "entfernungKm": 2.1,
+      "webseite": "https://diemauerthewall.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/453378190",
@@ -10903,6 +11163,7 @@
         "lon": 13.37912
       },
       "entfernungKm": 2.1,
+      "webseite": "https://www.museumfuernaturkunde.berlin/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/538692583",
@@ -10924,6 +11185,7 @@
         "lon": 13.37929
       },
       "entfernungKm": 2.1,
+      "webseite": "https://www.deutsches-spionagemuseum.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/3749451170",
@@ -10945,6 +11207,7 @@
         "lon": 13.37843
       },
       "entfernungKm": 2.2,
+      "webseite": "https://www.deutschlandmuseum.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/340388625",
@@ -10966,6 +11229,7 @@
         "lon": 13.41455
       },
       "entfernungKm": 2.2,
+      "webseite": "https://fsk-kino.peripherfilm.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/350460866",
@@ -11029,6 +11293,7 @@
         "lon": 13.37452
       },
       "entfernungKm": 2.2,
+      "webseite": "https://www.bmm-charite.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/2033362563",
@@ -11050,6 +11315,7 @@
         "lon": 13.37983
       },
       "entfernungKm": 2.2,
+      "webseite": "https://www.bnd.bund.de/DE/Besucherzentrum/bnd-besucherzentrum-node.html",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/8641738412",
@@ -11071,6 +11337,7 @@
         "lon": 13.38221
       },
       "entfernungKm": 2.3,
+      "webseite": "https://www.flucht-vertreibung-versoehnung.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/84644782",
@@ -11092,6 +11359,7 @@
         "lon": 13.41692
       },
       "entfernungKm": 2.3,
+      "webseite": "https://yorck.de/kinos/babylon-kreuzberg",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/350460874",
@@ -11134,6 +11402,7 @@
         "lon": 13.41822
       },
       "entfernungKm": 2.3,
+      "webseite": "https://www.fhxb-museum.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/632148988",
@@ -11218,6 +11487,7 @@
         "lon": 13.37374
       },
       "entfernungKm": 2.5,
+      "webseite": "https://www.cinemaxx.de/Home?SwitchCinemaId=12",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/675243681",
@@ -11239,6 +11509,7 @@
         "lon": 13.44195
       },
       "entfernungKm": 2.5,
+      "webseite": "https://www.computerspielemuseum.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/1270188822",
@@ -11260,6 +11531,7 @@
         "lon": 13.44058
       },
       "entfernungKm": 2.5,
+      "webseite": "https://hofkino.berlin/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/7710353352",
@@ -11281,6 +11553,7 @@
         "lon": 13.37212
       },
       "entfernungKm": 2.6,
+      "webseite": "https://www.cirquedusoleil.com/de/alize",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/1336883756",
@@ -11302,6 +11575,7 @@
         "lon": 13.38118
       },
       "entfernungKm": 2.6,
+      "webseite": "https://www.tempodrom.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/1871854816",
@@ -11344,6 +11618,7 @@
         "lon": 13.37203
       },
       "entfernungKm": 2.6,
+      "webseite": "https://www.spielbank-berlin.de/sternberg",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/3116790122",
@@ -11365,6 +11640,7 @@
         "lon": 13.42267
       },
       "entfernungKm": 2.6,
+      "webseite": "https://www.machmitmuseum.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/6880841996",
@@ -11386,6 +11662,7 @@
         "lon": 13.37334
       },
       "entfernungKm": 2.6,
+      "webseite": "https://bluemax.theater",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/7077883098",
@@ -11407,6 +11684,7 @@
         "lon": 13.38587
       },
       "entfernungKm": 2.7,
+      "webseite": "https://www.hebbel-am-ufer.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/173985100",
@@ -11428,6 +11706,7 @@
         "lon": 13.41531
       },
       "entfernungKm": 2.7,
+      "webseite": "https://www.ballhausost.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/1158225994",
@@ -11449,6 +11728,7 @@
         "lon": 13.38494
       },
       "entfernungKm": 2.7,
+      "webseite": "https://www.bauinx-berlin.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/4007032909",
@@ -11470,6 +11750,7 @@
         "lon": 9.99635
       },
       "entfernungKm": 0.2,
+      "webseite": "https://feuerwehrseelsorge-hamburg.de/f/hauptkirche-st-petri/tuermerstube-st-petri/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/5326750121",
@@ -11491,6 +11772,7 @@
         "lon": 9.99045
       },
       "entfernungKm": 0.2,
+      "webseite": "https://www.paradoxmuseumhamburg.com/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/12422518179",
@@ -11533,6 +11815,7 @@
         "lon": 9.99865
       },
       "entfernungKm": 0.3,
+      "webseite": "https://www.thalia-theater.de/de/ihr-besuch/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/11013705772",
@@ -11554,6 +11837,7 @@
         "lon": 9.99866
       },
       "entfernungKm": 0.3,
+      "webseite": "https://www.thalia-theater.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/way/27326725",
@@ -11575,6 +11859,7 @@
         "lon": 9.98916
       },
       "entfernungKm": 0.4,
+      "webseite": "https://3dtrickart.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/3445660920",
@@ -11596,6 +11881,7 @@
         "lon": 9.99729
       },
       "entfernungKm": 0.4,
+      "webseite": "https://www.bigbreakhamburg.com/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/3877081124",
@@ -11617,6 +11903,7 @@
         "lon": 9.9912
       },
       "entfernungKm": 0.4,
+      "webseite": "https://www.mahnmal-st-nikolai.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/6695848618",
@@ -11659,6 +11946,7 @@
         "lon": 9.99801
       },
       "entfernungKm": 0.6,
+      "webseite": "https://www.museum.zoll.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/277296724",
@@ -11701,6 +11989,7 @@
         "lon": 10.00125
       },
       "entfernungKm": 0.6,
+      "webseite": "https://www.pause-play.de/hamburg",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/5746550822",
@@ -11722,6 +12011,7 @@
         "lon": 10.00211
       },
       "entfernungKm": 0.6,
+      "webseite": "https://hamburg.museumderillusionen.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/6016244389",
@@ -11806,6 +12096,7 @@
         "lon": 10.00254
       },
       "entfernungKm": 0.7,
+      "webseite": "https://www.chocoversum.de",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/3714346724",
@@ -11827,6 +12118,7 @@
         "lon": 9.99674
       },
       "entfernungKm": 0.7,
+      "webseite": "https://kaffeemuseum-burg.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/3912562937",
@@ -11848,6 +12140,7 @@
         "lon": 10.00328
       },
       "entfernungKm": 0.7,
+      "webseite": "https://hamburg.teambreakout.de",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/12345938862",
@@ -11869,6 +12162,7 @@
         "lon": 9.98893
       },
       "entfernungKm": 0.7,
+      "webseite": "https://www.staatsoper-hamburg.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/way/25112661",
@@ -11890,6 +12184,7 @@
         "lon": 10.00168
       },
       "entfernungKm": 0.8,
+      "webseite": "https://dialog-in-hamburg.de",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/265761266",
@@ -11932,6 +12227,7 @@
         "lon": 10.00562
       },
       "entfernungKm": 0.8,
+      "webseite": "https://www.shmh.de/kultur-kontor-hamburg/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/13929436758",
@@ -11953,6 +12249,7 @@
         "lon": 10.00561
       },
       "entfernungKm": 0.8,
+      "webseite": "https://www.shmh.de/kultur-kontor-hamburg/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/13965920501",
@@ -11995,6 +12292,7 @@
         "lon": 10.00662
       },
       "entfernungKm": 0.9,
+      "webseite": "https://kunsthaushamburg.de",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/1564055745",
@@ -12016,6 +12314,7 @@
         "lon": 10.00671
       },
       "entfernungKm": 0.9,
+      "webseite": "https://www.akademie-der-kuenste.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/1636614093",
@@ -12058,6 +12357,7 @@
         "lon": 9.99548
       },
       "entfernungKm": 0.9,
+      "webseite": "https://hamburg.premiumkino.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/6098801784",
@@ -12079,6 +12379,7 @@
         "lon": 9.9961
       },
       "entfernungKm": 0.9,
+      "webseite": "https://www.pierdrei-hotel.de/erleben/hafenbuehne",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/6847314022",
@@ -12100,6 +12401,7 @@
         "lon": 9.9908
       },
       "entfernungKm": 0.9,
+      "webseite": "https://www.cinemaxx.de/hamburg-dammtor",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/way/27153319",
@@ -12121,6 +12423,7 @@
         "lon": 10.00708
       },
       "entfernungKm": 1,
+      "webseite": "https://www.ohnsorg.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/278220478",
@@ -12142,6 +12445,7 @@
         "lon": 9.98839
       },
       "entfernungKm": 1,
+      "webseite": "https://www.spicys.de",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/301998423",
@@ -12163,6 +12467,7 @@
         "lon": 9.98753
       },
       "entfernungKm": 1,
+      "webseite": "https://www.shmh.de/speicherstadtmuseum/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/302710293",
@@ -12184,6 +12489,7 @@
         "lon": 9.97926
       },
       "entfernungKm": 1,
+      "webseite": "https://www.kellertheater.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/371095982",
@@ -12205,6 +12511,7 @@
         "lon": 10.00251
       },
       "entfernungKm": 1,
+      "webseite": "https://www.prototyp-hamburg.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/1650071826",
@@ -12226,6 +12533,7 @@
         "lon": 9.98933
       },
       "entfernungKm": 1,
+      "webseite": "https://stiftung-hamburg-maritim.de/sandtorhafen/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/2478728455",
@@ -12268,6 +12576,7 @@
         "lon": 9.98144
       },
       "entfernungKm": 1,
+      "webseite": "https://www.elbphilharmonie.de/de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/4485836459",
@@ -12289,6 +12598,7 @@
         "lon": 10.00625
       },
       "entfernungKm": 1,
+      "webseite": "https://www.deichtorhallen.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/way/23191264",
@@ -12310,6 +12620,7 @@
         "lon": 10.00676
       },
       "entfernungKm": 1,
+      "webseite": "https://www.deichtorhallen.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/way/23191265",
@@ -12331,6 +12642,7 @@
         "lon": 9.99982
       },
       "entfernungKm": 1,
+      "webseite": "https://www.imm-hamburg.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/way/25337154",
@@ -12352,6 +12664,7 @@
         "lon": 10.0093
       },
       "entfernungKm": 1,
+      "webseite": "https://www.mkg-hamburg.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/way/42864381",
@@ -12373,6 +12686,7 @@
         "lon": 9.98006
       },
       "entfernungKm": 1,
+      "webseite": "https://www.kramerwitwenwohnung.de",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/way/57362988",
@@ -12394,6 +12708,7 @@
         "lon": 9.9766
       },
       "entfernungKm": 1.1,
+      "webseite": "https://brahms-hamburg.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/706970884",
@@ -12436,6 +12751,7 @@
         "lon": 10.00121
       },
       "entfernungKm": 1.1,
+      "webseite": "https://www.greenpeace.de/ausstellung-veranstaltungen",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/3550810789",
@@ -12457,6 +12773,7 @@
         "lon": 10.00098
       },
       "entfernungKm": 1.1,
+      "webseite": "https://design-zentrum-hamburg.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/4338234989",
@@ -12520,6 +12837,7 @@
         "lon": 9.97687
       },
       "entfernungKm": 1.1,
+      "webseite": "https://www.komponistenquartier.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/13041286663",
@@ -12541,6 +12859,7 @@
         "lon": 10.00895
       },
       "entfernungKm": 1.1,
+      "webseite": "https://schauspielhaus.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/way/27302907",
@@ -12562,6 +12881,7 @@
         "lon": 10.01147
       },
       "entfernungKm": 1.2,
+      "webseite": "https://www.hansa-theater.de/besucherinformationen/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/319681423",
@@ -12583,6 +12903,7 @@
         "lon": 10.01208
       },
       "entfernungKm": 1.2,
+      "webseite": "https://www.kaufmann-stiftung.de/Genossenschaftsmuseum.html",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/3168353161",
@@ -12604,6 +12925,7 @@
         "lon": 10.01071
       },
       "entfernungKm": 1.2,
+      "webseite": "https://escapediem.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/5563943957",
@@ -12625,6 +12947,7 @@
         "lon": 10.01139
       },
       "entfernungKm": 1.2,
+      "webseite": "https://www.pause-play.de/hamburg",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/10887803220",
@@ -12646,6 +12969,7 @@
         "lon": 9.9993
       },
       "entfernungKm": 1.2,
+      "webseite": "https://www.port-lumieres.com/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/12212213719",
@@ -12709,6 +13033,7 @@
         "lon": 10.01147
       },
       "entfernungKm": 1.3,
+      "webseite": "https://hamburger-zaubermuseum.com/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/11242020637",
@@ -12751,6 +13076,7 @@
         "lon": 9.98411
       },
       "entfernungKm": 1.3,
+      "webseite": "https://www.elbphilharmonie.de/de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/way/24981342",
@@ -12772,6 +13098,7 @@
         "lon": 10.01461
       },
       "entfernungKm": 1.4,
+      "webseite": "https://www.centralkomitee.de",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/372538274",
@@ -12793,6 +13120,7 @@
         "lon": 10.01419
       },
       "entfernungKm": 1.4,
+      "webseite": "https://savoy.premiumkino.de",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/536391111",
@@ -12835,6 +13163,7 @@
         "lon": 9.97341
       },
       "entfernungKm": 1.5,
+      "webseite": "https://www.hidden.games/escape-room-hamburg/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/6682445600",
@@ -12856,6 +13185,7 @@
         "lon": 9.97307
       },
       "entfernungKm": 1.5,
+      "webseite": "https://www.rickmer-rickmers.de/museum/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/12966189615",
@@ -12898,6 +13228,7 @@
         "lon": 9.96905
       },
       "entfernungKm": 1.7,
+      "webseite": "https://www.fcstpauli-museum.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/5460118667",
@@ -12919,6 +13250,7 @@
         "lon": 9.96737
       },
       "entfernungKm": 1.7,
+      "webseite": "https://www.imperial-theater.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/way/32950465",
@@ -12961,6 +13293,7 @@
         "lon": 9.96707
       },
       "entfernungKm": 1.8,
+      "webseite": "https://www.stage-entertainment.de/unternehmen/theater-vermietung/stage-operettenhaus.html",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/443383973",
@@ -12982,6 +13315,7 @@
         "lon": 9.98331
       },
       "entfernungKm": 1.8,
+      "webseite": "https://www.kulturwissenschaften.uni-hamburg.de/ka/ueber-uns/gipsabgusssammlung.html",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/11828710029",
@@ -13003,6 +13337,7 @@
         "lon": 9.97458
       },
       "entfernungKm": 1.8,
+      "webseite": "https://www.stage-entertainment.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/way/23366656",
@@ -13024,6 +13359,7 @@
         "lon": 9.97322
       },
       "entfernungKm": 1.8,
+      "webseite": "https://www.stage-entertainment.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/way/23511386",
@@ -13066,6 +13402,7 @@
         "lon": 9.98204
       },
       "entfernungKm": 2,
+      "webseite": "https://www.abaton.de",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/60568486",
@@ -13087,6 +13424,7 @@
         "lon": 9.96334
       },
       "entfernungKm": 2,
+      "webseite": "https://www.tivoli.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/268809196",
@@ -13108,6 +13446,7 @@
         "lon": 9.96387
       },
       "entfernungKm": 2,
+      "webseite": "https://www.tivoli.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/308603606",
@@ -13129,6 +13468,7 @@
         "lon": 9.96299
       },
       "entfernungKm": 2,
+      "webseite": "https://www.st-pauli-theater.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/372559428",
@@ -13171,6 +13511,7 @@
         "lon": 9.96427
       },
       "entfernungKm": 2,
+      "webseite": "https://www.tivoli.de/kontakt/ueber-uns/schmidtchen.html",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/3577328585",
@@ -13192,6 +13533,7 @@
         "lon": 9.96277
       },
       "entfernungKm": 2,
+      "webseite": "https://spartajuniorkino.wordpress.com/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/11336831433",
@@ -13213,6 +13555,7 @@
         "lon": 9.96438
       },
       "entfernungKm": 2,
+      "webseite": "https://skurrilum.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/11662253393",
@@ -13234,6 +13577,7 @@
         "lon": 10.02314
       },
       "entfernungKm": 2,
+      "webseite": "https://scharlatan.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/13308434177",
@@ -13255,6 +13599,7 @@
         "lon": 10.01624
       },
       "entfernungKm": 2,
+      "webseite": "https://loki-schmidt-stiftung.de/hafencity",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/14070690068",
@@ -13276,6 +13621,7 @@
         "lon": 9.98945
       },
       "entfernungKm": 2,
+      "webseite": "https://markk-hamburg.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/way/35280679",
@@ -13297,6 +13643,7 @@
         "lon": 10.02095
       },
       "entfernungKm": 2.1,
+      "webseite": "https://www.zusatzstoffmuseum.de",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/946081680",
@@ -13339,6 +13686,7 @@
         "lon": 9.97822
       },
       "entfernungKm": 2.1,
+      "webseite": "https://www.cenak.uni-hamburg.de/ausstellungen/museum-zoologie.html",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/way/27443629",
@@ -13402,6 +13750,7 @@
         "lon": 9.96162
       },
       "entfernungKm": 2.2,
+      "webseite": "https://erotic-art-museum.com/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/5892735585",
@@ -13444,6 +13793,7 @@
         "lon": 10.0181
       },
       "entfernungKm": 2.2,
+      "webseite": "https://www.botschaftderwildtiere.de",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/12179084415",
@@ -13465,6 +13815,7 @@
         "lon": 9.99947
       },
       "entfernungKm": 2.2,
+      "webseite": "https://jazzhall.hfmt-hamburg.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/12270509308",
@@ -13507,6 +13858,7 @@
         "lon": 9.98541
       },
       "entfernungKm": 2.2,
+      "webseite": "https://hamburger-kammerspiele.de",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/way/26769216",
@@ -13528,6 +13880,7 @@
         "lon": 9.95859
       },
       "entfernungKm": 2.3,
+      "webseite": "https://www.pulverfasscabaret.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/372736319",
@@ -13549,6 +13902,7 @@
         "lon": 10.02857
       },
       "entfernungKm": 2.3,
+      "webseite": "https://www.adventurerooms-hamburg.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/9670503278",
@@ -13570,6 +13924,7 @@
         "lon": 11.57688
       },
       "entfernungKm": 0.1,
+      "webseite": "https://www.spielzeugmuseummuenchen.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/60013074",
@@ -13591,6 +13946,7 @@
         "lon": 11.57589
       },
       "entfernungKm": 0.1,
+      "webseite": "https://www.muenchen.de/sehenswuerdigkeiten/rathausgalerie",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/1132414558",
@@ -13612,6 +13968,7 @@
         "lon": 11.57758
       },
       "entfernungKm": 0.2,
+      "webseite": "https://www.muenchen.de/sehenswuerdigkeiten/museen/kunstarkaden",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/1132403384",
@@ -13633,6 +13990,7 @@
         "lon": 11.57815
       },
       "entfernungKm": 0.2,
+      "webseite": "https://museen-in-bayern.de/infopoint/muencher-kaiserburg",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/4217510193",
@@ -13654,6 +14012,7 @@
         "lon": 11.57159
       },
       "entfernungKm": 0.3,
+      "webseite": "https://www.jagd-fischerei-museum.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/307738674",
@@ -13675,6 +14034,7 @@
         "lon": 11.57276
       },
       "entfernungKm": 0.3,
+      "webseite": "https://www.muenchner-stadtmuseum.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/342930150",
@@ -13696,6 +14056,7 @@
         "lon": 11.57303
       },
       "entfernungKm": 0.3,
+      "webseite": "https://www.muenchner-stadtmuseum.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/11933309402",
@@ -13717,6 +14078,7 @@
         "lon": 11.57862
       },
       "entfernungKm": 0.4,
+      "webseite": "https://www.residenz-muenchen.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/261030708",
@@ -13738,6 +14100,7 @@
         "lon": 11.57702
       },
       "entfernungKm": 0.4,
+      "webseite": "https://theatiner-film.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/277309657",
@@ -13759,6 +14122,7 @@
         "lon": 11.58054
       },
       "entfernungKm": 0.4,
+      "webseite": "https://www.wow-museum.de",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/314035226",
@@ -13780,6 +14144,7 @@
         "lon": 11.57449
       },
       "entfernungKm": 0.4,
+      "webseite": "https://www.teamtheater.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/527842465",
@@ -13822,6 +14187,7 @@
         "lon": 11.57943
       },
       "entfernungKm": 0.4,
+      "webseite": "https://www.residenztheater.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/617136804",
@@ -13843,6 +14209,7 @@
         "lon": 11.58025
       },
       "entfernungKm": 0.4,
+      "webseite": "https://www.bier-und-oktoberfestmuseum.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/656253064",
@@ -13864,6 +14231,7 @@
         "lon": 11.5747
       },
       "entfernungKm": 0.4,
+      "webseite": "https://www.teamtheater.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/1134205319",
@@ -13885,6 +14253,7 @@
         "lon": 11.5727
       },
       "entfernungKm": 0.4,
+      "webseite": "https://www.astor-cinemalounge.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/2169663919",
@@ -13906,6 +14275,7 @@
         "lon": 11.57005
       },
       "entfernungKm": 0.4,
+      "webseite": "https://www.muca.eu/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/5951675866",
@@ -13927,6 +14297,7 @@
         "lon": 11.57983
       },
       "entfernungKm": 0.4,
+      "webseite": "https://www.hofspielhaus.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/11091091243",
@@ -13948,6 +14319,7 @@
         "lon": 11.57998
       },
       "entfernungKm": 0.4,
+      "webseite": "https://unlock-escape.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/12163409668",
@@ -13969,6 +14341,7 @@
         "lon": 11.57951
       },
       "entfernungKm": 0.4,
+      "webseite": "https://www.staatsoper.de",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/way/23458583",
@@ -13990,6 +14363,7 @@
         "lon": 11.5723
       },
       "entfernungKm": 0.4,
+      "webseite": "https://www.juedisches-museum-muenchen.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/way/24164434",
@@ -14011,6 +14385,7 @@
         "lon": 11.58137
       },
       "entfernungKm": 0.4,
+      "webseite": "https://www.muenchner-kammerspiele.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/way/79817170",
@@ -14032,6 +14407,7 @@
         "lon": 11.58247
       },
       "entfernungKm": 0.5,
+      "webseite": "https://www.muenchner-kammerspiele.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/299513611",
@@ -14053,6 +14429,7 @@
         "lon": 11.57831
       },
       "entfernungKm": 0.5,
+      "webseite": "https://www.staatliche-muenzsammlung.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/307729968",
@@ -14074,6 +14451,7 @@
         "lon": 11.58165
       },
       "entfernungKm": 0.5,
+      "webseite": "https://www.valentin-karlstadt-musaeum.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/344494568",
@@ -14116,6 +14494,7 @@
         "lon": 11.57848
       },
       "entfernungKm": 0.5,
+      "webseite": "https://www.schloesser.bayern.de/deutsch/raeume/objekte/mu_r_mj.htm",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/3887317862",
@@ -14158,6 +14537,7 @@
         "lon": 11.56866
       },
       "entfernungKm": 0.5,
+      "webseite": "https://iberlbuehne.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/4668959525",
@@ -14179,6 +14559,7 @@
         "lon": 11.58188
       },
       "entfernungKm": 0.5,
+      "webseite": "https://www.muenchner-kammerspiele.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/way/85990411",
@@ -14200,6 +14581,7 @@
         "lon": 11.58218
       },
       "entfernungKm": 0.6,
+      "webseite": "https://www.cinemaxx.de/kinoprogramm/munchen/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/251873298",
@@ -14221,6 +14603,7 @@
         "lon": 11.57061
       },
       "entfernungKm": 0.6,
+      "webseite": "https://stadt.muenchen.de/infos/feuerwehrausstellung-muenchen.html",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/443435665",
@@ -14242,6 +14625,7 @@
         "lon": 11.5694
       },
       "entfernungKm": 0.6,
+      "webseite": "https://www.oberangertheater.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/944696737",
@@ -14263,6 +14647,7 @@
         "lon": 11.56828
       },
       "entfernungKm": 0.6,
+      "webseite": "https://www.mmkbuergersaal.de/museum/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/7016954281",
@@ -14284,6 +14669,7 @@
         "lon": 11.58272
       },
       "entfernungKm": 0.6,
+      "webseite": "https://www.muenchner-kammerspiele.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/9649184270",
@@ -14305,6 +14691,7 @@
         "lon": 11.57126
       },
       "entfernungKm": 0.6,
+      "webseite": "https://krist-live.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/10699359003",
@@ -14347,6 +14734,7 @@
         "lon": 11.57957
       },
       "entfernungKm": 0.6,
+      "webseite": "https://www.schloesser.bayern.de/deutsch/raeume/objekte/mu_r_herk.htm",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/way/46617421",
@@ -14368,6 +14756,7 @@
         "lon": 11.56649
       },
       "entfernungKm": 0.7,
+      "webseite": "https://www.gloria-palast.de/gp/kontakt",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/125087548",
@@ -14389,6 +14778,7 @@
         "lon": 11.57286
       },
       "entfernungKm": 0.7,
+      "webseite": "https://werkstattkino.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/274372610",
@@ -14410,6 +14800,7 @@
         "lon": 11.57278
       },
       "entfernungKm": 0.7,
+      "webseite": "https://www.fraunhofertheater.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/605007384",
@@ -14431,6 +14822,7 @@
         "lon": 11.5757
       },
       "entfernungKm": 0.7,
+      "webseite": "https://www.gaertnerplatztheater.de/de/start/index.html",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/1577199973",
@@ -14452,6 +14844,7 @@
         "lon": 11.58556
       },
       "entfernungKm": 0.7,
+      "webseite": "https://www.museum-fuenf-kontinente.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/way/25695553",
@@ -14473,6 +14866,7 @@
         "lon": 11.57019
       },
       "entfernungKm": 0.7,
+      "webseite": "https://www.muema-theater.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/way/37681986",
@@ -14494,6 +14888,7 @@
         "lon": 11.58054
       },
       "entfernungKm": 0.8,
+      "webseite": "https://www.deutschestheatermuseum.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/307729970",
@@ -14515,6 +14910,7 @@
         "lon": 11.58797
       },
       "entfernungKm": 0.9,
+      "webseite": "https://www.variete.de/muenchen/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/291364396",
@@ -14536,6 +14932,7 @@
         "lon": 11.56333
       },
       "entfernungKm": 0.9,
+      "webseite": "https://www.city-kinos.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/388387288",
@@ -14557,6 +14954,7 @@
         "lon": 11.5637
       },
       "entfernungKm": 0.9,
+      "webseite": "https://www.city-kinos.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/388387658",
@@ -14578,6 +14976,7 @@
         "lon": 11.57016
       },
       "entfernungKm": 0.9,
+      "webseite": "https://neokinos.de/programm/arena-filmtheater",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/605008113",
@@ -14599,6 +14998,7 @@
         "lon": 11.56375
       },
       "entfernungKm": 0.9,
+      "webseite": "https://www.mathaeser.de/mm",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/1644953756",
@@ -14620,6 +15020,7 @@
         "lon": 11.56804
       },
       "entfernungKm": 0.9,
+      "webseite": "https://www.kunstraum-muenchen.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/2503219196",
@@ -14641,6 +15042,7 @@
         "lon": 11.58906
       },
       "entfernungKm": 1,
+      "webseite": "https://www.alpenverein.de/museum",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/way/18956760",
@@ -14662,6 +15064,7 @@
         "lon": 11.56203
       },
       "entfernungKm": 1,
+      "webseite": "https://www.deutsches-theater.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/way/116642230",
@@ -14683,6 +15086,7 @@
         "lon": 11.58744
       },
       "entfernungKm": 1.1,
+      "webseite": "https://escapegame-muenchen.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/332793905",
@@ -14704,6 +15108,7 @@
         "lon": 11.58749
       },
       "entfernungKm": 1.1,
+      "webseite": "https://www.museum-lichtspiele.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/1558029908",
@@ -14746,6 +15151,7 @@
         "lon": 11.56673
       },
       "entfernungKm": 1.1,
+      "webseite": "https://www.abgussmuseum.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/2497837304",
@@ -14767,6 +15173,7 @@
         "lon": 11.56638
       },
       "entfernungKm": 1.1,
+      "webseite": "https://www.sgsm.eu/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/2866790927",
@@ -14788,6 +15195,7 @@
         "lon": 11.57223
       },
       "entfernungKm": 1.1,
+      "webseite": "https://www.pinakothek-der-moderne.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/way/10053440",
@@ -14809,6 +15217,7 @@
         "lon": 11.57236
       },
       "entfernungKm": 1.2,
+      "webseite": "https://msm.snsb.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/249814994",
@@ -14830,6 +15239,7 @@
         "lon": 11.58922
       },
       "entfernungKm": 1.2,
+      "webseite": "https://www.bayerisches-nationalmuseum.de/besuch",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/4027839155",
@@ -14851,6 +15261,7 @@
         "lon": 11.56828
       },
       "entfernungKm": 1.2,
+      "webseite": "https://smaek.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/5223300524",
@@ -14872,6 +15283,7 @@
         "lon": 11.57409
       },
       "entfernungKm": 1.2,
+      "webseite": "https://www.museum-brandhorst.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/11099726845",
@@ -14893,6 +15305,7 @@
         "lon": 11.57182
       },
       "entfernungKm": 1.2,
+      "webseite": "https://www.die-neue-sammlung.de",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/11935589855",
@@ -14914,6 +15327,7 @@
         "lon": 11.59115
       },
       "entfernungKm": 1.3,
+      "webseite": "https://www.bayerisches-nationalmuseum.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/305581866",
@@ -14935,6 +15349,7 @@
         "lon": 11.56788
       },
       "entfernungKm": 1.3,
+      "webseite": "https://www.tu-film.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/639108906",
@@ -14956,6 +15371,7 @@
         "lon": 11.56344
       },
       "entfernungKm": 1.3,
+      "webseite": "https://www.lenbachhaus.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/654580309",
@@ -14977,6 +15393,7 @@
         "lon": 11.56996
       },
       "entfernungKm": 1.3,
+      "webseite": "https://www.pinakothek.de/de/alte-pinakothek",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/way/4647135",
@@ -14998,6 +15415,7 @@
         "lon": 11.58882
       },
       "entfernungKm": 1.3,
+      "webseite": "https://www.sudetendeutsches-museum.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/way/120079050",
@@ -15019,6 +15437,7 @@
         "lon": 11.5641
       },
       "entfernungKm": 1.4,
+      "webseite": "https://bspg.snsb.de/geologisches-museum-muenchen/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/307734040",
@@ -15040,6 +15459,7 @@
         "lon": 11.57904
       },
       "entfernungKm": 1.4,
+      "webseite": "https://www.visit-amuseum.com/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/390909981",
@@ -15061,6 +15481,7 @@
         "lon": 11.59131
       },
       "entfernungKm": 1.4,
+      "webseite": "https://luckypunch-comedyclub.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/12249232101",
@@ -15082,6 +15503,7 @@
         "lon": 11.59167
       },
       "entfernungKm": 1.4,
+      "webseite": "https://lachundschiess.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/13354515331",
@@ -15103,6 +15525,7 @@
         "lon": 11.55795
       },
       "entfernungKm": 1.5,
+      "webseite": "https://www.royal-muenchen.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/78402190",
@@ -15145,6 +15568,7 @@
         "lon": 11.5934
       },
       "entfernungKm": 1.5,
+      "webseite": "https://www.pinakothek.de/de/sammlung-schack",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/way/27959434",
@@ -15187,6 +15611,7 @@
         "lon": 11.59303
       },
       "entfernungKm": 1.6,
+      "webseite": "https://neokinos.de/kinos/rio",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/259759735",
@@ -15208,6 +15633,7 @@
         "lon": 11.57984
       },
       "entfernungKm": 1.6,
+      "webseite": "https://www.weisse-rose-stiftung.de/denkstaette-weisse-rose-am-lichthof-der-lmu-muenchen/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/704397712",
@@ -15229,6 +15655,7 @@
         "lon": 11.55945
       },
       "entfernungKm": 1.6,
+      "webseite": "https://mtfk.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/1813652702",
@@ -15271,6 +15698,7 @@
         "lon": 11.56022
       },
       "entfernungKm": 1.7,
+      "webseite": "https://neuesrottmann.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/211874136",
@@ -15292,6 +15720,7 @@
         "lon": 11.5777
       },
       "entfernungKm": 1.7,
+      "webseite": "https://theater-hochx.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/way/123421250",
@@ -15313,6 +15742,7 @@
         "lon": 11.57775
       },
       "entfernungKm": 1.8,
+      "webseite": "https://muenchen.premiumkino.de",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/2560210491",
@@ -15334,6 +15764,7 @@
         "lon": 11.57401
       },
       "entfernungKm": 1.8,
+      "webseite": "https://escapegame-muenchen.de",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/11117146896",
@@ -15355,6 +15786,7 @@
         "lon": 11.59952
       },
       "entfernungKm": 1.8,
+      "webseite": "https://www.villastuck.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/way/85213217",
@@ -15376,6 +15808,7 @@
         "lon": 11.60072
       },
       "entfernungKm": 1.9,
+      "webseite": "https://www.kim-kino.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/3929291577",
@@ -15397,6 +15830,7 @@
         "lon": 11.57283
       },
       "entfernungKm": 2,
+      "webseite": "https://www.kleinesspiel.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/1444741518",
@@ -15418,6 +15852,7 @@
         "lon": 11.57871
       },
       "entfernungKm": 2,
+      "webseite": "https://www.exittheroom.de",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/7961037785",
@@ -15439,6 +15874,7 @@
         "lon": 11.60141
       },
       "entfernungKm": 2,
+      "webseite": "https://haidhausen-museum.mux.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/way/118673950",
@@ -15460,6 +15896,7 @@
         "lon": 11.55316
       },
       "entfernungKm": 2.1,
+      "webseite": "https://cinema-muenchen.com/de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/246919524",
@@ -15481,6 +15918,7 @@
         "lon": 11.57018
       },
       "entfernungKm": 2.1,
+      "webseite": "https://studio-isabella.com/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/369666364",
@@ -15502,6 +15940,7 @@
         "lon": 11.59846
       },
       "entfernungKm": 2.1,
+      "webseite": "https://theater-drehleier.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/583960805",
@@ -15523,6 +15962,7 @@
         "lon": 11.5468
       },
       "entfernungKm": 2.1,
+      "webseite": "https://mystery-rooms.com/muenchen/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/1108137015",
@@ -15544,6 +15984,7 @@
         "lon": 11.56082
       },
       "entfernungKm": 2.1,
+      "webseite": "https://www.exittheroom.de",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/7961016384",
@@ -15565,6 +16006,7 @@
         "lon": 11.5753
       },
       "entfernungKm": 2.3,
+      "webseite": "https://www.schauburg.net/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/162748517",
@@ -15586,6 +16028,7 @@
         "lon": 11.5836
       },
       "entfernungKm": 2.3,
+      "webseite": "https://www.leo17.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/1401127033",
@@ -15607,6 +16050,7 @@
         "lon": 11.56902
       },
       "entfernungKm": 2.3,
+      "webseite": "https://escapegame-muenchen.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/10814090470",
@@ -15628,6 +16072,7 @@
         "lon": 11.60584
       },
       "entfernungKm": 2.6,
+      "webseite": "https://ottoeckart.de/kartoffelmuseum/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/953031130",
@@ -15649,6 +16094,7 @@
         "lon": 11.58668
       },
       "entfernungKm": 2.7,
+      "webseite": "https://www.kino-zeit.de/kinoprogramm/muenchen/leopold-kino-muenchen",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/370745201",
@@ -15670,6 +16116,7 @@
         "lon": 8.68255
       },
       "entfernungKm": 0,
+      "webseite": "https://www.fffrankfurt.org/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/5308338523",
@@ -15691,6 +16138,7 @@
         "lon": 8.68374
       },
       "entfernungKm": 0.1,
+      "webseite": "https://www.struwwelpeter-museum.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/715551908",
@@ -15712,6 +16160,7 @@
         "lon": 8.68299
       },
       "entfernungKm": 0.1,
+      "webseite": "https://www.fkv.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/1851804853",
@@ -15733,6 +16182,7 @@
         "lon": 8.68244
       },
       "entfernungKm": 0.1,
+      "webseite": "https://www.historisches-museum-frankfurt.de",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/2547104680",
@@ -15754,6 +16204,7 @@
         "lon": 8.68117
       },
       "entfernungKm": 0.1,
+      "webseite": "https://www.timeride.de/frankfurt",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/10971369591",
@@ -15775,6 +16226,7 @@
         "lon": 8.68526
       },
       "entfernungKm": 0.2,
+      "webseite": "https://www.caricatura-museum.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/1851762708",
@@ -15796,6 +16248,7 @@
         "lon": 8.68432
       },
       "entfernungKm": 0.2,
+      "webseite": "https://www.frankfurter-sparkasse.de/stoltze",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/6268173592",
@@ -15817,6 +16270,7 @@
         "lon": 8.68504
       },
       "entfernungKm": 0.2,
+      "webseite": "https://dommuseum-frankfurt.de",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/7448608926",
@@ -15838,6 +16292,7 @@
         "lon": 8.67815
       },
       "entfernungKm": 0.3,
+      "webseite": "https://www.stadtgeschichte-ffm.de",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/2953703710",
@@ -15859,6 +16314,7 @@
         "lon": 8.67849
       },
       "entfernungKm": 0.3,
+      "webseite": "https://www.arthouse-kinos.de/die-kinos/cinema/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/3481216519",
@@ -15901,6 +16357,7 @@
         "lon": 8.67869
       },
       "entfernungKm": 0.3,
+      "webseite": "https://dialogmuseum.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/10137308400",
@@ -15943,6 +16400,7 @@
         "lon": 8.67738
       },
       "entfernungKm": 0.4,
+      "webseite": "https://www.die-schmiere.de",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/582860943",
@@ -15964,6 +16422,7 @@
         "lon": 8.67875
       },
       "entfernungKm": 0.4,
+      "webseite": "https://momem.org/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/3884481957",
@@ -15985,6 +16444,7 @@
         "lon": 8.68301
       },
       "entfernungKm": 0.4,
+      "webseite": "https://www.tafelkultur.com/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/3891320264",
@@ -16006,6 +16466,7 @@
         "lon": 8.68179
       },
       "entfernungKm": 0.4,
+      "webseite": "https://frankfurt.premiumkino.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/10584621183",
@@ -16069,6 +16530,7 @@
         "lon": 8.68856
       },
       "entfernungKm": 0.5,
+      "webseite": "https://www.juedischesmuseum.de/besuch/standort-museum-judengasse",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/1853549297",
@@ -16111,6 +16573,7 @@
         "lon": 8.67936
       },
       "entfernungKm": 0.6,
+      "webseite": "https://www.weltkulturenmuseum.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/300928576",
@@ -16132,6 +16595,7 @@
         "lon": 8.68165
       },
       "entfernungKm": 0.6,
+      "webseite": "https://www.bibelhaus-frankfurt.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/2671107504",
@@ -16195,6 +16659,7 @@
         "lon": 8.67448
       },
       "entfernungKm": 0.6,
+      "webseite": "https://www.schauspielfrankfurt.de",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/9340874741",
@@ -16237,6 +16702,7 @@
         "lon": 8.67794
       },
       "entfernungKm": 0.6,
+      "webseite": "https://www.boerse-frankfurt.de/besuch",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/11206320821",
@@ -16258,6 +16724,7 @@
         "lon": 8.6853
       },
       "entfernungKm": 0.7,
+      "webseite": "https://www.arthouse-kinos.de/die-kinos/eldorado",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/264151436",
@@ -16279,6 +16746,7 @@
         "lon": 8.67769
       },
       "entfernungKm": 0.7,
+      "webseite": "https://deutsches-filminstitut.de/filmmuseum/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/385171325",
@@ -16300,6 +16768,7 @@
         "lon": 8.67731
       },
       "entfernungKm": 0.7,
+      "webseite": "https://dam-online.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/385171326",
@@ -16321,6 +16790,7 @@
         "lon": 8.68971
       },
       "entfernungKm": 0.7,
+      "webseite": "https://www.klapperfeld.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/1591630307",
@@ -16363,6 +16833,7 @@
         "lon": 8.67771
       },
       "entfernungKm": 0.7,
+      "webseite": "https://www.dff.film/kino/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/1745261273",
@@ -16384,6 +16855,7 @@
         "lon": 8.67298
       },
       "entfernungKm": 0.7,
+      "webseite": "https://www.mmk.art/de/visit/tower",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/3157469110",
@@ -16405,6 +16877,7 @@
         "lon": 8.69205
       },
       "entfernungKm": 0.7,
+      "webseite": "https://www.theaterhaus-frankfurt.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/6943534885",
@@ -16426,6 +16899,7 @@
         "lon": 8.68972
       },
       "entfernungKm": 0.7,
+      "webseite": "https://www.hindemith.info/de/kabinett/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/7435791753",
@@ -16447,6 +16921,7 @@
         "lon": 8.67929
       },
       "entfernungKm": 0.8,
+      "webseite": "https://www.cinestar.de/kino-frankfurt-main-metropolis/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/56419112",
@@ -16468,6 +16943,7 @@
         "lon": 8.69149
       },
       "entfernungKm": 0.8,
+      "webseite": "https://www.tigerpalast.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/1038226535",
@@ -16489,6 +16965,7 @@
         "lon": 8.67122
       },
       "entfernungKm": 0.8,
+      "webseite": "https://www.english-theatre.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/2948748794",
@@ -16510,6 +16987,7 @@
         "lon": 8.68789
       },
       "entfernungKm": 0.8,
+      "webseite": "https://www.theater-alte-bruecke.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/8262355913",
@@ -16531,6 +17009,7 @@
         "lon": 8.67587
       },
       "entfernungKm": 0.9,
+      "webseite": "https://www.mfk-frankfurt.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/4292738515",
@@ -16552,6 +17031,7 @@
         "lon": 8.67386
       },
       "entfernungKm": 1,
+      "webseite": "https://www.staedelmuseum.de/de",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/144346893",
@@ -16573,6 +17053,7 @@
         "lon": 8.69089
       },
       "entfernungKm": 1,
+      "webseite": "https://www.arthouse-kinos.de/die-kinos/harmonie/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/292417543",
@@ -16594,6 +17075,7 @@
         "lon": 8.69578
       },
       "entfernungKm": 1,
+      "webseite": "https://www.internationales-theater.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/6892872187",
@@ -16615,6 +17097,7 @@
         "lon": 8.69552
       },
       "entfernungKm": 1,
+      "webseite": "https://www.initiative-neunter-november.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/7367769766",
@@ -16636,6 +17119,7 @@
         "lon": 8.66881
       },
       "entfernungKm": 1.1,
+      "webseite": "https://www.room-fox.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/5352514455",
@@ -16657,6 +17141,7 @@
         "lon": 8.66624
       },
       "entfernungKm": 1.1,
+      "webseite": "https://www.blackrabbittheatre.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/10827713472",
@@ -16678,6 +17163,7 @@
         "lon": 8.67175
       },
       "entfernungKm": 1.3,
+      "webseite": "https://www.liebieghaus.de/de",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/144349808",
@@ -16699,6 +17185,7 @@
         "lon": 8.67023
       },
       "entfernungKm": 1.4,
+      "webseite": "https://www.mggu.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/7427950218",
@@ -16720,6 +17207,7 @@
         "lon": 8.69884
       },
       "entfernungKm": 1.5,
+      "webseite": "https://www.mousonturm.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/484793424",
@@ -16762,6 +17250,7 @@
         "lon": 8.65951
       },
       "entfernungKm": 1.6,
+      "webseite": "https://kunststiftungdzbank.de",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/843464889",
@@ -16804,6 +17293,7 @@
         "lon": 8.70099
       },
       "entfernungKm": 1.6,
+      "webseite": "https://www.studionaxos.de",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/4353190590",
@@ -16825,6 +17315,7 @@
         "lon": 8.68372
       },
       "entfernungKm": 1.7,
+      "webseite": "https://stalburg.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/302803336",
@@ -16846,6 +17337,7 @@
         "lon": 8.65815
       },
       "entfernungKm": 1.7,
+      "webseite": "https://www.freiluftkinofrankfurt.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/9949542374",
@@ -16888,6 +17380,7 @@
         "lon": 8.64783
       },
       "entfernungKm": 2.5,
+      "webseite": "https://www.experiminta.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/1605537983",
@@ -16930,6 +17423,7 @@
         "lon": 8.72032
       },
       "entfernungKm": 2.7,
+      "webseite": "https://www.ensemble-modern.com/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/886032168",
@@ -17014,6 +17508,7 @@
         "lon": 8.66872
       },
       "entfernungKm": 3,
+      "webseite": "https://bs-anne-frank.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/6113413213",
@@ -17035,6 +17530,7 @@
         "lon": 8.64192
       },
       "entfernungKm": 3,
+      "webseite": "https://geschichtsort-adlerwerke.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/10262404371",
@@ -17077,6 +17573,7 @@
         "lon": 8.72989
       },
       "entfernungKm": 3.4,
+      "webseite": "https://www.historische-eisenbahn-frankfurt.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/5420844046",
@@ -17098,6 +17595,7 @@
         "lon": 8.72629
       },
       "entfernungKm": 3.4,
+      "webseite": "https://www.megalomania-theater.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/10656249240",
@@ -17119,6 +17617,7 @@
         "lon": 8.62889
       },
       "entfernungKm": 4,
+      "webseite": "https://www.gunestheater.com/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/6470161057",
@@ -17161,6 +17660,7 @@
         "lon": 8.62625
       },
       "entfernungKm": 4.6,
+      "webseite": "https://www.fat-web.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/885996419",
@@ -17182,6 +17682,7 @@
         "lon": 8.61917
       },
       "entfernungKm": 4.6,
+      "webseite": "https://roomescape-frankfurt.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/4427019390",
@@ -17203,6 +17704,7 @@
         "lon": 8.75204
       },
       "entfernungKm": 5,
+      "webseite": "https://www.cinemaxx.de/offenbach/kinoprogramm/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/60268840",
@@ -17224,6 +17726,7 @@
         "lon": 8.67112
       },
       "entfernungKm": 5,
+      "webseite": "https://stadtwaldhaus-frankfurt.de",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/1080527318",
@@ -17245,6 +17748,7 @@
         "lon": 8.75633
       },
       "entfernungKm": 5.3,
+      "webseite": "https://www.capitol-online.de",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/335954073",
@@ -17266,6 +17770,7 @@
         "lon": 8.64675
       },
       "entfernungKm": 5.3,
+      "webseite": "https://www.eintracht-frankfurt-museum.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/5673390196",
@@ -17308,6 +17813,7 @@
         "lon": 8.75392
       },
       "entfernungKm": 5.4,
+      "webseite": "https://www.filmklubb.de",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/8122112743",
@@ -17350,6 +17856,7 @@
         "lon": 8.75976
       },
       "entfernungKm": 5.6,
+      "webseite": "https://www.offenbach.de/scape",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/9861486082",
@@ -17371,6 +17878,7 @@
         "lon": 8.76158
       },
       "entfernungKm": 5.7,
+      "webseite": "https://www.offenbach.de/microsite/haus_der_stadtgeschichte/index.php",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/3881552074",
@@ -17392,6 +17900,7 @@
         "lon": 8.76311
       },
       "entfernungKm": 5.8,
+      "webseite": "https://digitalretropark.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/5966422225",
@@ -17434,6 +17943,7 @@
         "lon": 8.76406
       },
       "entfernungKm": 5.9,
+      "webseite": "https://www.theateratelier.info",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/852934895",
@@ -17476,6 +17986,7 @@
         "lon": 8.76737
       },
       "entfernungKm": 6.2,
+      "webseite": "https://www.of-t-raum.de",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/870551329",
@@ -17581,6 +18092,7 @@
         "lon": 8.58151
       },
       "entfernungKm": 7.7,
+      "webseite": "https://heimatmuseum-schwanheim.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/2008703806",
@@ -17623,6 +18135,7 @@
         "lon": 8.56844
       },
       "entfernungKm": 8.9,
+      "webseite": "https://www.eschborn.de/stadt-kultur-und-tourismusinformationen/stadtmuseum/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/268714032",
@@ -17644,6 +18157,7 @@
         "lon": 8.80174
       },
       "entfernungKm": 8.9,
+      "webseite": "https://www.ruk-ev.de",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/864886610",
@@ -17686,6 +18200,7 @@
         "lon": 8.74453
       },
       "entfernungKm": 9.2,
+      "webseite": "https://www.kultur-bad-vilbel.de/museen/brunnen-und-baedermuseum",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/701378440",
@@ -17749,6 +18264,7 @@
         "lon": 8.74476
       },
       "entfernungKm": 9.4,
+      "webseite": "https://www.kultur-bad-vilbel.de/burgfestspiele/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/9864764990",
@@ -17770,6 +18286,7 @@
         "lon": 9.18184
       },
       "entfernungKm": 0.1,
+      "webseite": "https://www.geschichtsort-hotel-silber.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/6370779093",
@@ -17791,6 +18308,7 @@
         "lon": 9.17996
       },
       "entfernungKm": 0.2,
+      "webseite": "https://www.hdgbw.de/ausstellungen/stauffenberg/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/353723491",
@@ -17812,6 +18330,7 @@
         "lon": 9.17962
       },
       "entfernungKm": 0.3,
+      "webseite": "https://www.landesmuseum-stuttgart.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/281904515",
@@ -17833,6 +18352,7 @@
         "lon": 9.17924
       },
       "entfernungKm": 0.3,
+      "webseite": "https://www.junges-schloss.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/2849084801",
@@ -17854,6 +18374,7 @@
         "lon": 9.17798
       },
       "entfernungKm": 0.4,
+      "webseite": "https://www.landesmuseum-stuttgart.de/ausstellungen/schausammlungen/musikinstrumente/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/274544264",
@@ -17875,6 +18396,7 @@
         "lon": 9.18671
       },
       "entfernungKm": 0.4,
+      "webseite": "https://www.theateramolgaeck.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/3797297180",
@@ -17896,6 +18418,7 @@
         "lon": 9.18674
       },
       "entfernungKm": 0.4,
+      "webseite": "https://www.nellyspuppentheater.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/5492933131",
@@ -17917,6 +18440,7 @@
         "lon": 9.17765
       },
       "entfernungKm": 0.4,
+      "webseite": "https://rosenstein-stuttgart.de/die-austellung",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/8318832471",
@@ -17938,6 +18462,7 @@
         "lon": 9.17893
       },
       "entfernungKm": 0.5,
+      "webseite": "https://innenstadtkinos.de",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/264893982",
@@ -17959,6 +18484,7 @@
         "lon": 9.18867
       },
       "entfernungKm": 0.5,
+      "webseite": "https://www.wortkino.de",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/4238297189",
@@ -17980,6 +18506,7 @@
         "lon": 9.17695
       },
       "entfernungKm": 0.5,
+      "webseite": "https://www.hegel-haus.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/6263439774",
@@ -18001,6 +18528,7 @@
         "lon": 9.17632
       },
       "entfernungKm": 0.5,
+      "webseite": "https://www.pause-play.de/stuttgart",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/10887803219",
@@ -18022,6 +18550,7 @@
         "lon": 9.17901
       },
       "entfernungKm": 0.5,
+      "webseite": "https://schauspielbuehnen.de/die-schauspielbuehnen/komodie-im-marquardt/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/11460012203",
@@ -18043,6 +18572,7 @@
         "lon": 9.17918
       },
       "entfernungKm": 0.6,
+      "webseite": "https://www.innenstadtkinos.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/102975510",
@@ -18064,6 +18594,7 @@
         "lon": 9.17628
       },
       "entfernungKm": 0.6,
+      "webseite": "https://www.fitz-stuttgart.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/1779626555",
@@ -18085,6 +18616,7 @@
         "lon": 9.17623
       },
       "entfernungKm": 0.6,
+      "webseite": "https://www.tri-buehne.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/1779626590",
@@ -18106,6 +18638,7 @@
         "lon": 9.17451
       },
       "entfernungKm": 0.7,
+      "webseite": "https://www.arthaus-kino.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/332405423",
@@ -18127,6 +18660,7 @@
         "lon": 9.18622
       },
       "entfernungKm": 0.7,
+      "webseite": "https://www.studiotheater.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/3452298775",
@@ -18148,6 +18682,7 @@
         "lon": 9.18614
       },
       "entfernungKm": 0.7,
+      "webseite": "https://www.studiotheater.de/index/index/parentId/41/childId/47",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/3474595431",
@@ -18169,6 +18704,7 @@
         "lon": 9.17362
       },
       "entfernungKm": 0.7,
+      "webseite": "https://www.exitgames-stuttgart.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/6695024970",
@@ -18190,6 +18726,7 @@
         "lon": 9.17363
       },
       "entfernungKm": 0.7,
+      "webseite": "https://www.forum-theater.de",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/10126615696",
@@ -18211,6 +18748,7 @@
         "lon": 9.18109
       },
       "entfernungKm": 0.8,
+      "webseite": "https://www.miniaturweltenstuttgart.de",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/7470709606",
@@ -18232,6 +18770,7 @@
         "lon": 9.17211
       },
       "entfernungKm": 0.8,
+      "webseite": "https://teamescape.com/stuttgart/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/10314654453",
@@ -18274,6 +18813,7 @@
         "lon": 9.17159
       },
       "entfernungKm": 0.9,
+      "webseite": "https://www.bibelmuseum-stuttgart.elk-wue.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/5561268619",
@@ -18295,6 +18835,7 @@
         "lon": 9.17864
       },
       "entfernungKm": 0.9,
+      "webseite": "https://www.wechselraum.de",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/6624563078",
@@ -18316,6 +18857,7 @@
         "lon": 9.16828
       },
       "entfernungKm": 1.1,
+      "webseite": "https://www.arthaus-kino.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/264893984",
@@ -18379,6 +18921,7 @@
         "lon": 9.2032
       },
       "entfernungKm": 1.5,
+      "webseite": "https://www.theaterlalunestuttgart.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/8183993103",
@@ -18421,6 +18964,7 @@
         "lon": 9.18353
       },
       "entfernungKm": 1.6,
+      "webseite": "https://stuttgart.museumderillusionen.de",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/5281346792",
@@ -18442,6 +18986,7 @@
         "lon": 9.16923
       },
       "entfernungKm": 1.6,
+      "webseite": "https://www.dreigroschentheater.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/7198387542",
@@ -18463,6 +19008,7 @@
         "lon": 9.16104
       },
       "entfernungKm": 1.7,
+      "webseite": "https://www.rosenau-stuttgart.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/5478238418",
@@ -18484,6 +19030,7 @@
         "lon": 9.20165
       },
       "entfernungKm": 1.7,
+      "webseite": "https://www.tredeschin.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/7217163650",
@@ -18505,6 +19052,7 @@
         "lon": 9.20665
       },
       "entfernungKm": 2,
+      "webseite": "https://www.bessarabien.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/6076485442",
@@ -18568,6 +19116,7 @@
         "lon": 9.17768
       },
       "entfernungKm": 2.7,
+      "webseite": "https://weissenhofmuseum.de",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/4307258907",
@@ -18589,6 +19138,7 @@
         "lon": 9.20574
       },
       "entfernungKm": 3.2,
+      "webseite": "https://www.naturkundemuseum-bw.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/279141714",
@@ -18610,6 +19160,7 @@
         "lon": 9.17406
       },
       "entfernungKm": 3.4,
+      "webseite": "https://www.theater-in-der-badewanne.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/9781510756",
@@ -18631,6 +19182,7 @@
         "lon": 9.18763
       },
       "entfernungKm": 3.8,
+      "webseite": "https://www.polizeimuseum-stuttgart.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/3372362182",
@@ -18673,6 +19225,7 @@
         "lon": 9.17904
       },
       "entfernungKm": 3.8,
+      "webseite": "https://www.theaterhaus.com/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/6263524718",
@@ -18694,6 +19247,7 @@
         "lon": 9.17809
       },
       "entfernungKm": 3.9,
+      "webseite": "https://www.friedrichsbau.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/3294412292",
@@ -18715,6 +19269,7 @@
         "lon": 9.12635
       },
       "entfernungKm": 4.2,
+      "webseite": "https://buergerhaus-botnang.de/kino/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/4462460090",
@@ -18820,6 +19375,7 @@
         "lon": 9.21989
       },
       "entfernungKm": 5.5,
+      "webseite": "https://www.stuttgarter-feuerwehrmuseum.de",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/767116789",
@@ -18883,6 +19439,7 @@
         "lon": 9.16242
       },
       "entfernungKm": 6,
+      "webseite": "https://www.si-centrum.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/5985007286",
@@ -18925,6 +19482,7 @@
         "lon": 9.27062
       },
       "entfernungKm": 6.5,
+      "webseite": "https://www.bv-untertuerkheim.de",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/843095626",
@@ -18946,6 +19504,7 @@
         "lon": 9.1345
       },
       "entfernungKm": 6.5,
+      "webseite": "https://www.auwaerter-museum.de/index.html",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/3165605440",
@@ -19072,6 +19631,7 @@
         "lon": 9.27713
       },
       "entfernungKm": 7.7,
+      "webseite": "https://www.kunstverein-fellbach.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/3737335167",
@@ -19177,6 +19737,7 @@
         "lon": 9.3061
       },
       "entfernungKm": 9.2,
+      "webseite": "https://www.aquarien-vogelfreunde-fellbach.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/326128687",
@@ -19240,6 +19801,7 @@
         "lon": 9.1667
       },
       "entfernungKm": 9.7,
+      "webseite": "https://www.leinfelden-echterdingen.de/Startseite/Kultur/Stadtmuseum.html",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/344376499",
@@ -19324,6 +19886,7 @@
         "lon": 9.18138
       },
       "entfernungKm": 9.8,
+      "webseite": "https://www.capitol-kornwestheim.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/247267744",
@@ -19345,6 +19908,7 @@
         "lon": 9.30942
       },
       "entfernungKm": 10,
+      "webseite": "https://www.kabarettdergalgenstricke.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/418802473",
@@ -19387,6 +19951,7 @@
         "lon": 9.31043
       },
       "entfernungKm": 10.1,
+      "webseite": "https://www.lima-theater.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/273125440",
@@ -19408,6 +19973,7 @@
         "lon": 9.13849
       },
       "entfernungKm": 10.1,
+      "webseite": "https://www.leinfelden-echterdingen.de/Startseite/Kultur/Spielkartenmuseum.html",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/519326322",
@@ -19429,6 +19995,7 @@
         "lon": 9.30931
       },
       "entfernungKm": 10.1,
+      "webseite": "https://www.koki-es.de",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/595655464",
@@ -19513,6 +20080,7 @@
         "lon": 9.11674
       },
       "entfernungKm": 10.4,
+      "webseite": "https://www.leinfelden-echterdingen.de/,Lde/Startseite/Kultur/Stadtarchiv.html",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/1332091178",
@@ -19639,6 +20207,7 @@
         "lon": 9.01614
       },
       "entfernungKm": 12.2,
+      "webseite": "https://leonberg.traumpalast.de",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/4235903593",
@@ -19681,6 +20250,7 @@
         "lon": 9.31506
       },
       "entfernungKm": 12.5,
+      "webseite": "https://www.markenwelt.stihl.de",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/11281620344",
@@ -19744,6 +20314,7 @@
         "lon": 9.19525
       },
       "entfernungKm": 13,
+      "webseite": "https://forum.ludwigsburg.de",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/299812473",
@@ -19765,6 +20336,7 @@
         "lon": 9.18827
       },
       "entfernungKm": 13.1,
+      "webseite": "https://central-union.cinster.online/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/299812492",
@@ -19807,6 +20379,7 @@
         "lon": 9.2752
       },
       "entfernungKm": 13.1,
+      "webseite": "https://www.stadt-remseck.de/de/Freizeit+Kultur/Archive+Museen",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/5343560626",
@@ -19828,6 +20401,7 @@
         "lon": 9.18813
       },
       "entfernungKm": 13.3,
+      "webseite": "https://central-union.cinster.online/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/299812491",
@@ -19849,6 +20423,7 @@
         "lon": 9.19372
       },
       "entfernungKm": 13.3,
+      "webseite": "https://www.scala-ludwigsburg.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/1609075419",
