@@ -9,6 +9,50 @@ tags: [layer/L5, domain/evolution, share/internal]
 
 > Diese Datei ist die **erste Quelle** die Claude Code liest. Sie enthält alles Wichtige über Projekt, Präferenzen und offene Aufgaben.
 
+## Stand 2026-09-24 — der Autopilot meldete 34-mal den falschen Grund
+
+**PR #295 ist gemergt** (`94de9c6`), Deploy und Site-Monitor grün. Damit sind
+der Stripe-Webhook-Beleg und der Chargeback-Empfänger live.
+
+**Danach gemessen, was neben der Arbeit rot leuchtete:** „🧠 Operationspuls ·
+auto" war **34 Läufe in Folge rot**, seit dem 23.09. 15:18 UTC, alle fünf bis
+zehn Minuten einer. Gemeldet wurde *„kein Modell lieferte auswertbares
+strukturiertes JSON"* — dabei hatte **kein Modell überhaupt geantwortet**, alle
+drei standen auf `402: Insufficient credits`. **Das OpenRouter-Konto ist leer.**
+
+**Und die Vorprüfung hatte das durchgewunken.** Sie las `limit_remaining` aus
+`/api/v1/key` — das Limit des **Schlüssels**, nicht das Guthaben des **Kontos**.
+Ohne eigenes Limit steht dort `null`, und `null` galt als „weiterfahren". Die
+Warnung davor stand seit dem 25.08. wörtlich in CLAUDE.md.
+
+### Drei Lektionen aus diesem Tag
+
+1. **Ein Prüfer, dessen Subjekt ein anderes ist als das vermutete, gibt eine
+   Entwarnung, die er nicht decken kann** — diesmal nicht bei einem
+   Sicherheits-Scan, sondern bei einer Kostenbremse. Dieselbe Klasse, dritter
+   Ort.
+2. **Kein Geld ist ein Zustand, kein Defekt.** Beide Stellen stoppen jetzt
+   tokenfrei als `stopp: 'guthaben'`, sichtbar als `::warning` und im HQ als
+   Budgetstopp. Bei einem Takt von fünf Minuten wären es sonst über 140 rote
+   Läufe am Tag — und ein roter Haken, der ohne neue Information wiederkehrt,
+   ist nach einem Tag niemandes Signal mehr.
+3. **Was ich nicht messen kann, trägt die Behebung nicht.** `openrouter.ai` ist
+   aus der Agent-Umgebung nicht erreichbar; die Gestalt von `/api/v1/credits`
+   folgt also der Dokumentation, nicht einer Messung. Der **Fehlertext**
+   dagegen steht wörtlich im Lauf-Log. Deshalb hängt die Behebung an der
+   402-Wache und nicht an der Guthabenabfrage — fällt die aus, geht der Lauf
+   weiter.
+
+**Nebenbei richtiggestellt:** die Liste „Offen aus der Oberflächenprüfung"
+in `Current-Sprint.md` war veraltet. Nachgemessen ist
+`barrierefreiheit.spec.js` über **32 der 34 Seiten × 2 Farbmodi** grün — die
+vierzehn `for`-Attribute (heute 65), `.btn-link`, `.create-payout-title`, die
+abgeleitete Seitenliste und die Markenfarbe als Text sind erledigt. Und #221
+wurde **gemergt**, nicht geschlossen.
+
+**Offen beim Inhaber, neu:** das OpenRouter-Konto aufladen. Bis dahin stoppt
+der Autopilot sauber und arbeitet nicht.
+
 ## Stand 2026-09-23 — die Launch-Prüfung ist live, und Stripe wurde zum ersten Mal gemessen
 
 **PR #283 ist gemergt** (`1482814`), der IONOS-Deploy lief durch (Lauf 1095),

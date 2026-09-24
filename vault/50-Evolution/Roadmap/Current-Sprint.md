@@ -16,7 +16,7 @@ Zahlen ihrer Zeit — die sind Historie, kein Ist-Stand. Der Ensemble-Kontext
 liest diese Datei von oben; ein Modell, das „68 Tests" als aktuell meldet, hat
 einen alten Abschnitt gelesen und nicht diesen.
 
-- **Playwright-Suite: 1247 Tests in 86 Suiten**, blockierendes Gate in `pr-check.yml`.
+- **Playwright-Suite: 1261 Tests in 87 Suiten**, blockierendes Gate in `pr-check.yml`.
   Läuft seit dem Self-Hosting auch ohne Netzzugang vollständig durch
 
 ## Release-Bereitschaft (2026-09-23) — der aktuelle Engpass
@@ -25,7 +25,7 @@ einen alten Abschnitt gelesen und nicht diesen.
 Site-Monitor grün). Sechs Funde, fünf behoben, der sechste am selben Abend
 geschlossen. Vollständig: [[40-Governance/Legal/Launch-Befund-UG]].
 
-**Was den Release wirklich sperrt — fünf Zeilen, alle beim Inhaber:**
+**Was den Release wirklich sperrt — sechs Zeilen, alle beim Inhaber:**
 
 1. **Null verbundene Connect-Konten.** Ohne ein aktives lehnt der Buchungspfad
    mit 409 ab — **heute ist keine Buchung bezahlbar.** Der Onboarding-Weg
@@ -42,6 +42,12 @@ geschlossen. Vollständig: [[40-Governance/Legal/Launch-Befund-UG]].
    Stripe-Dashboard (`charge.dispute.created/updated/closed`), sonst ist der
    Empfänger ein toter Zweig — `stripe-webhook.mjs` meldet das ab sofort.
 
+6. **Das OpenRouter-Konto ist leer** (24.09.). Der Autopilot lief 34-mal in
+   Folge rot, weil jedes Modell mit `402: Insufficient credits` antwortete.
+   Er stoppt jetzt tokenfrei statt rot zu werden — arbeiten tut er erst
+   wieder nach dem Aufladen. Sperrt den Release nicht, kostet aber jeden Tag
+   die Selbstverbesserung.
+
 **Rechtsfragen daneben:** ZAG-Einordnung anwaltlich · PStTG/DAC7 mit dem
 Steuerberater (inkl. was Stripe Connect abdeckt) · Datenschutzerklärung § 10a,
 danach `EB_HANDLE_NACHTRAG`.
@@ -51,36 +57,25 @@ Testmodus — es ändert die Gestalt jeder Stripe-Antwort) · Ruleset auf
 `E2E-Testsuite (Playwright)` · die 105 Deko-Animationen · App-Store-Reste
 (APNs, `Info.plist`, Händlerstatus).
 
-## Offen aus der Oberflächenprüfung (2026-09-15)
+## Offen aus der Oberflächenprüfung (2026-09-15) — grösstenteils erledigt
 
-Gemessen, berichtet, **nicht beauftragt** — der Inhaber entscheidet über die
-Reihenfolge. Vollständig in [[30-Betrieb/Barrierefreiheit-Abdeckung]] und
-[[20-System/Frontend/Design-System-Drift]].
+**Am 24.09.2026 nachgemessen, nicht angenommen:** `barrierefreiheit.spec.js`
+läuft über **32 der 34 Seiten × 2 Farbmodi** und meldet **0 Verstösse**
+(10/10 Tests grün). Damit sind erledigt und hier nur noch als Protokoll
+aufgeführt — eine stillschweigend abgehakte Liste sieht aus, als hätte sie
+nie anders gelautet:
 
-Die ersten vier sind Handgriffe ohne Gestaltungsrisiko und in einem Zug zu
-machen:
+- [x] **Die vierzehn `for`-Attribute** — heute trägt `app-shell.html` **65**
+      verbundene Beschriftungen; alle 20 kritischen Verstösse sind weg
+- [x] **Der schwarze Knopf auf schwarzem Grund** (`.btn-link` war in *keinem*
+      Stylesheet definiert und erbte `color: buttontext`)
+- [x] **Der zweite unsichtbare Text** (`.create-payout-title`)
+- [x] **`SEITEN` aus den `id="page-…"` abgeleitet**, angemeldet und mit
+      `isAdmin` gemessen, mit Gegenprobe auf die wirklich aktive Seite
+- [x] **Markenfarbe als Text** — kein `color-contrast`-Verstoss mehr im Tor
 
-- [ ] **Vierzehn `for`-Attribute in `app-shell.html`.** Schließt **alle 20
-      kritischen** WCAG-Verstöße auf einmal. Acht davon auf `create-listing` —
-      der Seite, auf der Angebot entsteht; einer am Schalter für die
-      Zwei-Faktor-Anmeldung
-- [ ] **Der schwarze Knopf auf schwarzem Grund** (`auftraege`, dunkel,
-      `#000000` auf `#121212` = 1,12 : 1). Er ist der Ausweg aus einer
-      Störung und erscheint nur, wenn das Laden fehlschlug — wer ihn braucht,
-      sieht ihn nicht. Aus eigener Arbeit am Storno-Vorgang
-- [ ] **Der zweite unsichtbare Text** (`create-listing`, dunkel,
-      `.create-payout-title` 1,15 : 1). Feste Flächenfarbe `#fff8e8`, die den
-      Farbmodus nicht mitmacht, heller Text darauf
-- [ ] **`SEITEN` in `barrierefreiheit.spec.js` aus den `id="page-…"`
-      ableiten** — angemeldet, in der Rolle der Seite, mit Gegenprobe auf die
-      wirklich aktive Seite. Danach bringt jede neue Seite ihre Prüfung mit
+Was bleibt, ist **kein Tor-Subjekt** und deshalb weiterhin offen:
 
-Gestaltungsentscheidungen, die dem Inhaber gehören:
-
-- [ ] **Markenfarbe als Text** — `#FF385C` auf Weiß = 3,51 : 1 an sieben
-      Stellen (`business`-Kicker, Kontaktseite, Links auf AGB und
-      Datenschutz). Die Token `--primary-text` / `--accent-text` gibt es seit
-      dem 01.08.2026 und sie werden 23× benutzt; hier eben nicht
 - [ ] **Die drei Einstiege der Landeseite auf eigenen Grund stellen.** Sie
       haben keinen Hintergrund, nur `rgba(255,255,255,.14)` + `blur(8px)`;
       bis die Marquee-Bilder da sind (~3,5 s), steht Weiß auf Hell. **Kein Tor
@@ -93,23 +88,22 @@ Gestaltungsentscheidungen, die dem Inhaber gehören:
 - [ ] **Mobilleisten-Beschriftung bei 8,32 px** („Profil", „Suche") — die
       Hauptnavigation am Telefon
 
-## Alte PRs — gesichtet, nicht entschieden (2026-09-15)
+## Alte PRs — abgeräumt (Stand 2026-09-24)
 
-Neun offene PRs, **alle** `mergeable_state: dirty`. Auf Wunsch des Inhabers
-gesichtet und berichtet; nichts geschlossen, nichts gemergt.
+Von den neun vom 15.09. sind **noch drei offen**, alle Draft:
 
 | PR | Lage |
 |---|---|
-| #228 | inhaltlich bereits auf `main` |
-| #199 | durch #228 überholt |
-| #217, #218, #219, #222 | Routine-PRs vom 27.–30.08. mit **älteren** erzeugten Ständen als `main` |
-| #271 | Tagesstand von heute (8/8 Gebiete, einen Tag frischer als `main`) |
-| #221 | echter Einzeiler (`aria-label`), **nicht** auf `main` |
-| #46 | 3 Monate alt, +5334/−421 über 14 Dateien; liefert AASA als **statische Datei**, während `main` sie über eine Route mit geprüfter `EB_APPLE_TEAM_ID` ausliefert |
+| #228 | HQ-Freigabepanel, inhaltlich bereits auf `main` — schliessbar |
+| #199 | durch #228 überholt — schliessbar |
+| #46 | 3 Monate alt, +5334/−421 über 14 Dateien; liefert AASA als **statische Datei**, während `main` sie über eine Route mit geprüfter `EB_APPLE_TEAM_ID` ausliefert. Er baut ausserdem auf der widerlegten Annahme auf, Apple wolle an Dienstleistungen mitverdienen (3.1.3(e)) — **gegenstandslos, nicht gefährlich** |
 
-**Vorschlag, unentschieden:** den Inhalt von #221 frisch nehmen und mit einem
-neu erzeugten Tagesstand in **einem** PR landen, die übrigen sieben mit Grund
-schließen.
+Die fünf Routine-PRs (#217, #218, #219, #222, #271) sind am 23.09.2026
+**geschlossen**: jeder trug einen älteren erzeugten Stand als `main`, ein
+Merge hätte nur Konflikte erzeugt. Der Autopilot-PR #221 ist dagegen am
+15.09. **gemergt** worden — der `aria-label`-Einzeiler ist also drin. Die
+Regel dahinter steht in CLAUDE.md: ein PR wird am selben Tag gemergt oder
+geschlossen.
 
 ## UX-Abschlussstand (2026-09-13)
 

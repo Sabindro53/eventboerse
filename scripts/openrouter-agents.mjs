@@ -474,6 +474,99 @@ function modellKandidaten(spec, modellPreise, promptZeichen) {
     .map((x) => x.modell);
 }
 
+/**
+ * Ist diese Fehlermeldung „das Konto hat kein Geld mehr"?
+ *
+ * GEMESSEN, NICHT VERMUTET. Am 23.09.2026 waren 34 Laeufe in Folge rot, seit
+ * 15:18 UTC, alle fuenf bis zehn Minuten einer. Jeder trug dieselbe Zeile je
+ * Modell:
+ *
+ *   qwen/qwen3-30b-a3b-instruct-2507: API OpenRouter 402: Insufficient credits.
+ *
+ * `apiJson` setzt den Code vor den Text, deshalb traegt die Meldung
+ * „OpenRouter 402". Geprueft wird beides — der Code allein waere zu eng (ein
+ * Anbieter kann den Text mit einem anderen Status schicken), der Text allein
+ * zu weit.
+ *
+ * ENG GEHALTEN, UND DAS IST DER GANZE PUNKT. Ein Muster auf „credits" allein
+ * traefe auch einen Modellnamen und jede Prosa-Zeile, die das Wort nennt —
+ * dieselbe Falle wie ein Muster, das den erklaerenden Kommentar trifft. Und
+ * ein zu weites Muster waere hier teuer: es machte aus einem echten Defekt
+ * einen stillen, gruenen Lauf.
+ */
+const GUTHABEN_MUSTER = /OpenRouter 402\b|insufficient credits|requires more credits|negative credit balance/i;
+
+function istGuthabenFehler(nachricht) {
+  return GUTHABEN_MUSTER.test(String(nachricht == null ? '' : nachricht));
+}
+
+/**
+ * Guthaben des KONTOS aus `GET /api/v1/credits`.
+ *
+ * NICHT DASSELBE WIE DAS SCHLUESSEL-LIMIT — und genau diese Verwechslung war
+ * der Befund. `/key` beschreibt, wie viel DIESER Schluessel ausgeben darf;
+ * ohne eigenes Limit steht dort `null`. Das sagt nichts darueber, ob auf dem
+ * Konto Geld liegt. Die Vorpruefung las `limit_remaining`, fand `null`,
+ * meldete „ohne eigenes Limit" und fuhr los — waehrend jedes Modell mit 402
+ * antwortete. Ein Pruefer, dessen Subjekt ein anderes ist als das vermutete,
+ * gibt eine Entwarnung, die er nicht decken kann.
+ *
+ * Unlesbare oder unvollstaendige Antwort ergibt `null` = UNBEKANNT, nie 0:
+ * eine erfundene Null waere eine Aussage ueber das Konto, die wir nicht haben.
+ */
+function guthabenAusKonto(body) {
+  const daten = body && body.data;
+  if (!daten || typeof daten !== 'object') return null;
+  const gesamt = zahl(daten.total_credits);
+  const verbraucht = zahl(daten.total_usage);
+  if (gesamt === null || verbraucht === null) return null;
+  return gesamt - verbraucht;
+}
+
+/**
+ * Welcher der beiden Werte bindet wirklich?
+ *
+ * Der KLEINERE der bekannten. Ein Schluessel mit $50 Limit auf einem Konto
+ * mit $0 darf nichts ausgeben, und ein volles Konto hilft einem Schluessel
+ * mit ausgeschoepftem Limit nicht. Sind beide unbekannt, ist es unbekannt —
+ * und „unbekannt" darf nicht aussehen wie „in Ordnung".
+ */
+function bindendesGuthaben(schluesselRest, kontoGuthaben) {
+  const werte = [schluesselRest, kontoGuthaben].filter((w) => typeof w === 'number' && Number.isFinite(w));
+  return werte.length ? Math.min(...werte) : null;
+}
+
+/**
+ * War JEDER Fehlschlag einer Rolle ein Geldfehler?
+ *
+ * JEDER, nicht irgendeiner. Ein einzelnes 402 neben einem echten Schemafehler
+ * bleibt ein Defekt und muss rot werden — sonst waere die Behebung ein Weg,
+ * jeden kuenftigen Fehler hinter einem beliebigen 402 verschwinden zu lassen.
+ * Eine leere Liste ist ebenfalls kein Guthabenfall: dann hat nichts gefehlt.
+ */
+function istGuthabenStopp(fehler) {
+  return Array.isArray(fehler) && fehler.length > 0 && fehler.every(istGuthabenFehler);
+}
+
+/** Der tokenfreie Stopp, wenn kein Geld da ist — derselbe Bau wie beim Tagesbudget. */
+function guthabenStoppErgebnis(fokus, grund, laeufe = [], kosten = 0) {
+  return {
+    changed: false,
+    fokus,
+    stopp: 'guthaben',
+    scout: {
+      title: 'Kein OpenRouter-Guthaben',
+      goal: 'Der Lauf bleibt tokenfrei, bis das OpenRouter-Konto wieder gedeckt ist.',
+      why_now: grund,
+      target_files: [],
+      acceptance: ['Kein Modell wird aufgerufen.', 'Das HQ weist den kostenfreien Stopp aus.'],
+      risk: 'low',
+    },
+    laeufe,
+    kosten,
+  };
+}
+
 async function apiJson(url, init, timeoutMs = 120000) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
@@ -528,18 +621,44 @@ async function main(argv = []) {
     'X-OpenRouter-Title': 'EventBoerse HQ Mission Control',
   };
 
-  const [keyInfo, modelInfo] = await Promise.all([
+  const [keyInfo, modelInfo, kontoInfo] = await Promise.all([
     apiJson(`${API}/key`, { headers }),
     apiJson(`${API}/models?output_modalities=text`, { headers: { 'Content-Type': 'application/json' } }),
+    // Das Guthaben des KONTOS, nicht das Limit des Schluessels. Faellt dieser
+    // Nebenabruf aus, gilt das Guthaben als unbekannt statt den Lauf rot zu
+    // machen — die 402-Wache im Rollenlauf traegt den Fall ohnehin, und sie
+    // misst die Antwort, die OpenRouter wirklich geschickt hat.
+    apiJson(`${API}/credits`, { headers }).catch((error) => ({ abrufFehler: error.message })),
   ]);
   const kd = keyInfo.data || {};
   const remaining = zahl(kd.limit_remaining)
     ?? ((zahl(kd.limit) !== null && zahl(kd.usage) !== null) ? zahl(kd.limit) - zahl(kd.usage) : null);
-  if (remaining !== null && remaining < minRemaining) {
-    throw new Error(`OpenRouter-Kostenbremse: nur noch $${remaining.toFixed(2)} Schluessel-Limit uebrig.`);
+  const kontoGuthaben = guthabenAusKonto(kontoInfo);
+  const bindend = bindendesGuthaben(remaining, kontoGuthaben);
+  // KEIN GELD IST EIN ZUSTAND, KEIN DEFEKT. Vorher warf diese Stelle, der Lauf
+  // wurde rot, und bei einem Takt von fuenf Minuten waeren das ueber 140 rote
+  // Laeufe am Tag. Ein Pruefer, der staendig grundlos anschlaegt, wird
+  // abgeschaltet — dieselbe Mechanik wie beim toten Gitleaks-Scan, nur
+  // andersherum. Gestoppt wird deshalb tokenfrei und sichtbar, wie beim
+  // Tagesbudget.
+  if (bindend !== null && bindend < minRemaining) {
+    console.log(`::warning title=OpenRouter ohne Guthaben::Nur noch $${bindend.toFixed(2)} verfuegbar, `
+      + `mindestens $${minRemaining.toFixed(2)} noetig. Kein Modell wird aufgerufen.`);
+    return ergebnisSchreiben(guthabenStoppErgebnis(fokus,
+      `Verfuegbar sind $${bindend.toFixed(2)}; der Lauf verlangt mindestens $${minRemaining.toFixed(2)}.`));
   }
-  if (remaining === null) {
-    console.log(`OpenRouter-Schluessel ohne eigenes Limit; Laufbudget bleibt bei $${runBudget.toFixed(2)}.`);
+  if (bindend === null) {
+    // „Nicht gemessen" muss anders aussehen als „in Ordnung". Hier stand
+    // „Schluessel ohne eigenes Limit" — wahr und trotzdem eine Entwarnung,
+    // die der Satz nicht decken konnte.
+    console.log('OpenRouter: Guthaben UNBEKANNT — weder Schluessel-Limit noch Kontostand abrufbar'
+      + `${kontoInfo && kontoInfo.abrufFehler ? ` (${kontoInfo.abrufFehler})` : ''}. `
+      + `Laufbudget bleibt bei $${runBudget.toFixed(2)}; ein 402 stoppt den Lauf tokenfrei.`);
+  } else {
+    console.log(`OpenRouter: $${bindend.toFixed(2)} verfuegbar (Schluessel-Limit `
+      + `${remaining === null ? 'ohne Grenze' : `$${remaining.toFixed(2)}`}, Kontoguthaben `
+      + `${kontoGuthaben === null ? 'unbekannt' : `$${kontoGuthaben.toFixed(2)}`}); `
+      + `Laufbudget $${runBudget.toFixed(2)}.`);
   }
 
   const heute = zahl(kd.usage_daily);
@@ -652,6 +771,22 @@ async function main(argv = []) {
         const ende = antwort?.choices?.[0]?.finish_reason || 'unbekannt';
         fehler.push(`${modell}: ${error.message} (finish_reason=${ende})`);
       }
+    }
+    // WAR JEDER FEHLSCHLAG EIN GELDFEHLER, IST ES KEIN DEFEKT. Genau so sah
+    // der Befund vom 23.09.2026 aus: „kein Modell lieferte auswertbares
+    // strukturiertes JSON" — dabei hatte kein Modell ueberhaupt geantwortet,
+    // alle drei standen auf 402. Die Meldung zeigte auf das Schema und die
+    // Ursache lag auf dem Konto; wer ihr folgt, sucht am falschen Ende.
+    //
+    // JEDER, nicht irgendeiner: ein einzelnes 402 neben einem echten
+    // Schemafehler bleibt ein Defekt und muss rot werden.
+    if (istGuthabenStopp(fehler)) {
+      const stopp = new Error(`${rolle}: OpenRouter lehnt jeden Modellaufruf mangels Guthaben ab `
+        + `(${fehler.length} Modelle). ${fehler.join(' | ')}`);
+      stopp.guthabenStopp = guthabenStoppErgebnis(fokus,
+        `Alle ${fehler.length} Modelle der Rolle ${rolle} antworteten mit fehlendem Guthaben.`,
+        laeufe, ausgegeben);
+      throw stopp;
     }
     throw new Error(`${rolle}: kein Modell lieferte auswertbares strukturiertes JSON; $${ausgegeben.toFixed(4)} verbraucht. ${fehler.join(' | ')}`);
   }
@@ -977,6 +1112,22 @@ function nachApplyPruefen(changedFiles, modellDateien) {
   if (!changedFiles.length) throw new Error('Patch erzeugt keine Aenderung.');
 }
 
+/**
+ * Nimmt einen Guthaben-Stopp an und beendet den Lauf tokenfrei.
+ *
+ * Gibt `true` zurueck, wenn er ihn angenommen hat — jeder andere Fehler geht
+ * unveraendert seinen Weg und macht den Workflow weiterhin rot. Als eigene
+ * Funktion, damit dieses Verhalten PRUEFBAR ist: die Umwandlung im Ausgang
+ * des Skripts erreicht kein Test, ohne einen echten Lauf gegen OpenRouter zu
+ * fahren.
+ */
+function guthabenStoppAnnehmen(error) {
+  if (!error || !error.guthabenStopp) return false;
+  ergebnisSchreiben(error.guthabenStopp);
+  console.log(`::warning title=OpenRouter ohne Guthaben::${error.message}`);
+  return true;
+}
+
 function ergebnisSchreiben(result) {
   mkdirSync(OUT_DIR, { recursive: true });
   const kosten = Number((result.kosten || 0).toFixed(6));
@@ -1004,9 +1155,10 @@ function ergebnisSchreiben(result) {
       });
     } else {
       const grund = clean.stopp === 'tagesbudget' ? 'Tagesbudget erreicht.'
-        : clean.architekt?.decision === 'skip' ? clean.architekt.skip_reason
-          : clean.review && !clean.review.approved ? clean.review.summary
-            : 'Kein sicherer, wirksamer Patch wurde freigegeben.';
+        : clean.stopp === 'guthaben' ? 'OpenRouter-Guthaben aufgebraucht — kein Modellaufruf.'
+          : clean.architekt?.decision === 'skip' ? clean.architekt.skip_reason
+            : clean.review && !clean.review.approved ? clean.review.summary
+              : 'Kein sicherer, wirksamer Patch wurde freigegeben.';
       codeflowSchreiben(codeflow.phase || 'scout', {
         status: clean.stopp ? 'budgetstopp' : 'ohne_aenderung',
         aktuelles_ziel: grund,
@@ -1137,6 +1289,46 @@ function selfTest() {
     patchPruefen(gut.replace('+const demo = 2;', "+fetch('https://example.com');"), ['js/modules/ui/43-showcase.js']);
   } catch { blockiert = true; }
   if (!blockiert) throw new Error('Guardrail-Selbsttest hat verbotenen Netzwerkpfad nicht blockiert.');
+  // Die 402-Wache, an der gemessenen Meldung vom 23.09.2026 — nicht an einer
+  // ausgedachten. Der Text ist aus dem Lauf-Log uebernommen.
+  const echterFehler = 'qwen/qwen3-30b-a3b-instruct-2507: API OpenRouter 402: '
+    + 'Insufficient credits. Add more using https://openrouter.ai/settings/credits';
+  if (!istGuthabenFehler(echterFehler)) {
+    throw new Error('Die gemessene 402-Meldung von OpenRouter wird nicht als Guthabenfehler erkannt.');
+  }
+  // Die Gegenprobe ist die wichtigere Haelfte: ein zu weites Muster machte aus
+  // jedem echten Defekt einen stillen, gruenen Lauf.
+  for (const harmlos of [
+    'meta-llama/llama-3.3-70b-instruct: Pflichtfeld goal fehlt (finish_reason=stop)',
+    'openai/gpt-oss-120b: API OpenRouter 429: Rate limited.',
+    'anthropic/claude-credits-demo: Schema nicht erfuellt',
+    '',
+  ]) {
+    if (istGuthabenFehler(harmlos)) {
+      throw new Error(`Guthaben-Muster ist zu weit: es trifft "${harmlos.slice(0, 40)}".`);
+    }
+  }
+  if (!istGuthabenStopp([echterFehler, 'x: API OpenRouter 402: Insufficient credits.'])) {
+    throw new Error('Lauter Guthabenfehler ergeben keinen Guthaben-Stopp.');
+  }
+  if (istGuthabenStopp([echterFehler, 'y: Pflichtfeld goal fehlt (finish_reason=length)'])) {
+    throw new Error('Ein echter Schemafehler neben einem 402 wird als Guthaben-Stopp verbucht.');
+  }
+  if (istGuthabenStopp([])) throw new Error('Eine leere Fehlerliste gilt als Guthaben-Stopp.');
+  if (guthabenAusKonto({ data: { total_credits: 12.5, total_usage: 4.5 } }) !== 8) {
+    throw new Error('Kontoguthaben wird nicht aus total_credits minus total_usage gebildet.');
+  }
+  for (const unbrauchbar of [null, {}, { data: null }, { data: { total_credits: 5 } }, { abrufFehler: 'HTTP 500' }]) {
+    if (guthabenAusKonto(unbrauchbar) !== null) {
+      throw new Error('Eine unlesbare Guthabenantwort ergibt nicht UNBEKANNT.');
+    }
+  }
+  // Der kleinere Wert bindet. Ein Schluessel mit Limit auf einem leeren Konto
+  // darf nichts ausgeben — genau dieser Fall war der Befund.
+  if (bindendesGuthaben(50, 0) !== 0) throw new Error('Das leere Konto bindet nicht gegen ein offenes Schluessel-Limit.');
+  if (bindendesGuthaben(null, 3) !== 3) throw new Error('Ohne Schluessel-Limit bindet das Kontoguthaben nicht.');
+  if (bindendesGuthaben(2, null) !== 2) throw new Error('Ohne Kontoguthaben bindet das Schluessel-Limit nicht.');
+  if (bindendesGuthaben(null, null) !== null) throw new Error('Zwei unbekannte Werte ergeben nicht UNBEKANNT.');
   const preise = new Map([
     ['teuer/modell', { prompt: '0.000002', completion: '0.000004' }],
     ['guenstig/modell', { prompt: '0.0000002', completion: '0.0000004' }],
@@ -1149,11 +1341,21 @@ function selfTest() {
   return { ok: true };
 }
 
-export { main, selfTest, patchPruefen, pruefeDateiliste, autoFokus };
+export {
+  main, selfTest, patchPruefen, pruefeDateiliste, autoFokus,
+  istGuthabenFehler, istGuthabenStopp, guthabenAusKonto, bindendesGuthaben,
+  guthabenStoppErgebnis, guthabenStoppAnnehmen,
+};
 
 if (typeof process !== 'undefined' && Array.isArray(process.argv)
     && process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   main(process.argv.slice(2)).catch((error) => {
+    // Ein leeres Konto ist ein Zustand des Betriebs, kein Fehler dieses Laufs.
+    // Er wird tokenfrei beendet, sichtbar vermerkt und im HQ als Budgetstopp
+    // gefuehrt — aber er macht den Workflow nicht rot. Ein roter Haken, der
+    // alle fuenf Minuten ohne neue Information wiederkehrt, ist nach einem Tag
+    // niemandes Signal mehr.
+    if (guthabenStoppAnnehmen(error)) return;
     codeflowFehler(error);
     console.error(`::error title=OpenRouter-Agentenlauf fehlgeschlagen::${error.message}`);
     process.exitCode = 1;
