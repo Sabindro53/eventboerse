@@ -50,6 +50,20 @@ vierzehn `for`-Attribute (heute 65), `.btn-link`, `.create-payout-title`, die
 abgeleitete Seitenliste und die Markenfarbe als Text sind erledigt. Und #221
 wurde **gemergt**, nicht geschlossen.
 
+**Am echten System nachgewiesen, nicht nur am Prüfstand:** Lauf **35978335860**
+(24.09., 08:57) ist der **erste grüne** Autopilot-Lauf seit dem 23.09. 15:18 —
+er lief auf dem reparierten `main` und stoppte tokenfrei, statt zu scheitern.
+Die 34er-Serie ist damit beendet.
+
+**Und der Arbeitsbaum des Geheimnis-Scanners ist jetzt wirklich die Platte.**
+Der Posten stand seit dem 23.09. als offen in CLAUDE.md: `arbeitsbaum()` las
+`git show HEAD:…`, mass also den committeten Stand. In CI ändert die
+Umstellung nichts (der Baum *ist* dort der Checkout von HEAD); lokal macht sie
+den Prüfer erst zu dem, was draufsteht. Neu mitgelesen werden **unverfolgte**
+Dateien — die wahrscheinlichste Gestalt eines Unfalls, und für beide alten
+Wege unsichtbar; `.gitignore` bleibt ausgenommen, sonst stirbt der Scanner am
+Fehlalarm. Fünf Mutationen, alle rot.
+
 **Offen beim Inhaber, neu:** das OpenRouter-Konto aufladen. Bis dahin stoppt
 der Autopilot sauber und arbeitet nicht.
 

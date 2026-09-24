@@ -16,7 +16,7 @@ Zahlen ihrer Zeit — die sind Historie, kein Ist-Stand. Der Ensemble-Kontext
 liest diese Datei von oben; ein Modell, das „68 Tests" als aktuell meldet, hat
 einen alten Abschnitt gelesen und nicht diesen.
 
-- **Playwright-Suite: 1261 Tests in 87 Suiten**, blockierendes Gate in `pr-check.yml`.
+- **Playwright-Suite: 1266 Tests in 87 Suiten**, blockierendes Gate in `pr-check.yml`.
   Läuft seit dem Self-Hosting auch ohne Netzzugang vollständig durch
 
 ## Release-Bereitschaft (2026-09-23) — der aktuelle Engpass
@@ -47,6 +47,27 @@ geschlossen. Vollständig: [[40-Governance/Legal/Launch-Befund-UG]].
    Er stoppt jetzt tokenfrei statt rot zu werden — arbeiten tut er erst
    wieder nach dem Aufladen. Sperrt den Release nicht, kostet aber jeden Tag
    die Selbstverbesserung.
+
+### Ein Test hat einmal geflackert, und die Ursache ist NICHT gemessen
+
+Am 24.09.2026 fiel `radar.spec.js` → *„Marker-Popups bleiben im Dark Mode
+deutlich lesbar"* in **einem** vollen Lauf durch. Nachgemessen, alles grün:
+
+| Gegenprobe | |
+|---|---|
+| dieselbe Suite isoliert | **56/56** |
+| derselbe Test, `--repeat-each=12 --workers=4` | **12/12** |
+| zweiter voller Lauf, unverändert | **1266/1266** |
+
+**Nicht als „Flake" abgehakt.** CLAUDE.md hält für genau diesen Test fest,
+dass beim letzten Flackern (14.09.) „Flake" die **falsche** Erklärung war —
+eine fremde Ansicht schrieb den geteilten Radar-Zustand. Diese Ursache ist
+behoben; ob es hier dieselbe Klasse ist, **weiß ich nicht**, und der Test
+wurde deshalb *nicht* angefasst. Einen Prüfer zu ändern, dessen Fehlschlag
+man nicht reproduzieren kann, heißt, einen möglichen Befund zu übermalen.
+
+Wiederkommen wird er in einem vollen Lauf oder in CI. Die nächste Messung
+sollte die **Fehlermeldung** festhalten — ohne sie ist jede Ursache geraten.
 
 **Rechtsfragen daneben:** ZAG-Einordnung anwaltlich · PStTG/DAC7 mit dem
 Steuerberater (inkl. was Stripe Connect abdeckt) · Datenschutzerklärung § 10a,

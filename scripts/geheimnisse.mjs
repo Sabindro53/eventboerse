@@ -20,6 +20,7 @@
  */
 
 import { execFileSync } from 'node:child_process';
+import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { QUELLTEXT_GEHEIMNISSE, QUELLTEXT_AUSNAHMEN } from './lib/verbotsmuster.mjs';
@@ -67,15 +68,43 @@ function pruefe(text, herkunft) {
   return funde;
 }
 
+/**
+ * Der ARBEITSBAUM — und zwar wirklich die Platte.
+ *
+ * HIER STAND `git show HEAD:${d}`, ALSO DER COMMITTETE STAND. Für den
+ * PR-Check war das richtig (dort IST HEAD der Vorschlag, und der Checkout
+ * gleicht ihm byteweise), lokal war es eine Falle: eine geänderte, noch
+ * nicht committete Datei blieb unsichtbar, und der Bericht sah grün aus.
+ * Genau darauf bin ich am 23.09.2026 hereingefallen — der Fund stand weiter
+ * im Bericht, nachdem die Zeile längst geändert war.
+ *
+ * Ein Sicherheitsprüfer, dessen Subjekt ein anderes ist als sein Name sagt,
+ * gibt eine Entwarnung, die er nicht decken kann. Gelesen wird deshalb die
+ * Datei, nicht der Blob. In CI ändert das **nichts** (der Baum ist der
+ * Checkout von HEAD); lokal macht es den Prüfer erst zu dem, was draufsteht.
+ *
+ * NEU HINZUGEKOMMEN SIND UNVERFOLGTE DATEIEN. Eine frisch angelegte Datei
+ * mit einem Schlüssel ist die wahrscheinlichste Gestalt eines Unfalls — und
+ * sie war für BEIDE Wege unsichtbar. `--exclude-standard` hält dabei alles
+ * draußen, was `.gitignore` deckt: `.env` und `node_modules` sollen den
+ * Bericht nicht bei jedem Lauf füllen. Ein Scanner, der dreimal grundlos
+ * anschlägt, wird abgeschaltet.
+ */
 function arbeitsbaum() {
-  const dateien = git('ls-files').split('\n').filter(Boolean).filter((d) => !ausgenommen(d));
+  const verfolgt = git('ls-files').split('\n').filter(Boolean);
+  const unverfolgt = git('ls-files', '--others', '--exclude-standard').split('\n').filter(Boolean);
+  const dateien = [...new Set([...verfolgt, ...unverfolgt])].filter((d) => !ausgenommen(d));
   const funde = [];
+  let gelesen = 0;
   for (const d of dateien) {
     let inhalt = '';
-    try { inhalt = git('show', `HEAD:${d}`); } catch { continue; }
+    // Eine verfolgte, aber gelöschte Datei steht nicht mehr im Baum — sie
+    // gehört der Historie, und die hat ihren eigenen Durchgang.
+    try { inhalt = readFileSync(join(ROOT, d), 'utf8'); } catch { continue; }
+    gelesen += 1;
     funde.push(...pruefe(inhalt, d));
   }
-  return { gepruft: dateien.length, funde };
+  return { gepruft: gelesen, unverfolgt: unverfolgt.length, funde };
 }
 
 function historie() {
@@ -104,7 +133,9 @@ const tor = args.includes('--check');
 
 console.log('── Geheimnisse im Repository ─────────────────────');
 const baum = arbeitsbaum();
-console.log(`Arbeitsbaum         : ${baum.gepruft} Dateien, ${baum.funde.length} Fund(e)`);
+console.log(`Arbeitsbaum         : ${baum.gepruft} Dateien auf der Platte`
+  + `${baum.unverfolgt ? ` (davon ${baum.unverfolgt} unverfolgt)` : ''}`
+  + `, ${baum.funde.length} Fund(e)`);
 
 let alle = [...baum.funde];
 if (args.includes('--historie')) {

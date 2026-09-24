@@ -1,8 +1,8 @@
 {
   "version": 1,
-  "erzeugt": "2026-09-24T08:39:11.753Z",
+  "erzeugt": "2026-09-24T09:18:27.351Z",
   "hinweis": "Erzeugt von scripts/auftragsstrom.mjs aus assets/eb-arbeit.json. Nicht von Hand bearbeiten.",
-  "journalStand": "2026-09-23T03:36:42.451Z",
+  "journalStand": "2026-09-24T03:36:56.381Z",
   "lage": "Kein Befund im freigegebenen Rahmen — der Scout wählt selbst.",
   "auftraege": [],
   "ausserhalb": [
@@ -37,6 +37,17 @@
     }
   ],
   "verworfen": [
+    {
+      "herkunft": {
+        "rolle": "mistral-ops",
+        "person": "Nils Falk",
+        "rollenname": "Reliability-Wächter",
+        "bereich": "betrieb",
+        "zeit": "2026-09-24T03:36:56.379Z",
+        "aufgabe": "Den ältesten roten oder unbekannten Betriebszustand benennen und eingrenzen."
+      },
+      "grund": "Schicht endete als „fehler\" — kein Befund entstanden"
+    },
     {
       "herkunft": {
         "rolle": "mistral-ops",
