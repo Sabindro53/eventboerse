@@ -7,10 +7,29 @@ tags: [layer/L3, domain/betrieb, share/internal, a11y, bfsg]
 
 # Barrierefreiheit: die Abdeckung des Tors
 
-> **Kernsatz:** `barrierefreiheit.spec.js` prüft **5 von 34 Seiten** — und drei
-> Notizen haben daraus „0 Verstöße in der gesamten Anwendung" gemacht. Am
-> 15.09.2026 über die übrigen Seiten gemessen: **40 verstoßende Knoten, 20
-> davon `critical`.**
+> ## Stand 24.09.2026 — behoben, nachgemessen
+>
+> `barrierefreiheit.spec.js` misst **32 der 34 Seiten** in **beiden
+> Farbmodi**, angemeldet und mit `isAdmin`, und meldet **0 Verstöße**
+> (10/10 Tests). Die Seitenliste kommt aus den `id="page-…"` der Shell, und
+> auf jeder Seite wird nachgesehen, welche wirklich aktiv wurde. Die zwei
+> übrigen sind nachgewiesene Weiterleitungen (`home` → `browse`,
+> `profile` → `provider`), deren Ziel selbst gemessen wird.
+>
+> **Alles darunter ist der Befund vom 15.09.2026 und seine Umsetzung** — also
+> Protokoll, nicht Ist-Stand. Es steht hier, weil eine stillschweigend
+> abgehakte Warnung aussieht, als hätte es sie nie gegeben; und weil die
+> Lehre bleibt: *ein Prüfer, dessen Subjekt nur ein Ausschnitt ist, gibt eine
+> Entwarnung, die er nicht decken kann.*
+>
+> **Was kein Tor je melden wird**, steht weiter unten und gilt unverändert:
+> die drei Einstiege der Landeseite liegen über einem Verlauf, und axe meldet
+> dort `incomplete`, nicht `violation`.
+
+> **Der Befund vom 15.09.2026:** `barrierefreiheit.spec.js` prüfte **5 von 34
+> Seiten** — und drei Notizen haben daraus „0 Verstöße in der gesamten
+> Anwendung" gemacht. Über die übrigen Seiten gemessen: **40 verstoßende
+> Knoten, 20 davon `critical`.**
 
 ## Was das Tor wirklich misst
 
