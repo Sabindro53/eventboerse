@@ -3838,6 +3838,73 @@ Befund nennt den Eintrag nicht · der Fund im Klartext · `gefiltert` als
 npx playwright test tests/e2e/hq-puls.spec.js   # 17 Tests, 9 Mutationen
 ```
 
+#### 34 rote Läufe, und die Meldung zeigte auf das Falsche
+
+Am 23.09.2026 war **„🧠 Operationspuls · auto" 34 Läufe in Folge rot**, seit
+15:18 UTC, alle fünf bis zehn Minuten einer. Der gemeldete Grund:
+
+```
+scout: kein Modell lieferte auswertbares strukturiertes JSON
+  qwen3-30b …:       API OpenRouter 402: Insufficient credits
+  mistral-small …:   API OpenRouter 402: Insufficient credits
+  llama-3.3-70b …:   API OpenRouter 402: Insufficient credits
+```
+
+**Kein Modell hatte überhaupt geantwortet.** Die Meldung zeigte auf das
+Schema, die Ursache lag auf dem Konto — wer ihr folgt, baut am Prompt herum,
+während schlicht das Geld fehlt. *Ein Prüfer, der aus dem falschen Grund rot
+meldet, kostet mehr als keiner.*
+
+**Und die Vorprüfung hatte den Fall vorher durchgewunken.** Zwei Zeilen
+darüber im selben Log: *„OpenRouter-Schluessel ohne eigenes Limit; Laufbudget
+bleibt bei $0.12."* Die Bremse las `limit_remaining` aus `GET /api/v1/key` —
+das **Limit dieses Schlüssels**, nicht das **Guthaben des Kontos**. Ohne
+eigenes Limit steht dort `null`, und `null` galt als „keine Grenze,
+weiterfahren".
+
+Die Warnung stand seit dem 25.08. im Abschnitt darüber — *„`null` bedeutet
+bei OpenRouter ‚kein Key-Limit', nicht ‚kein Guthaben'"* — und genau daran ist
+die Vorprüfung gescheitert. **Dieselbe Klasse wie der tote Gitleaks-Scan:** ein
+Prüfer, dessen Subjekt ein anderes ist als das vermutete, gibt eine Entwarnung,
+die er nicht decken kann.
+
+**Kein Geld ist ein Zustand, kein Defekt.** Beide Stellen enden jetzt
+tokenfrei als `stopp: 'guthaben'` — derselbe Bau wie beim Tagesbudget, das
+diesen Weg seit jeher geht. Bei einem Takt von fünf Minuten wären es sonst
+über 140 rote Läufe am Tag, und ein roter Haken, der ohne neue Information
+wiederkehrt, ist nach einem Tag niemandes Signal mehr. Sichtbar bleibt er als
+`::warning` und im HQ als Budgetstopp.
+
+**Die 402-Wache trägt die Behebung, die Guthabenabfrage ist nur der billige
+frühe Ausstieg.** `openrouter.ai` ist aus der Agent-Umgebung nicht erreichbar
+und der Schlüssel liegt nur als GitHub-Secret vor — die Antwort von
+`/api/v1/credits` ist hier also **nicht gemessen**, sie folgt der Dokumentation.
+Der Fehlertext dagegen **ist** gemessen: er steht wörtlich im Lauf-Log. Deshalb
+hängt die Behebung an der Wache und nicht an der Abfrage; fällt `/credits` aus,
+gilt das Guthaben als unbekannt und der Lauf geht weiter.
+
+**„Unbekannt" darf nicht aussehen wie „in Ordnung".** Genau das tat die alte
+Zeile: wahr und trotzdem eine Entwarnung ohne Deckung. Sie heisst jetzt
+*„Guthaben UNBEKANNT"* und nennt den Grund des fehlgeschlagenen Abrufs.
+
+**JEDER Fehlschlag muss ein Geldfehler sein, nicht irgendeiner.** Ein
+einzelnes 402 neben einem echten Schemafehler bleibt ein Defekt und wird rot —
+sonst wäre die Behebung ein Weg, jeden künftigen Fehler hinter einem beliebigen
+402 verschwinden zu lassen. Und das Muster ist bewusst **eng**: ein Ausdruck
+auf „credits" allein träfe auch einen Modellnamen und jede Prosa-Zeile.
+
+**Der kleinere der beiden Werte bindet.** Ein Schlüssel mit $50 Limit auf einem
+leeren Konto darf nichts ausgeben; ein volles Konto hilft einem Schlüssel mit
+ausgeschöpftem Limit nicht.
+
+**Offen beim Inhaber:** das OpenRouter-Konto aufladen. Bis dahin stoppt der
+Autopilot sauber und arbeitet nicht.
+
+```bash
+npx playwright test tests/e2e/autopilot-guthaben.spec.js   # 14 Tests, 12 Mutationen
+npm run test:agents                                        # dieselben Regeln als schnelles Tor
+```
+
 **Der Auftrag darf nicht mehr verlangen, als das Budget hergibt.** Vier von elf
 Rollen lieferten in jedem Lauf nichts: der Systemauftrag endet für **alle** mit
 „in höchstens 90 Wörtern“, die Budgets lagen aber bei 180–300 Token — in zwei
@@ -4589,7 +4656,7 @@ npm run test:smoke      # nur Routen-Smoke-Tests
 npm run test:css        # CSS-Minify-Regression (Verlaufsschrift)
 ```
 
-1247 Tests in 86 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
+1261 Tests in 87 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
 Sätze), Gebühren (centgenau, JS↔PHP-Parität), Wissensbasis (Antworten +
 Leckage-Schutz), Zufluss (Quarantäne-Tor + Demo-Feed-Ehrlichkeit),
 Verbindungen (HQ-Zugang + Connector-Katalog), Auftragsstrom (Herkunft +
@@ -4598,6 +4665,11 @@ Pflichtseiten, KI-Transparenz), KI-Transparenz (Kennzeichnung in jeder
 Ansicht), **Stimme** (Serverstimme, hörbarer Rückfall, HUD-Ringe),
 **HQ-Puls** (der Ensemble-Lauf überlebt eine unlesbare Laufzeitspur; ein
 Schicht-Ausfall landet wirklich im Journal),
+**Autopilot-Guthaben** (ein leeres OpenRouter-Konto stoppt den Lauf tokenfrei,
+statt ihn 34-mal in Folge rot zu machen — gemessen an der echten 402-Meldung
+aus dem Lauf-Log; ein einzelnes 402 neben einem Schemafehler bleibt ein Defekt,
+das Kontoguthaben bindet gegen ein offenes Schlüssel-Limit, und „unbekannt"
+sieht nicht aus wie „in Ordnung"),
 **Antwortgrenze** (Auftrag und Token-Budget aus einer Zahl),
 **Ersatzkette** (eine schweigende Rolle verliert ihre Schicht nicht),
 **Auto-Merge** (erst die Prüfungen des PRs, dann der Merge),
