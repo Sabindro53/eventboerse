@@ -31,6 +31,34 @@ geschlossen. Vollständig: [[40-Governance/Legal/Launch-Befund-UG]].
    mit 409 ab — **heute ist keine Buchung bezahlbar.** Der Onboarding-Weg
    wurde live nie durchlaufen. Das ist der härteste Punkt, und er ist kein
    Codefehler.
+
+   **Am 24.09.2026 im echten Browser nachgemessen — der Code trägt.** Das war
+   die offene Frage: ein Weg, den nie jemand gegangen ist, ist in diesem
+   Projekt schon dreimal ein toter Zweig gewesen. Hier nicht:
+
+   | gemessen | |
+   |---|---|
+   | `#stripeConnectCard` für angemeldeten Dienstleister auf `/settings` | **614 × 326 sichtbar** |
+   | `#stripeConnectBtn` | **260 × 48 sichtbar**, Status „Nicht verbunden" |
+   | Klick → Geschäftsform-Dialog | **1280 × 900**, Privatperson **und** Unternehmen wählbar |
+   | Bestätigen → Server | **`POST /stripe/connect/onboard`** mit `business_type` |
+
+   Server-seitig ebenfalls sauber: Rollenprüfung (nur `Dienstleister`, sonst
+   403), `business_type` auf `individual|company` **whitelistet** statt
+   durchgereicht, `sanitize_text_field` auf den Freitextfeldern, idempotent
+   über `eb_stripe_connect_id`, und die Weiterleitung geht nur an eine
+   Adresse, die `_isStripeOnboardingUrl()` als Stripe-Onboarding erkennt.
+   Firmenname ist bei „Unternehmen" Pflicht.
+
+   **Und der Fall „noch kein Konto" ist am Kunden nicht stumm.** Der
+   Buchungspfad lehnt mit **409** und `provider_payout_onboarding_required`
+   ab; `41-flow-zahlung.js:1270` liest das Flag und setzt an die Stelle des
+   Zahlungsfelds einen eigenen Block — *„Dienstleister noch nicht
+   auszahlungsbereit"* plus die Servermeldung, durch `_escHtml` maskiert.
+   Also kein Zahlungsfenster, in dem nichts passiert und nichts dasteht —
+   genau die Schadensart, die hier sonst am teuersten ist.
+
+   **Es fehlt also nur der echte Durchlauf, nicht der Code.**
 2. `EB_STEUERNUMMER` / `EB_UST_ID` — vorher entsteht bewusst kein
    Provisionsbeleg (§ 14 UStG).
 3. Vier Impressum-Platzhalter füllen, danach „i. G." entfernen (das Tor
