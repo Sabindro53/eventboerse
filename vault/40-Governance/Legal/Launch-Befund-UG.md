@@ -317,13 +317,38 @@ Damit der Befund nicht nach mehr Baustelle aussieht, als er ist:
 
 ## Wem was gehört
 
-**Mir (Code / Konsistenz), sobald der Inhaber entscheidet:**
+> **Diese Liste war bis zum 24.09.2026 veraltet**, und zwar in der
+> gefährlichen Richtung: sie führte vier Punkte als „wartet auf eine
+> Entscheidung des Inhabers", die längst gebaut sind. Ein Steuerungsdokument,
+> das Vertrauen genießt und nicht mehr stimmt, kostet mehr als gar keins —
+> dieselbe Lehre wie bei den vier veralteten Angaben in CLAUDE.md am 22.08.
+> Der alte Wortlaut steht unten als Protokoll.
+
+**Mir (Code / Konsistenz) — am 24.09.2026 nachgemessen, alle vier erledigt:**
+
+| war „offen" | Stand | Beleg |
+|---|---|---|
+| Impressum und AGB auf **ein** Zahlungsmodell | `app-shell.html` sagt an beiden Stellen **Destination Charges**; „Direct-Charges" kommt nur noch in diesem Befund als Zitat des alten Textes vor | `zahlungsmodell.spec.js`, **7 Tests** |
+| PStTG-Felder erheben | erhoben **beim Auszahlungsweg**, nicht bei der Registrierung — meldepflichtig ist nur, wer Vergütung erhält (§ 4 Abs. 4) | `includes/steuer/psttg.php` + `psttg-routen.php`, `psttg.spec.js`, **6 Tests** |
+| Preisauszeichnung | `ebPreisHinweis()` sagt „Gesamtpreis" und ergänzt „inkl. USt." nur bei `smallBusiness === false` | `preisangabe.spec.js`, **5 Tests** |
+| Provisionsrechnung (§ 14 UStG) | `includes/steuer/provisionsrechnung.php`; Steuer wird **heraus**gerechnet, nicht aufgeschlagen; ohne Steuernummer entsteht bewusst kein Beleg | `provisionsrechnung.spec.js`, **7 Tests** |
+
+Dazu `impressum.spec.js` (**6 Tests**), das Platzhalter und den Zusatz
+„i. G." als **Paar** hält — sie müssen zusammen da sein und zusammen
+verschwinden.
+
+**Was davon noch eine Entscheidung des Inhabers braucht, ist keine
+Codearbeit mehr, sondern eine Eingabe:** `EB_STEUERNUMMER` bzw.
+`EB_UST_ID` in `wp-config.php`. Ohne sie entsteht kein Provisionsbeleg —
+das ist Absicht, nicht ein fehlendes Feature.
+
+<details>
+<summary>Der alte Wortlaut (Protokoll, nicht mehr gültig)</summary>
 
 - Impressum und AGB auf **ein** Zahlungsmodell bringen. Ich schreibe hier
   keine Rechtstexte (stehende Projektregel) — aber sobald der Wortlaut
   feststeht, ziehe ich ihn ein und baue ein Tor, das die beiden Seiten
-  künftig gegen `fee_model` im Code misst. Dann ist es derselbe Mechanismus,
-  der schon das Privacy-Manifest gegen die Vault-Tabelle hält.
+  künftig gegen `fee_model` im Code misst.
 - Die PStTG-Felder im Registrierungs- und Onboarding-Weg erheben, sobald
   feststeht, **welche** davon Stripe schon liefert.
 - Ein Brutto/Netto-Feld am Inserat plus Preisauszeichnung, sobald die
@@ -331,16 +356,30 @@ Damit der Befund nicht nach mehr Baustelle aussieht, als er ist:
 - Eine Provisionsrechnung (oder Gutschrift im Sinne des § 14 Abs. 2 UStG)
   an den Dienstleister.
 
+</details>
+
 **Nicht mir:**
 
 - Notartermin, Gesellschaftsvertrag, Stammkapital, Handelsregister.
-- Fragebogen zur steuerlichen Erfassung — insbesondere **§ 19 UStG oder
-  Regelbesteuerung**. Diese eine Entscheidung steuert vier der obigen Punkte.
+- Fragebogen zur steuerlichen Erfassung. Die Grundsatzfrage **§ 19 UStG oder
+  Regelbesteuerung** hat der Inhaber am 22.09.2026 entschieden:
+  **Regelbesteuerung**. Der Code trägt beide Fälle (`ebPreisHinweis()` sagt
+  „Gesamtpreis" und ergänzt „inkl. USt." nur bei `smallBusiness === false`) —
+  einzutragen bleibt der Fragebogen selbst.
 - Die ZAG-Einordnung unter Destination Charges.
 - Ob Stripes DAC7-Unterstützung unsere PStTG-Meldepflicht abdeckt.
 - Gewerbeanmeldung, IHK, Berufshaftpflicht.
 
-**Ein Satz zur Einordnung:** nichts davon hindert die *Gründung*. Die Punkte
-1 bis 4 hindern den **Launch mit echten Zahlungen**, weil sie Aussagen
-betreffen, die im Moment des Bezahlens gegenüber Kunden und Dienstleistern
-abgegeben werden — und drei davon stimmen heute nicht.
+**Ein Satz zur Einordnung — Stand 24.09.2026.** Nichts davon hindert die
+*Gründung*. Die Punkte 1 bis 4 hinderten den **Launch mit echten Zahlungen**,
+weil sie Aussagen betreffen, die im Moment des Bezahlens gegenüber Kunden und
+Dienstleistern abgegeben werden. **Sie sind behoben** (siehe die Tabelle
+oben); der Satz stand bis heute in der alten Fassung *„drei davon stimmen
+heute nicht"* da und war damit selbst eine Aussage, die nicht mehr stimmte.
+
+**Was den Launch jetzt hindert, ist kein Text mehr, sondern eine Handlung:**
+der erste echte Connect-Durchlauf, `EB_STEUERNUMMER`/`EB_UST_ID`, die vier
+Impressum-Platzhalter samt „i. G.", das Stripe-Konto auf die UG, die
+AGB-Klausel zur Chargeback-Rückholung und ihre drei Dashboard-Haken.
+Vollständig und laufend gepflegt in
+[[50-Evolution/Roadmap/Current-Sprint]].

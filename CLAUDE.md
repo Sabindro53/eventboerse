@@ -158,15 +158,35 @@ nie der Prüfer.
 das Literal nirgends in der Datei — *„ein Test, der einen gültigen Schlüssel
 enthielte, wäre selbst das Leck, das er verhindern soll."*
 
-**Offener Posten, nicht behoben:** `arbeitsbaum()` in `geheimnisse.mjs` liest
-`git show HEAD:…` — es misst also den **committeten Stand**, nicht die Platte,
-und heisst trotzdem „Arbeitsbaum". Für den PR-Check ist das richtig (dort ist
-HEAD der Vorschlag), lokal ist es eine Falle: eine geänderte, nicht
-committete Datei bleibt unsichtbar, und der Bericht sieht grün aus. Genau
-darauf bin ich am 23.09. hereingefallen — der Fund stand weiter im Bericht,
-nachdem die Zeile längst geändert war. Ob zusätzlich der echte Arbeitsbaum
-gescannt werden soll, ist eine **Entscheidung über einen Sicherheitsprüfer**
-und keine Aufräumarbeit; das Etikett ist bis dahin irreführend.
+**Der Arbeitsbaum ist jetzt wirklich die Platte** (24.09.2026). Hier stand
+dieser Posten als *offen*: `arbeitsbaum()` las `git show HEAD:…`, mass also
+den **committeten Stand** und hiess trotzdem „Arbeitsbaum". Für den PR-Check
+war das richtig (dort ist HEAD der Vorschlag, und der Checkout gleicht ihm
+byteweise), lokal war es eine Falle — eine geänderte, nicht committete Datei
+blieb unsichtbar, und der Bericht sah grün aus. Genau darauf bin ich am 23.09.
+hereingefallen: der Fund stand weiter im Bericht, nachdem die Zeile längst
+geändert war.
+
+**In CI ändert die Umstellung nichts**, weil der Baum dort der Checkout von
+HEAD ist — sie macht den Prüfer lokal erst zu dem, was draufsteht. Ein
+Sicherheitsprüfer, dessen Subjekt ein anderes ist als sein Name sagt, gibt
+eine Entwarnung, die er nicht decken kann.
+
+**Neu mitgelesen werden unverfolgte Dateien** (`--others --exclude-standard`).
+Eine frisch angelegte Datei mit einem Schlüssel ist die wahrscheinlichste
+Gestalt eines Unfalls — und sie war für **beide** alten Wege unsichtbar.
+`--exclude-standard` hält dabei alles draussen, was `.gitignore` deckt: `.env`
+und `node_modules` dürfen den Bericht nicht bei jedem Lauf füllen, sonst
+wiederholt sich der Fehlalarm-Tod des Scanners.
+
+Fünf Mutationen, jede macht die Suite rot: zurück auf den committeten Stand
+(**3 rot**) · unverfolgte Dateien nicht gelesen · `.gitignore` missachtet ·
+eine gelöschte Datei zerlegt den Lauf · der Bericht verschweigt die
+unverfolgten.
+
+```bash
+npx playwright test tests/e2e/geheimnisse.spec.js   # 12 Tests, 5 Mutationen
+```
 
 ### Workflows, die es nur scheinbar gibt
 
@@ -4656,7 +4676,7 @@ npm run test:smoke      # nur Routen-Smoke-Tests
 npm run test:css        # CSS-Minify-Regression (Verlaufsschrift)
 ```
 
-1261 Tests in 87 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
+1266 Tests in 87 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
 Sätze), Gebühren (centgenau, JS↔PHP-Parität), Wissensbasis (Antworten +
 Leckage-Schutz), Zufluss (Quarantäne-Tor + Demo-Feed-Ehrlichkeit),
 Verbindungen (HQ-Zugang + Connector-Katalog), Auftragsstrom (Herkunft +

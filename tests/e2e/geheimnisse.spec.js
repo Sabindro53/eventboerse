@@ -27,7 +27,7 @@ const SKRIPT = path.join(ROOT, 'scripts', 'geheimnisse.mjs');
  * lässt sich ein Geheimnis einbauen, das im nächsten Commit wieder
  * verschwindet — der Fall, der für ein öffentliches Repo zählt.
  */
-function scanne(commits, argumente = []) {
+function scanne(commits, argumente = [], ungespeichert = null) {
   const heim = fs.mkdtempSync(path.join(os.tmpdir(), 'eb-geheim-'));
   const g = (...a) => execFileSync('git', a, { cwd: heim, encoding: 'utf8' });
   g('init', '-q', '-b', 'main');
@@ -57,6 +57,14 @@ function scanne(commits, argumente = []) {
     path.join(heim, 'scripts', 'lib', 'verbotsmuster.mjs'));
   g('add', '-A');
   g('commit', '-q', '-m', 'pruefer');
+
+  // NACH dem letzten Commit geschrieben — also genau der Zustand, den
+  // `git show HEAD:` nicht sieht: eine geänderte oder eine brandneue,
+  // noch nicht hinzugefügte Datei.
+  for (const [datei, inhalt] of Object.entries(ungespeichert || {})) {
+    fs.mkdirSync(path.dirname(path.join(heim, datei)), { recursive: true });
+    fs.writeFileSync(path.join(heim, datei), inhalt);
+  }
 
   let aus = '';
   let code = 0;
@@ -160,5 +168,102 @@ test.describe('Geheimnis-Scanner: er findet, was wirklich da ist', () => {
       .toMatch(/from '\.\/lib\/verbotsmuster\.mjs'/);
     expect(skript, 'die Muster stehen im Scanner statt in der geteilten Datei')
       .not.toMatch(/re:\s*\/\\b\(?sk[_-]/);
+  });
+});
+
+// ── DER PRUEFER HIESS „ARBEITSBAUM" UND MASS DEN COMMITTETEN STAND ───────
+//
+// `arbeitsbaum()` las bis zum 24.09.2026 `git show HEAD:<datei>` — also den
+// Blob, nicht die Platte. Für den PR-Check war das richtig (dort IST HEAD
+// der Vorschlag), lokal war es eine Falle: eine geänderte, noch nicht
+// committete Datei blieb unsichtbar, und der Bericht sah grün aus. Genau
+// darauf bin ich am 23.09. hereingefallen — der Fund stand weiter im
+// Bericht, nachdem die Zeile längst geändert war.
+//
+// Ein Sicherheitsprüfer, dessen Subjekt ein anderes ist als sein Name sagt,
+// gibt eine Entwarnung, die er nicht decken kann. Dieselbe Klasse wie der
+// tote Gitleaks-Scan, nur eine Ebene tiefer.
+test.describe('Der Arbeitsbaum ist die Platte, nicht der letzte Commit', () => {
+  test('ein Schlüssel in einer NICHT committeten Änderung macht das Tor rot', () => {
+    // Das ist der Fall, den der alte Weg durchwinkte: committet steht dort
+    // eine harmlose Zeile, auf der Platte der Schlüssel.
+    const r = scanne(
+      [{ 'src/konfig.js': 'const key = process.env.STRIPE_KEY;\n' }],
+      ['--check'],
+      { 'src/konfig.js': `const key = "${STRIPE}";\n` },
+    );
+    expect(r.code, `der ungespeicherte Schlüssel kam durch:\n${r.aus}`).toBe(1);
+    expect(r.aus).toMatch(/src\/konfig\.js/);
+  });
+
+  test('ein Schlüssel in einer brandneuen, unverfolgten Datei fällt auf', () => {
+    // Für BEIDE alten Wege unsichtbar — `git show HEAD:` kennt die Datei
+    // nicht, und `ls-files` führte sie nicht. Es ist zugleich die
+    // wahrscheinlichste Gestalt eines Unfalls.
+    const r = scanne(
+      [{ 'src/a.js': 'const x = 1;\n' }],
+      ['--check'],
+      { 'src/neu.js': `const token = "${GITHUB}";\n` },
+    );
+    expect(r.code, `die neue Datei wurde nicht angesehen:\n${r.aus}`).toBe(1);
+    expect(r.aus).toMatch(/src\/neu\.js/);
+    expect(r.aus, 'unverfolgte Dateien werden nicht als solche ausgewiesen')
+      .toMatch(/unverfolgt/);
+  });
+
+  test('was .gitignore deckt, füllt den Bericht NICHT', () => {
+    // Die Gegenprobe, und sie ist die wichtigere Hälfte: `.env` und
+    // `node_modules` würden den Bericht bei jedem Lauf füllen. Ein Scanner,
+    // der dreimal grundlos anschlägt, wird abgeschaltet — und dann schützt
+    // er gar nichts mehr.
+    const r = scanne(
+      [{ 'src/a.js': 'const x = 1;\n', '.gitignore': '.env\n' }],
+      ['--check'],
+      { '.env': `STRIPE_KEY=${STRIPE}\n` },
+    );
+    expect(r.code, `eine ignorierte Datei macht das Tor rot:\n${r.aus}`).toBe(0);
+    expect(r.aus).toMatch(/Kein Zugangsdatum gefunden/);
+  });
+
+  test('eine verfolgte, aber gelöschte Datei bricht den Lauf nicht ab', () => {
+    // Sie steht in `ls-files` und nicht mehr auf der Platte. Ihr Blob gehört
+    // der Historie, und die hat ihren eigenen Durchgang — hier darf sie den
+    // Prüfer nur nicht zerlegen.
+    const heim = fs.mkdtempSync(path.join(os.tmpdir(), 'eb-geheim-'));
+    const g = (...a) => execFileSync('git', a, { cwd: heim, encoding: 'utf8' });
+    g('init', '-q', '-b', 'main');
+    g('config', 'user.email', 'test@example.invalid');
+    g('config', 'user.name', 'Test');
+    fs.mkdirSync(path.join(heim, 'scripts', 'lib'), { recursive: true });
+    fs.copyFileSync(SKRIPT, path.join(heim, 'scripts', 'geheimnisse.mjs'));
+    fs.copyFileSync(path.join(ROOT, 'scripts', 'lib', 'verbotsmuster.mjs'),
+      path.join(heim, 'scripts', 'lib', 'verbotsmuster.mjs'));
+    fs.writeFileSync(path.join(heim, 'weg.js'), 'const x = 1;\n');
+    g('add', '-A');
+    g('commit', '-q', '-m', 'eins');
+    fs.rmSync(path.join(heim, 'weg.js'));
+
+    let code = 0;
+    let aus = '';
+    try {
+      aus = execFileSync('node', [path.join(heim, 'scripts', 'geheimnisse.mjs'), '--check'],
+        { cwd: heim, encoding: 'utf8' });
+    } catch (e) {
+      code = e.status ?? 1;
+      aus = String(e.stdout || '') + String(e.stderr || '');
+    }
+    fs.rmSync(heim, { recursive: true, force: true });
+    expect(code, `der Prüfer stolpert über eine gelöschte Datei:\n${aus}`).toBe(0);
+    expect(aus).toMatch(/Kein Zugangsdatum gefunden/);
+  });
+
+  test('der Bericht sagt, dass er die Platte gemessen hat', () => {
+    // „Arbeitsbaum" war das Etikett und HEAD das Subjekt. Wer das Etikett
+    // behält und das Subjekt wechselt, hat nur die Falle verschoben.
+    const skript = fs.readFileSync(SKRIPT, 'utf8');
+    expect(skript, 'der Baum wird wieder aus dem Commit gelesen')
+      .not.toMatch(/git\('show',\s*`HEAD:/);
+    expect(skript, 'unverfolgte Dateien werden nicht mitgelesen')
+      .toMatch(/--others'.*--exclude-standard|--exclude-standard/s);
   });
 });

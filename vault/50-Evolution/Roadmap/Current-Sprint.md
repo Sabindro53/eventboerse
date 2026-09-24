@@ -16,7 +16,7 @@ Zahlen ihrer Zeit — die sind Historie, kein Ist-Stand. Der Ensemble-Kontext
 liest diese Datei von oben; ein Modell, das „68 Tests" als aktuell meldet, hat
 einen alten Abschnitt gelesen und nicht diesen.
 
-- **Playwright-Suite: 1261 Tests in 87 Suiten**, blockierendes Gate in `pr-check.yml`.
+- **Playwright-Suite: 1266 Tests in 87 Suiten**, blockierendes Gate in `pr-check.yml`.
   Läuft seit dem Self-Hosting auch ohne Netzzugang vollständig durch
 
 ## Release-Bereitschaft (2026-09-23) — der aktuelle Engpass
@@ -31,6 +31,34 @@ geschlossen. Vollständig: [[40-Governance/Legal/Launch-Befund-UG]].
    mit 409 ab — **heute ist keine Buchung bezahlbar.** Der Onboarding-Weg
    wurde live nie durchlaufen. Das ist der härteste Punkt, und er ist kein
    Codefehler.
+
+   **Am 24.09.2026 im echten Browser nachgemessen — der Code trägt.** Das war
+   die offene Frage: ein Weg, den nie jemand gegangen ist, ist in diesem
+   Projekt schon dreimal ein toter Zweig gewesen. Hier nicht:
+
+   | gemessen | |
+   |---|---|
+   | `#stripeConnectCard` für angemeldeten Dienstleister auf `/settings` | **614 × 326 sichtbar** |
+   | `#stripeConnectBtn` | **260 × 48 sichtbar**, Status „Nicht verbunden" |
+   | Klick → Geschäftsform-Dialog | **1280 × 900**, Privatperson **und** Unternehmen wählbar |
+   | Bestätigen → Server | **`POST /stripe/connect/onboard`** mit `business_type` |
+
+   Server-seitig ebenfalls sauber: Rollenprüfung (nur `Dienstleister`, sonst
+   403), `business_type` auf `individual|company` **whitelistet** statt
+   durchgereicht, `sanitize_text_field` auf den Freitextfeldern, idempotent
+   über `eb_stripe_connect_id`, und die Weiterleitung geht nur an eine
+   Adresse, die `_isStripeOnboardingUrl()` als Stripe-Onboarding erkennt.
+   Firmenname ist bei „Unternehmen" Pflicht.
+
+   **Und der Fall „noch kein Konto" ist am Kunden nicht stumm.** Der
+   Buchungspfad lehnt mit **409** und `provider_payout_onboarding_required`
+   ab; `41-flow-zahlung.js:1270` liest das Flag und setzt an die Stelle des
+   Zahlungsfelds einen eigenen Block — *„Dienstleister noch nicht
+   auszahlungsbereit"* plus die Servermeldung, durch `_escHtml` maskiert.
+   Also kein Zahlungsfenster, in dem nichts passiert und nichts dasteht —
+   genau die Schadensart, die hier sonst am teuersten ist.
+
+   **Es fehlt also nur der echte Durchlauf, nicht der Code.**
 2. `EB_STEUERNUMMER` / `EB_UST_ID` — vorher entsteht bewusst kein
    Provisionsbeleg (§ 14 UStG).
 3. Vier Impressum-Platzhalter füllen, danach „i. G." entfernen (das Tor
@@ -47,6 +75,27 @@ geschlossen. Vollständig: [[40-Governance/Legal/Launch-Befund-UG]].
    Er stoppt jetzt tokenfrei statt rot zu werden — arbeiten tut er erst
    wieder nach dem Aufladen. Sperrt den Release nicht, kostet aber jeden Tag
    die Selbstverbesserung.
+
+### Ein Test hat einmal geflackert, und die Ursache ist NICHT gemessen
+
+Am 24.09.2026 fiel `radar.spec.js` → *„Marker-Popups bleiben im Dark Mode
+deutlich lesbar"* in **einem** vollen Lauf durch. Nachgemessen, alles grün:
+
+| Gegenprobe | |
+|---|---|
+| dieselbe Suite isoliert | **56/56** |
+| derselbe Test, `--repeat-each=12 --workers=4` | **12/12** |
+| zweiter voller Lauf, unverändert | **1266/1266** |
+
+**Nicht als „Flake" abgehakt.** CLAUDE.md hält für genau diesen Test fest,
+dass beim letzten Flackern (14.09.) „Flake" die **falsche** Erklärung war —
+eine fremde Ansicht schrieb den geteilten Radar-Zustand. Diese Ursache ist
+behoben; ob es hier dieselbe Klasse ist, **weiß ich nicht**, und der Test
+wurde deshalb *nicht* angefasst. Einen Prüfer zu ändern, dessen Fehlschlag
+man nicht reproduzieren kann, heißt, einen möglichen Befund zu übermalen.
+
+Wiederkommen wird er in einem vollen Lauf oder in CI. Die nächste Messung
+sollte die **Fehlermeldung** festhalten — ohne sie ist jede Ursache geraten.
 
 **Rechtsfragen daneben:** ZAG-Einordnung anwaltlich · PStTG/DAC7 mit dem
 Steuerberater (inkl. was Stripe Connect abdeckt) · Datenschutzerklärung § 10a,
