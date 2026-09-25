@@ -1,7 +1,7 @@
 {
   "version": 2,
   "hinweis": "Erzeugt von scripts/aktivitaeten.mjs. Nicht von Hand bearbeiten.",
-  "stand": "2026-09-24T03:35:54.240Z",
+  "stand": "2026-09-25T03:34:55.745Z",
   "gebiete": [
     {
       "stadt": "Köln",
@@ -4015,6 +4015,28 @@
       "partner": false
     },
     {
+      "id": "osm:node/10824404737",
+      "art": "ort",
+      "titel": "Die Wohngemeinschaft",
+      "kategorie": "Theater",
+      "beginn": null,
+      "gebiet": "Köln",
+      "ort": {
+        "name": "Die Wohngemeinschaft",
+        "stadt": "Köln",
+        "lat": 50.93528,
+        "lon": 6.93476
+      },
+      "entfernungKm": 1.8,
+      "webseite": "https://www.die-wohngemeinschaft.net/en/theater",
+      "quelle": {
+        "name": "OpenStreetMap",
+        "url": "https://www.openstreetmap.org/node/10824404737",
+        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
+      },
+      "partner": false
+    },
+    {
       "id": "osm:node/54020150",
       "art": "ort",
       "titel": "Atelier Theater",
@@ -5201,28 +5223,6 @@
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/7706877762",
-        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
-      },
-      "partner": false
-    },
-    {
-      "id": "osm:node/9845997660",
-      "art": "ort",
-      "titel": "Cineplex Schloßpassage",
-      "kategorie": "Kino",
-      "beginn": null,
-      "gebiet": "Köln",
-      "ort": {
-        "name": "Cineplex Schloßpassage",
-        "stadt": "Bergisch Gladbach",
-        "lat": 50.96527,
-        "lon": 7.16015
-      },
-      "entfernungKm": 14.4,
-      "webseite": "https://www.cineplex.de/bergisch-gladbach",
-      "quelle": {
-        "name": "OpenStreetMap",
-        "url": "https://www.openstreetmap.org/node/9845997660",
         "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
       },
       "partner": false
