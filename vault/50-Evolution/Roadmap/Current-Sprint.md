@@ -16,7 +16,7 @@ Zahlen ihrer Zeit — die sind Historie, kein Ist-Stand. Der Ensemble-Kontext
 liest diese Datei von oben; ein Modell, das „68 Tests" als aktuell meldet, hat
 einen alten Abschnitt gelesen und nicht diesen.
 
-- **Playwright-Suite: 1266 Tests in 87 Suiten**, blockierendes Gate in `pr-check.yml`.
+- **Playwright-Suite: 1277 Tests in 88 Suiten**, blockierendes Gate in `pr-check.yml`.
   Läuft seit dem Self-Hosting auch ohne Netzzugang vollständig durch
 
 ## Release-Bereitschaft (2026-09-23) — der aktuelle Engpass
@@ -60,21 +60,40 @@ geschlossen. Vollständig: [[40-Governance/Legal/Launch-Befund-UG]].
 
    **Es fehlt also nur der echte Durchlauf, nicht der Code.**
 2. `EB_STEUERNUMMER` / `EB_UST_ID` — vorher entsteht bewusst kein
-   Provisionsbeleg (§ 14 UStG).
+   Provisionsbeleg (§ 14 UStG). **Der Weg dorthin ist seit dem 26.09.2026
+   gebaut:** ein Secret setzen, der nächste Deploy schreibt das `define()`
+   nach `wp-config.php` — dasselbe Muster wie bei `EB_APPLE_TEAM_ID`.
+
+   Bis dahin behauptete CLAUDE.md genau diesen Weg, **und es gab ihn nicht.**
+   `ionos-deploy.yml` trug Schritte für SMTP, Stripe, Apple und die
+   KI-Schlüssel — für die Steuerangaben keinen. Wer dem Satz folgte, setzte
+   ein Secret, das nichts liest. Aufgefallen beim Schreiben der
+   Cowork-Anleitung, also erst, als jemand danach handeln sollte.
+
+   Es fehlen jetzt nur noch die **Werte**, und die gibt es erst mit der
+   Eintragung der UG. Gemessen wird beim Schreiben: die USt-IdNr gegen
+   dieselbe Form wie in `eb_provision_absender()` (`DE` + 9 Ziffern), die
+   Steuernummer nur auf ihre Gestalt (10–13 Ziffern mit Trennern) — sie hat
+   kein bundeseinheitliches Format, und eine engere eigene Regel wiese
+   rechtmäßige Nummern ab.
 3. Vier Impressum-Platzhalter füllen, danach „i. G." entfernen (das Tor
    verlangt beides zusammen).
 4. Stripe-Konto von `business_type: individual` auf die UG umstellen.
 5. **Chargebacks** werden seit 23.09. festgehalten und gemeldet — **ohne Geld
-   zu bewegen**. Offen: (a) eine **AGB-Klausel**, ob der Dienstleister dafür
-   einsteht, erst danach ist eine Rückholung baubar; (b) **drei Haken** im
-   Stripe-Dashboard (`charge.dispute.created/updated/closed`), sonst ist der
-   Empfänger ein toter Zweig — `stripe-webhook.mjs` meldet das ab sofort.
+   zu bewegen**. Offen bleibt allein (a) eine **AGB-Klausel**, ob der
+   Dienstleister dafür einsteht; erst danach ist eine Rückholung baubar.
 
-6. **Das OpenRouter-Konto ist leer** (24.09.). Der Autopilot lief 34-mal in
-   Folge rot, weil jedes Modell mit `402: Insufficient credits` antwortete.
-   Er stoppt jetzt tokenfrei statt rot zu werden — arbeiten tut er erst
-   wieder nach dem Aufladen. Sperrt den Release nicht, kostet aber jeden Tag
-   die Selbstverbesserung.
+   (b) ist **erledigt** (26.09.2026, über den Browser): der Endpunkt
+   `we_1TWdQjARRBfHayLnU1lz3jqT` trägt jetzt **zehn** Ereignisse, die drei
+   Streitfall-Ereignisse darunter. Nicht am gespeicherten Dialog abgelesen,
+   sondern über `GET /v1/webhook_endpoints` zurückgelesen; `vergleiche()`
+   meldet `fehltAbo []` und `ohneEmpfaenger []`. `url`, `status: enabled` und
+   `api_version` unverändert, weiterhin genau ein Endpunkt auf dem Konto.
+
+6. ~~**Das OpenRouter-Konto ist leer**~~ — **aufgeladen (26.09., 20 $).** Der
+   Autopilot lief vom 23. bis 24.09. 34-mal in Folge rot, weil jedes Modell
+   mit `402: Insufficient credits` antwortete; er stoppt seither tokenfrei
+   statt rot zu werden. Der erste grüne Lauf danach war `35978335860`.
 
 ### Ein Test hat einmal geflackert, und die Ursache ist NICHT gemessen
 
@@ -102,9 +121,43 @@ Steuerberater (inkl. was Stripe Connect abdeckt) · Datenschutzerklärung § 10a
 danach `EB_HANDLE_NACHTRAG`.
 
 **Von mir baubar, wenn beauftragt:** API-Version pinnen (nur mit Gegenprobe im
-Testmodus — es ändert die Gestalt jeder Stripe-Antwort) · Ruleset auf
-`E2E-Testsuite (Playwright)` · die 105 Deko-Animationen · App-Store-Reste
-(APNs, `Info.plist`, Händlerstatus).
+Testmodus — es ändert die Gestalt jeder Stripe-Antwort) · die 105
+Deko-Animationen · App-Store-Reste (APNs, `Info.plist`, Händlerstatus).
+
+### Der Pflicht-Check hängt jetzt wirklich an der Suite (26.09.2026)
+
+Hier stand *„Ruleset auf `E2E-Testsuite (Playwright)`"* als offener Posten.
+Er ist erledigt: `main-protection` verlangt jetzt **zwei** Kontexte —
+`PR Check / PR-Validierung (pull_request)` **und** `E2E-Testsuite
+(Playwright)`.
+
+Das ist die saubere Lösung, die CLAUDE.md seit dem 14.09. als „liegt beim
+Inhaber und ist eine Einstellung" führt. Der Code-Weg von damals (`needs:
+tests` + `if: always()`) bleibt, wo er ist — er ersetzt sie nicht, er hat sie
+überbrückt, und er schadet auch danach nicht.
+
+### Wer bei einem Chargeback zahlt — an Stripes Dokumentation nachgelesen
+
+Die Frage kam aus dem Connect-Assistenten („wer haftet bei Rückbuchungen?"),
+und sie ist **im Code längst entschieden**, nicht frei wählbar:
+
+| gemessen | |
+|---|---|
+| Kontotyp (`functions.php:9122`) | **Express**, `country: DE`, `card_payments` + `transfers` |
+| Zahlungsart (`functions.php:8891`) | Destination Charge: `transfer_data[destination]` + `on_behalf_of` + `application_fee_amount` |
+
+Stripe ist in beiden Punkten eindeutig: *„For destination charges and
+separate charges and transfers, **with or without `on_behalf_of`**, Stripe
+debits dispute amounts and fees from your platform account"*, und für
+Express-Konten *„your platform is responsible for disputes and fraud"*.
+
+**Die Plattform haftet also, und zwar unabhängig davon, was im Assistenten
+angeklickt wird.** Der Assistent ist an dieser Stelle dem Code anzupassen,
+nie umgekehrt — eine Einstellung, die etwas anderes behauptet als der
+Zahlungspfad tut, ist die teuerste Sorte Drift, weil sie auf einem Geldweg
+liegt. Die Rückholung vom Dienstleister (`transfer_reversal`) ist technisch
+möglich und bleibt bewusst ungebaut: sie braucht zuerst die AGB-Klausel aus
+Punkt 5.
 
 ## Offen aus der Oberflächenprüfung (2026-09-15) — grösstenteils erledigt
 

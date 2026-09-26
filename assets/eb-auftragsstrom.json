@@ -1,41 +1,11 @@
 {
   "version": 1,
-  "erzeugt": "2026-09-24T09:35:28.724Z",
+  "erzeugt": "2026-09-26T17:12:46.242Z",
   "hinweis": "Erzeugt von scripts/auftragsstrom.mjs aus assets/eb-arbeit.json. Nicht von Hand bearbeiten.",
   "journalStand": "2026-09-24T03:36:56.381Z",
   "lage": "Kein Befund im freigegebenen Rahmen — der Scout wählt selbst.",
   "auftraege": [],
-  "ausserhalb": [
-    {
-      "herkunft": {
-        "rolle": "mistral-ops",
-        "person": "Nils Falk",
-        "rollenname": "Reliability-Wächter",
-        "bereich": "betrieb",
-        "zeit": "2026-09-23T03:36:42.449Z",
-        "aufgabe": "Deploys, Tests und Monitor-Signale zu einem belastbaren Lagebild verdichten."
-      },
-      "dateien": [
-        "audit/latest.json",
-        ".github/workflows/site-monitor.yml"
-      ],
-      "grund": "nennt audit/latest.json, .github/workflows/site-monitor.yml — außerhalb des freigegebenen Rahmens"
-    },
-    {
-      "herkunft": {
-        "rolle": "mistral-ops",
-        "person": "Nils Falk",
-        "rollenname": "Reliability-Wächter",
-        "bereich": "betrieb",
-        "zeit": "2026-09-22T03:38:09.863Z",
-        "aufgabe": "Releaseweg auf den nächsten vermeidbaren Engpass prüfen."
-      },
-      "dateien": [
-        ".github/workflows/pr-check.yml"
-      ],
-      "grund": "nennt .github/workflows/pr-check.yml — außerhalb des freigegebenen Rahmens"
-    }
-  ],
+  "ausserhalb": [],
   "verworfen": [
     {
       "herkunft": {
@@ -47,6 +17,28 @@
         "aufgabe": "Den ältesten roten oder unbekannten Betriebszustand benennen und eingrenzen."
       },
       "grund": "Schicht endete als „fehler\" — kein Befund entstanden"
+    },
+    {
+      "herkunft": {
+        "rolle": "mistral-ops",
+        "person": "Nils Falk",
+        "rollenname": "Reliability-Wächter",
+        "bereich": "betrieb",
+        "zeit": "2026-09-23T03:36:42.449Z",
+        "aufgabe": "Deploys, Tests und Monitor-Signale zu einem belastbaren Lagebild verdichten."
+      },
+      "grund": "älter als 72 h — beschreibt einen anderen Code-Stand"
+    },
+    {
+      "herkunft": {
+        "rolle": "mistral-ops",
+        "person": "Nils Falk",
+        "rollenname": "Reliability-Wächter",
+        "bereich": "betrieb",
+        "zeit": "2026-09-22T03:38:09.863Z",
+        "aufgabe": "Releaseweg auf den nächsten vermeidbaren Engpass prüfen."
+      },
+      "grund": "älter als 72 h — beschreibt einen anderen Code-Stand"
     },
     {
       "herkunft": {
