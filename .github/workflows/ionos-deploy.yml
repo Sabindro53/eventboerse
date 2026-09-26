@@ -365,6 +365,101 @@ jobs:
           echo "✅ EB_APPLE_TEAM_ID in wp-config.php geschrieben" >> "$GITHUB_STEP_SUMMARY"
           echo "   Danach pruefen: curl -sSI https://xn--eventbrse-57a.de/.well-known/apple-app-site-association" >> "$GITHUB_STEP_SUMMARY"
 
+      - name: Inject tax identifiers into wp-config.php (optional)
+        env:
+          SFTP_PASS: ${{ secrets.IONOS_FTP_PASSWORD }}
+          SFTP_USER: ${{ secrets.IONOS_FTP_USERNAME }}
+          SFTP_HOST: ${{ secrets.IONOS_FTP_SERVER }}
+          STEUERNUMMER: ${{ secrets.EB_STEUERNUMMER }}
+          UST_ID: ${{ secrets.EB_UST_ID }}
+        run: |
+          # § 14 Abs. 4 Nr. 2 UStG verlangt auf JEDER Rechnung entweder die
+          # Steuernummer oder die USt-IdNr des Leistenden. Fehlen beide,
+          # erzeugt eb_provisionsrechnung() bewusst KEINEN Beleg -- eine
+          # Rechnung ohne diese Angabe berechtigt den Dienstleister nicht zum
+          # Vorsteuerabzug und muesste spaeter berichtigt werden.
+          #
+          # Beide Werte sind KEINE Geheimnisse: sie stehen auf jeder Rechnung
+          # und gehoeren ins Impressum. Sie liegen hier trotzdem als Secret,
+          # weil sie zur BEREITSTELLUNG gehoeren und nicht in den Quelltext --
+          # sie entstehen erst mit der Eintragung der UG, und ein fest
+          # eingetragener Wert waere beim naechsten Steuerbescheid falsch.
+          #
+          # Opt-in wie bei EB_APPLE_TEAM_ID. Ohne die Secrets bleibt
+          # wp-config.php unangetastet und die Provisionsrechnung meldet
+          # weiterhin "EB_STEUERNUMMER oder EB_UST_ID" als fehlend -- der
+          # ehrliche Zustand "nicht eingerichtet".
+          if [ -z "$STEUERNUMMER" ] && [ -z "$UST_ID" ]; then
+            echo "ℹ️ Weder EB_STEUERNUMMER noch EB_UST_ID gesetzt — wp-config bleibt unveraendert." >> "$GITHUB_STEP_SUMMARY"
+            echo "   Provisionsrechnungen entstehen weiterhin nicht (§ 14 UStG, Absicht)." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          # Dieselbe Pruefung wie in eb_provision_absender(): DE + 9 Ziffern.
+          # Driften die beiden, schriebe der Deploy einen Wert, den PHP
+          # anschliessend verwirft -- es entstuende weiterhin kein Beleg, und
+          # der Deploy meldete dabei Erfolg.
+          if [ -n "$UST_ID" ] && ! printf "%s" "$UST_ID" | grep -qE '^DE[0-9]{9}$'; then
+            echo "::error::EB_UST_ID hat nicht die Form DE + 9 Ziffern."
+            exit 1
+          fi
+          # Die Steuernummer hat KEIN bundeseinheitliches Format: die Laender
+          # vergeben 10 oder 11 Ziffern, das vereinheitlichte Schema 13.
+          # Geprueft wird deshalb nur die Gestalt -- Ziffern mit Trennern, und
+          # die Ziffernzahl in diesem Rahmen. Eine engere eigene Regel wiese
+          # rechtmaessige Nummern ab; genau das ist bei der Steuer-ID schon
+          # einmal passiert (die fuehrende Null der amtlichen Beispielnummer).
+          if [ -n "$STEUERNUMMER" ]; then
+            if ! printf "%s" "$STEUERNUMMER" | grep -qE '^[0-9][0-9/ -]*[0-9]$'; then
+              echo "::error::EB_STEUERNUMMER enthaelt andere Zeichen als Ziffern, Schraegstrich, Leerzeichen und Bindestrich."
+              exit 1
+            fi
+            ZIFFERN=$(printf "%s" "$STEUERNUMMER" | tr -cd '0-9' | wc -c)
+            if [ "$ZIFFERN" -lt 10 ] || [ "$ZIFFERN" -gt 13 ]; then
+              echo "::error::EB_STEUERNUMMER hat $ZIFFERN Ziffern — erwartet sind 10 bis 13."
+              exit 1
+            fi
+          fi
+          lftp -u "$SFTP_USER","$SFTP_PASS" "sftp://$SFTP_HOST" -e "
+            set sftp:auto-confirm yes;
+            get /public/wp-config.php -o /tmp/wp-config.php;
+            bye
+          "
+          sed -i '/EB_STEUERNUMMER/d' /tmp/wp-config.php
+          sed -i '/EB_UST_ID/d'       /tmp/wp-config.php
+          LINENUM=$(grep -n '<?php' /tmp/wp-config.php | head -1 | cut -d: -f1)
+          if [ -z "$LINENUM" ]; then
+            echo "ERROR: <?php not found in wp-config.php!"
+            exit 1
+          fi
+          # Geschrieben wird NUR, was gesetzt ist. Ein leeres define() waere
+          # fuer PHP dasselbe wie keines (eb_provision_absender trimmt), saehe
+          # in wp-config.php aber aus wie eingerichtet -- und "nicht
+          # eingerichtet" muss anders aussehen als "eingerichtet".
+          : > /tmp/eb-steuer-defines.php
+          if [ -n "$STEUERNUMMER" ]; then
+            # Das Hochkomma ist durch die Formatpruefung oben bereits
+            # ausgeschlossen. Maskiert wird trotzdem: wer die Pruefung spaeter
+            # weitet, soll dabei keine PHP-Datei aufbrechen koennen.
+            ESC_ST=$(printf "%s" "$STEUERNUMMER" | sed "s/'/\\\\'/g")
+            printf "define('EB_STEUERNUMMER', '%s');\n" "$ESC_ST" >> /tmp/eb-steuer-defines.php
+          fi
+          if [ -n "$UST_ID" ]; then
+            ESC_US=$(printf "%s" "$UST_ID" | sed "s/'/\\\\'/g")
+            printf "define('EB_UST_ID', '%s');\n" "$ESC_US" >> /tmp/eb-steuer-defines.php
+          fi
+          sed -i "${LINENUM}r /tmp/eb-steuer-defines.php" /tmp/wp-config.php
+          rm -f /tmp/eb-steuer-defines.php
+          echo "--- verify ---"
+          grep -nE "EB_(STEUERNUMMER|UST_ID)" /tmp/wp-config.php
+          lftp -u "$SFTP_USER","$SFTP_PASS" "sftp://$SFTP_HOST" -e "
+            set sftp:auto-confirm yes;
+            put /tmp/wp-config.php -o /public/wp-config.php;
+            bye
+          "
+          rm -f /tmp/wp-config.php
+          echo "✅ Steuerangaben in wp-config.php geschrieben" >> "$GITHUB_STEP_SUMMARY"
+          echo "   Danach pruefen: HQ → Provisionsrechnung; eb_provision_absender() muss \`bereit\` melden." >> "$GITHUB_STEP_SUMMARY"
+
       - name: Inject AI keys into wp-config.php (optional)
         env:
           SFTP_PASS: ${{ secrets.IONOS_FTP_PASSWORD }}

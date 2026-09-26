@@ -9,6 +9,50 @@ tags: [layer/L5, domain/evolution, share/internal]
 
 > Diese Datei ist die **erste Quelle** die Claude Code liest. Sie enthält alles Wichtige über Projekt, Präferenzen und offene Aufgaben.
 
+## Stand 2026-09-26 — die Anleitung fand den Weg, den es nicht gab
+
+Der Inhaber hat über den Browser erledigt, was nur dort ging: **zehn
+Webhook-Ereignisse** bei Stripe (die drei Streitfall-Ereignisse darunter),
+**E2E-Tests als Pflicht-Check** im `main-protection`-Ruleset, **20 $
+OpenRouter-Guthaben**, und die **Connect-Identität eingereicht**. Alles vier
+zurückgelesen, nicht am gespeicherten Dialog abgelesen.
+
+**Der Befund des Tages entstand beim Schreiben der Anleitung dafür.**
+CLAUDE.md sagte über die Steuernummer: *„Opt-in über `EB_STEUERNUMMER` bzw.
+`EB_UST_ID` in wp-config.php, derselbe Weg wie `EB_APPLE_TEAM_ID`."*
+Nachgemessen: `ionos-deploy.yml` hatte Schritte für SMTP, Stripe, Apple und
+die KI-Schlüssel — **für die Steuerangaben keinen.** Wer dem Satz folgte,
+setzte ein Secret, das nichts liest, und wartete auf eine Rechnung, die nie
+entsteht.
+
+**Die Lektion ist nicht „Doku veraltet".** Die Datei, die jede Sitzung zuerst
+liest, beschrieb einen Mechanismus, den niemand gebaut hatte — und sie tat es
+mit derselben Selbstverständlichkeit wie die 130 Dinge daneben, die stimmen.
+Aufgefallen ist es erst, als jemand **danach handeln** sollte. Genau deshalb
+ist eine Anleitung für einen Menschen ein besserer Prüfer als jedes erneute
+Lesen: sie zwingt zum Nachsehen, ob der Weg wirklich existiert.
+
+Der Schritt steht jetzt da und ist mutationsgeprüft (11 Tests, 9 Mutationen,
+`steuernummer-deploy.spec.js`). Er wird **ausgeführt**, nicht gelesen: aus dem
+Workflow geschnitten, `lftp` als Attrappe, `bash -eo pipefail`.
+
+**Und die Mutationsprobe war zuerst aus dem falschen Grund rot.** Die
+Ersetzung `String.replace("…{9}$'", "…{8,9}$'")` — `$'` ist dort das
+Sonderzeichen für „alles nach dem Treffer". Der halbe Workflow stand danach
+doppelt in der Datei, acht Tests fielen durch statt zwei, und die Verdikt-
+Spalte sagte trotzdem „ROT". Ein Messgerät, das sein Subjekt verändert, misst
+sich selbst — dieselbe Klasse wie das `git checkout --` des
+Barrierefreiheits-Läufers, nur in der Ersetzung statt in der Sicherung.
+**Wer eine Mutation baut, sieht sich die mutierte Datei einmal an.**
+
+**Die Haftungsfrage ist nicht wählbar, sie steht im Code.** Der
+Connect-Assistent fragt, wer bei Rückbuchungen einsteht. Gemessen:
+Express-Konten und Destination Charges. Stripe dazu wörtlich — *„with or
+without `on_behalf_of`, Stripe debits dispute amounts and fees from your
+platform account"* und für Express *„your platform is responsible for disputes
+and fraud"*. **Die Plattform haftet.** Der Assistent ist dem Code anzupassen,
+nie umgekehrt.
+
 ## Stand 2026-09-24 — der Autopilot meldete 34-mal den falschen Grund
 
 **PR #295 ist gemergt** (`94de9c6`), Deploy und Site-Monitor grün. Damit sind

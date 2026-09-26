@@ -4508,7 +4508,65 @@ Fee vom Zahlbetrag ab — sie **ist** der Bruttobetrag unserer Leistung. Wer
 **Ohne Steuernummer entsteht kein Beleg.** § 14 Abs. 4 Nr. 2 verlangt sie;
 eine UG in Gründung hat sie nicht. Ein Beleg ohne sie berechtigt nicht zum
 Vorsteuerabzug und müsste berichtigt werden. Opt-in über `EB_STEUERNUMMER`
-bzw. `EB_UST_ID` in `wp-config.php`, derselbe Weg wie `EB_APPLE_TEAM_ID`.
+bzw. `EB_UST_ID` in `wp-config.php`.
+
+##### „Derselbe Weg wie `EB_APPLE_TEAM_ID`" — den gab es nicht
+
+Genau das stand hier, und es war falsch. Am 26.09.2026 nachgemessen:
+`ionos-deploy.yml` schrieb SMTP, Stripe, die Apple-Team-ID und die
+KI-Schlüssel nach `wp-config.php` — **für die Steuerangaben gab es keinen
+Schritt.** Wer dem Satz folgte, setzte ein GitHub-Secret, das nichts liest,
+und wartete auf eine Rechnung, die nie entsteht.
+
+**Dieselbe Klasse wie der tote Gitleaks-Scan, eine Ebene höher:** die Notiz,
+die jede Sitzung zuerst liest, beschrieb einen Mechanismus, den niemand
+gebaut hatte. Aufgefallen ist es beim Schreiben der Cowork-Anleitung — also
+erst, als jemand danach handeln sollte.
+
+Den Schritt gibt es jetzt, und er misst das Verhalten, nicht die
+Schreibweise: `steuernummer-deploy.spec.js` schneidet ihn aus dem Workflow,
+stellt `lftp` als Attrappe (sie liest den Pfad aus dem **echten** Aufruf)
+und fährt ihn mit `bash -eo pipefail`.
+
+**Zwei Werte, zwei verschiedene Prüfungen — und die eine ist bewusst lose.**
+Die USt-IdNr wird gegen `^DE[0-9]{9}$` geprüft, dieselbe Form wie in
+`eb_provision_absender()`; driften die beiden, schriebe der Deploy einen
+Wert, den PHP anschliessend verwirft, und meldete dabei Erfolg. Die
+**Steuernummer hat kein bundeseinheitliches Format** (Länderschema 10 oder
+11 Ziffern, vereinheitlichtes Schema 13), also wird nur die Gestalt geprüft:
+Ziffern mit Trennern, 10 bis 13 Ziffern. Eine engere eigene Regel wiese
+rechtmäßige Nummern ab — genau das ist bei der Steuer-ID schon einmal
+passiert, an der führenden Null der amtlichen Beispielnummer.
+
+Gemessen wird die Richtung, auf die es ankommt: **was der Deploy durchlässt,
+muss PHP annehmen.** Strenger sein darf er — das scheitert laut im Lauf,
+nicht still im Betrieb. Eine Gegenprobe hält fest, dass überhaupt etwas
+durchkommt; sonst bestünde „lehnt alles ab" jede einzelne Zusicherung.
+
+**Geschrieben wird nur, was gesetzt ist.** Ein leeres `define('EB_UST_ID',
+'')` wäre für PHP dasselbe wie keines — in der Datei sähe es aus wie
+eingerichtet, und „nicht eingerichtet" muss anders aussehen.
+
+**Und die Mutationsprobe war zuerst aus dem falschen Grund rot.** Die
+Mutation „Format driftet von PHP weg" ersetzte `'^DE[0-9]{9}$'` per
+`String.replace` mit einer **Zeichenkette** — und `$'` ist dort das
+Sonderzeichen für „alles nach dem Treffer". Der halbe Workflow stand danach
+doppelt in der Datei; acht Tests fielen durch statt zwei. Ein Messgerät, das
+sein Subjekt verändert, misst sich selbst — dieselbe Lehre wie beim
+`git checkout --` des Barrierefreiheits-Läufers, nur in der Ersetzung statt
+in der Sicherung. Mutiert wird jetzt mit einer Funktion als Ersatz.
+
+Neun Mutationen, jede macht die Suite rot: Opt-in entfernt · die
+USt-IdNr-Prüfung entfernt · das Format driftet von PHP weg · das leere
+Gegenstück wird mitgeschrieben · die alte Zeile wird nicht mehr gelöscht
+(zwei `define()` gleichen Namens) · die Ziffernzahl wird nicht mehr geprüft ·
+die Obergrenze zu eng (13-stellige Nummern fallen durch) · der ganze Schritt
+entfernt (**11 rot**) · die geholte `wp-config.php` bleibt auf dem Runner
+liegen.
+
+```bash
+npx playwright test tests/e2e/steuernummer-deploy.spec.js   # 11 Tests, 9 Mutationen
+```
 
 **Der Frühausstieg verbraucht keine Rechnungsnummer.** Jede Wache steht
 **vor** dem Hochzählen — sonst risse jeder abgewiesene Aufruf eine Lücke in
@@ -4676,7 +4734,7 @@ npm run test:smoke      # nur Routen-Smoke-Tests
 npm run test:css        # CSS-Minify-Regression (Verlaufsschrift)
 ```
 
-1266 Tests in 87 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
+1277 Tests in 88 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
 Sätze), Gebühren (centgenau, JS↔PHP-Parität), Wissensbasis (Antworten +
 Leckage-Schutz), Zufluss (Quarantäne-Tor + Demo-Feed-Ehrlichkeit),
 Verbindungen (HQ-Zugang + Connector-Katalog), Auftragsstrom (Herkunft +
