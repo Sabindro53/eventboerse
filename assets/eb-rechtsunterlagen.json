@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "stand": "2026-09-25",
+  "stand": "2026-09-26",
   "paket": "Eventboerse_UG_Rechtsunterlagen_v11_Entwurf",
   "paketStand": "2026-05-04",
   "rechtshinweis": "Arbeits- und Organisationshilfe, keine Rechtsberatung. Verbindliche Fassungen benötigen die dokumentierte Freigabe qualifizierter Fachleute.",
@@ -11,7 +11,7 @@
     "vorFreigabe": 7,
     "anlagen": 5,
     "archiv": 1,
-    "aufgaben": 17
+    "aufgaben": 18
   },
   "technischerAbgleich": {
     "module": 31,
@@ -50,7 +50,8 @@
       ],
       "akzeptierterHash": "173b3ad8060567166108ed8f0f4996d490d0be6e868ea9d4043e8958ffaa1fd2",
       "aktuellerHash": "173b3ad8060567166108ed8f0f4996d490d0be6e868ea9d4043e8958ffaa1fd2",
-      "status": "aktuell"
+      "status": "nicht_erreichbar",
+      "fehler": "amtliche Seite enthielt zu wenig Text"
     },
     {
       "id": "bfsg-3",
@@ -380,6 +381,30 @@
       "automatisch": true,
       "quelle": "https://www.gesetze-im-internet.de/bgb/__356a.html",
       "quellenStand": "219c6d704b63ad027f0a4ea5218041207f16a2e36780a24610e1c033b708de06"
+    },
+    {
+      "id": "quelle-ai-2026-1744",
+      "prioritaet": "mittel",
+      "verantwortlich": [
+        "Sandro",
+        "Julian"
+      ],
+      "titel": "Amtliche Quelle nicht erreichbar: VO (EU) 2026/1744 – AI-Act-Übergangsregeln",
+      "beschreibung": "Abruf erneut prüfen. Solange die Quelle nicht erreichbar ist, wird Aktualität nicht behauptet.",
+      "frist": "vor der nächsten Freigabe",
+      "dokumente": [
+        "09",
+        "13",
+        "14",
+        "B02",
+        "B11",
+        "B13",
+        "C01",
+        "C07"
+      ],
+      "automatisch": true,
+      "quelle": "https://eur-lex.europa.eu/eli/reg/2026/1744/oj?locale=de",
+      "quellenStand": "173b3ad8060567166108ed8f0f4996d490d0be6e868ea9d4043e8958ffaa1fd2"
     },
     {
       "id": "quelle-bfsg-3",
