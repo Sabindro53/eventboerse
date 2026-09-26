@@ -221,12 +221,19 @@ test.describe('Der Deploy traegt die Steuerangaben ein', () => {
 
     // Gemessen, nicht angenommen: eine kaputte Maskierung oder ein
     // verrutschtes sed faellt hier auf, nicht erst auf dem Webserver.
-    const ziel = path.join(os.tmpdir(), `eb-steuer-lint-${process.pid}-${Date.now()}.php`);
-    fs.writeFileSync(ziel, r.server);
+    //
+    // Das Verzeichnis kommt aus `mkdtempSync`, nicht aus einem selbst
+    // gebauten Namen in /tmp. Ein vorhersagbarer Pfad im gemeinsamen
+    // Temp-Verzeichnis laesst sich von einem fremden Prozess vorbelegen —
+    // CodeQL hat genau diese Zeile in PR #303 als „Insecure creation of
+    // file in the os temp dir" gemeldet, und zwar zu Recht.
+    const lintDir = fs.mkdtempSync(path.join(os.tmpdir(), 'eb-steuer-lint-'));
     try {
+      const ziel = path.join(lintDir, 'wp-config.php');
+      fs.writeFileSync(ziel, r.server);
       execFileSync('php', ['-l', ziel], { encoding: 'utf8' });
     } finally {
-      fs.rmSync(ziel, { force: true });
+      fs.rmSync(lintDir, { recursive: true, force: true });
     }
   });
 

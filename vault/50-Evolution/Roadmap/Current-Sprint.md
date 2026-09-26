@@ -136,6 +136,26 @@ Inhaber und ist eine Einstellung" führt. Der Code-Weg von damals (`needs:
 tests` + `if: always()`) bleibt, wo er ist — er ersetzt sie nicht, er hat sie
 überbrückt, und er schadet auch danach nicht.
 
+### Vorhersagbare Pfade in /tmp — CodeQL hat einen gemeldet, es sind mehr
+
+CodeQL meldete auf PR #303 *„Insecure creation of file in the os temp dir"*
+an einer neuen Zeile in `steuernummer-deploy.spec.js`: ein selbst gebauter
+Name in `os.tmpdir()`. Zu Recht — ein vorhersagbarer Pfad im gemeinsamen
+Temp-Verzeichnis lässt sich von einem fremden Prozess vorbelegen. Behoben
+mit `mkdtempSync`, dem Griff, den zehn andere Suiten ohnehin benutzen.
+
+**Beim Beheben gezählt: es gibt in `tests/e2e/` noch rund acht weitere
+Stellen derselben Form** — `css-minify`, `gebuehren`, `totp`, `upload`
+(zweimal), `radar` (zweimal), `kern`. CodeQL sieht sie nicht, weil sie nicht
+im Diff stehen; das macht sie nicht sicherer.
+
+Bewusst **nicht** in diesem PR mitgenommen: das wäre eine Änderung an acht
+fremden Suiten in einem PR über den Steuer-Deploy. Der durable Weg ist eine
+Regel in `pruefhygiene.spec.js` („keine Suite baut sich einen Pfad in
+`os.tmpdir()` selbst") plus die acht Umstellungen — eine eigene Ablieferung.
+*Eine Fundstelle zu beheben verhindert die nächste nicht, solange jede Suite
+den Griff von Hand nachbaut.*
+
 ### Wer bei einem Chargeback zahlt — an Stripes Dokumentation nachgelesen
 
 Die Frage kam aus dem Connect-Assistenten („wer haftet bei Rückbuchungen?"),
