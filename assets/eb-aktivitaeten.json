@@ -1,7 +1,7 @@
 {
   "version": 2,
   "hinweis": "Erzeugt von scripts/aktivitaeten.mjs. Nicht von Hand bearbeiten.",
-  "stand": "2026-09-26T03:35:06.067Z",
+  "stand": "2026-09-27T03:38:07.306Z",
   "gebiete": [
     {
       "stadt": "Köln",
@@ -13913,12 +13913,12 @@
     {
       "id": "osm:node/60013074",
       "art": "ort",
-      "titel": "Spielzeugmuseum",
+      "titel": "Spielzeugmuseum München",
       "kategorie": "Museum",
       "beginn": null,
       "gebiet": "München",
       "ort": {
-        "name": "Spielzeugmuseum",
+        "name": "Spielzeugmuseum München",
         "stadt": "München",
         "lat": 48.13669,
         "lon": 11.57688
@@ -14056,7 +14056,7 @@
         "lon": 11.57303
       },
       "entfernungKm": 0.3,
-      "webseite": "https://www.muenchner-stadtmuseum.de/",
+      "webseite": "https://www.muenchner-stadtmuseum.de",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/11933309402",
@@ -14209,7 +14209,7 @@
         "lon": 11.58025
       },
       "entfernungKm": 0.4,
-      "webseite": "https://www.bier-und-oktoberfestmuseum.de/",
+      "webseite": "https://www.bier-und-oktoberfestmuseum.de",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/656253064",
@@ -14473,6 +14473,7 @@
         "lon": 11.58006
       },
       "entfernungKm": 0.5,
+      "webseite": "https://www.residenztheater.de/cuvillestheater",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/642040534",
@@ -15547,6 +15548,7 @@
         "lon": 11.56454
       },
       "entfernungKm": 1.5,
+      "webseite": "https://theaterakademie.de/spielstaetten/reaktorhalle",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/11401594532",
@@ -15677,6 +15679,7 @@
         "lon": 11.57758
       },
       "entfernungKm": 1.6,
+      "webseite": "https://galli-muenchen.de",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/3252640795",
