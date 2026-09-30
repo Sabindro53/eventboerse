@@ -282,6 +282,53 @@ test.describe('Die Prüfungen halten sich an die eigenen Regeln', () => {
     expect(treffer, `überspringt Prüfungen: ${treffer.join(', ')}`).toHaveLength(0);
   });
 
+  // ── Ein Pfad in /tmp, den man vorhersagen kann ──────────────────────────
+  //
+  // CodeQL meldete am 26.09.2026 „Insecure creation of file in the os temp
+  // dir" (high) an einer neuen Zeile in steuernummer-deploy.spec.js: ein aus
+  // PID und Zeitstempel selbst gebauter Name in `os.tmpdir()`. Das gemeinsame
+  // Temp-Verzeichnis ist für alle Nutzer schreibbar — ein vorhersagbarer Pfad
+  // lässt sich von einem fremden Prozess vorbelegen, notfalls als Symlink auf
+  // eine Datei, die der Test dann überschreibt.
+  //
+  // Beim Beheben gezählt: DIESELBE Form stand an acht weiteren Stellen
+  // (upload ×2, kern, totp, gebuehren, css-minify, radar ×2). CodeQL sah sie
+  // nicht, weil sie nicht im Diff standen — das machte sie nicht sicherer.
+  // Vierter Befund dieser Klasse an eigenem Testcode, und wieder gilt: eine
+  // Fundstelle zu beheben verhindert die nächste nicht, solange jede Suite
+  // den Griff von Hand nachbaut.
+  //
+  // KEIN eigener Helfer. `fs.mkdtempSync()` legt das Verzeichnis atomar mit
+  // 0700 und einem zufälligen Namen an, steht in der Standardbibliothek und
+  // war in diesem Projekt schon an 16 Stellen in Gebrauch. Ein drittes
+  // Verfahren daneben wäre selbst die Drift, gegen die diese Datei gebaut ist.
+  test('keine Prüfung baut sich einen Pfad in os.tmpdir() selbst', () => {
+    const TMPDIR = /(?:\bos|require\(\s*['"]node:os['"]\s*\))\s*\.\s*tmpdir\(\)/g;
+    const treffer = [];
+    let gesehen = 0;
+    for (const datei of pruefdateien()) {
+      if (path.basename(datei) === SELBST) continue;
+      const code = ohneJsKommentare(fs.readFileSync(datei, 'utf8'));
+      for (const m of code.matchAll(TMPDIR)) {
+        gesehen += 1;
+        // Erlaubt ist ausschliesslich `mkdtempSync(path.join(os.tmpdir(), …))`.
+        // Gemessen wird der Text DAVOR, ohne Leerraum — so trägt die Regel
+        // auch über einen Zeilenumbruch hinweg.
+        const davor = code.slice(Math.max(0, m.index - 120), m.index).replace(/\s+/g, '');
+        if (!davor.endsWith('mkdtempSync(path.join(')) {
+          treffer.push(`${path.basename(datei)}: ${code.slice(m.index - 60, m.index + 20)
+            .replace(/\s+/g, ' ').trim()}`);
+        }
+      }
+    }
+    // Gegenprobe: ohne sie erfüllte man die Regel, indem man die Messung
+    // entfernt — genau der Fehler, den die Regel eine Ebene höher bekämpft.
+    expect(gesehen, 'keine einzige tmpdir-Stelle gefunden — dann prüft diese '
+      + 'Regel nichts mehr').toBeGreaterThan(10);
+    expect(treffer, `baut sich einen vorhersagbaren Pfad in /tmp statt `
+      + `fs.mkdtempSync() zu benutzen:\n  ${treffer.join('\n  ')}`).toHaveLength(0);
+  });
+
   test('keine Prüfung verlässt sich auf Playwrights reducedMotion-Option', () => {
     // AM 10.09.2026 NACHGEMESSEN: die Option erreicht die Seite in diesem
     // Aufbau nicht. In einem Test ohne jedes `test.use` meldete

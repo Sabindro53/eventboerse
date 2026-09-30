@@ -617,7 +617,8 @@ test.describe('Koordinaten in der Datenbank', () => {
     const defBis = FUNCTIONS.indexOf('function eb_create_tables', defVon);
     expect(defVon, 'EB_DB_VERSION-Definition nicht gefunden').toBeGreaterThan(0);
 
-    const skript = path.join(os.tmpdir(), `mig-${Date.now()}-${Math.random()}.php`);
+    const migHeim = fs.mkdtempSync(path.join(os.tmpdir(), 'eb-mig-'));
+    const skript = path.join(migHeim, 'migration.php');
     fs.writeFileSync(skript, `<?php
 // freunde-gruppen.php traegt den ueblichen Riegel gegen den Direktaufruf:
 // ohne definierte ABSPATH steigt sie sofort aus. Fehlt die Konstante hier,
@@ -724,7 +725,7 @@ echo json_encode(array(
 ));
 `, 'utf8');
     try { return JSON.parse(execFileSync('php', [skript], { encoding: 'utf8' })); }
-    finally { fs.unlinkSync(skript); }
+    finally { fs.rmSync(migHeim, { recursive: true, force: true }); }
   }
 
   /** JS-Wert als PHP-Literal — kleiner Helfer für die Vorbelegung der Optionen. */
@@ -745,15 +746,15 @@ echo json_encode(array(
   function pruefe(werte) {
     const von = FUNCTIONS.indexOf('function eb_geo_pruefen');
     const bis = FUNCTIONS.indexOf('function eb_listings_create');
-    const stamm = path.join(os.tmpdir(), `geo-${Date.now()}-${Math.random()}`);
-    const daten = `${stamm}.json`;
-    const skript = `${stamm}.php`;
+    const geoHeim = fs.mkdtempSync(path.join(os.tmpdir(), 'eb-geo-'));
+    const daten = path.join(geoHeim, 'werte.json');
+    const skript = path.join(geoHeim, 'pruefung.php');
     fs.writeFileSync(daten, JSON.stringify(werte), 'utf8');
     fs.writeFileSync(skript, `<?php\n${FUNCTIONS.slice(von, bis)}\n`
       + `$werte = json_decode(file_get_contents(${JSON.stringify(daten)}), true);\n`
       + `echo json_encode(array_map('eb_geo_pruefen', $werte));\n`, 'utf8');
     try { return JSON.parse(execFileSync('php', [skript], { encoding: 'utf8' })); }
-    finally { fs.unlinkSync(daten); fs.unlinkSync(skript); }
+    finally { fs.rmSync(geoHeim, { recursive: true, force: true }); }
   }
 
   test('nur plausible DACH-Koordinaten werden gespeichert', () => {

@@ -16,7 +16,7 @@ Zahlen ihrer Zeit — die sind Historie, kein Ist-Stand. Der Ensemble-Kontext
 liest diese Datei von oben; ein Modell, das „68 Tests" als aktuell meldet, hat
 einen alten Abschnitt gelesen und nicht diesen.
 
-- **Playwright-Suite: 1277 Tests in 88 Suiten**, blockierendes Gate in `pr-check.yml`.
+- **Playwright-Suite: 1278 Tests in 88 Suiten**, blockierendes Gate in `pr-check.yml`.
   Läuft seit dem Self-Hosting auch ohne Netzzugang vollständig durch
 
 ## Release-Bereitschaft (2026-09-23) — der aktuelle Engpass
@@ -182,12 +182,38 @@ Stellen derselben Form** — `css-minify`, `gebuehren`, `totp`, `upload`
 (zweimal), `radar` (zweimal), `kern`. CodeQL sieht sie nicht, weil sie nicht
 im Diff stehen; das macht sie nicht sicherer.
 
-Bewusst **nicht** in diesem PR mitgenommen: das wäre eine Änderung an acht
-fremden Suiten in einem PR über den Steuer-Deploy. Der durable Weg ist eine
-Regel in `pruefhygiene.spec.js` („keine Suite baut sich einen Pfad in
-`os.tmpdir()` selbst") plus die acht Umstellungen — eine eigene Ablieferung.
-*Eine Fundstelle zu beheben verhindert die nächste nicht, solange jede Suite
-den Griff von Hand nachbaut.*
+Hier stand: *„Bewusst nicht in diesem PR mitgenommen … eine eigene
+Ablieferung."* **Am 30.09.2026 doch in #303 erledigt**, und zwar aus einem
+Grund, der die erste Einschätzung widerlegt: der PR trägt den Fix für die
+**erste** Fundstelle schon. Die übrigen dort zu schliessen ist nicht Weitung,
+sondern der Abschluss desselben Befunds — *eine Fundstelle zu beheben
+verhindert die nächste nicht, solange jede Suite den Griff von Hand nachbaut.*
+Ein halb behobener Befund ist die schlechtere Ablieferung.
+
+Nachgezählt beim Umstellen — die Schätzung „rund acht" war richtig:
+
+| | |
+|---|---|
+| Fundstellen mit `os.tmpdir()` in `tests/` | **24** |
+| davon schon sicher (`mkdtempSync`) | **16** |
+| selbst gebauter Name | **8** |
+
+Umgestellt auf `fs.mkdtempSync(path.join(os.tmpdir(), …))` — **kein eigener
+Helfer**: ein drittes Verfahren neben den 16 bestehenden Stellen wäre selbst
+die Drift. Aufgeräumt wird jetzt das Verzeichnis statt nur die Datei; bei
+`radar` blieb vorher je Lauf ein Paar Dateien liegen.
+
+**Zwei Stellen waren nicht bloss Umschreiben.** `radar.spec.js` setzt im
+erzeugten PHP `define('ABSPATH', __DIR__ . '/')` — ein anderes Verzeichnis
+ändert `__DIR__`; `kern.spec.js` schiebt den Pfad in einen **Shell**-Block,
+der hineinschreibt. Beide laufen weiter (188 Tests der sechs Suiten grün),
+aber das ist gemessen, nicht angenommen.
+
+**Die Regel steht in `pruefhygiene.spec.js`** und ist die sechste dort. Fünf
+Mutationen machen sie rot, darunter „der Kommentarabzug entfernt" — zwei der
+umgestellten Stellen nennen `os.tmpdir()` im erklärenden Kommentar, also trägt
+der Abzug hier wirklich etwas — und „das Suchmuster trifft nichts mehr", das
+die Gegenprobe auslöst.
 
 ### Wer bei einem Chargeback zahlt — an Stripes Dokumentation nachgelesen
 

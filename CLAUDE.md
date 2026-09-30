@@ -1237,7 +1237,7 @@ Griff von Hand nachbaut. Er steht deshalb **einmal** in
 schneiden — wer nur misst, hat das Problem nicht und behält die Positionen für
 eine brauchbare Fehlermeldung.
 
-`pruefhygiene.spec.js` hält **fünf** Regeln über alle Suiten (hier stand
+`pruefhygiene.spec.js` hält **sechs** Regeln über alle Suiten (hier stand
 „zwei", während schon drei aufgezählt waren — eine Zahl, die ihre eigene Liste
 nicht mehr trifft, ist der Anfang derselben Drift, die diese Datei sonst
 bekämpft):
@@ -1260,6 +1260,53 @@ bekämpft):
   `page.emulateMedia()` vor dem `goto`, und eine Gegenprobe hält fest, dass er
   weiter wirkt: sonst prüfte niemand mehr Bewegungsreduktion, und alles wäre
   grün.
+- **keine baut sich einen Pfad in `os.tmpdir()` selbst** — erlaubt ist
+  ausschliesslich `fs.mkdtempSync(path.join(os.tmpdir(), …))`. Dazu der
+  Abschnitt unten.
+
+#### Acht vorhersagbare Pfade in /tmp, und CodeQL sah genau einen
+
+Am 26.09.2026 meldete CodeQL *„Insecure creation of file in the os temp dir"*
+(high) an einer **neuen** Zeile in `steuernummer-deploy.spec.js`: ein aus PID
+und Zeitstempel selbst gebauter Name in `os.tmpdir()`. Das gemeinsame
+Temp-Verzeichnis ist für alle schreibbar — ein vorhersagbarer Pfad lässt sich
+vorbelegen, notfalls als Symlink auf eine Datei, die der Test dann
+überschreibt.
+
+**Beim Beheben gezählt: 24 Fundstellen, 16 davon schon sicher, acht nicht** —
+`upload` (zweimal), `kern`, `totp`, `gebuehren`, `css-minify`, `radar`
+(zweimal). CodeQL sah sie nicht, weil sie nicht im Diff standen. **Das machte
+sie nicht sicherer, nur unsichtbar** — dieselbe Mechanik wie bei jedem Prüfer,
+dessen Subjekt nur ein Ausschnitt ist.
+
+Vierter Befund dieser Klasse an eigenem Testcode, und wieder gilt der Satz von
+oben: eine Fundstelle zu beheben verhindert die nächste nicht, solange jede
+Suite den Griff von Hand nachbaut.
+
+**Kein eigener Helfer.** `fs.mkdtempSync()` legt das Verzeichnis atomar mit
+0700 und zufälligem Namen an, steht in der Standardbibliothek und war hier
+schon an 16 Stellen in Gebrauch. Ein drittes Verfahren daneben wäre selbst die
+Drift, gegen die diese Datei gebaut ist. Aufgeräumt wird jetzt das
+**Verzeichnis** (`rmSync` rekursiv) statt nur die Datei — vorher blieb bei
+`radar` je Lauf ein Paar Dateien liegen.
+
+**Zwei Stellen mussten dabei nachgemessen werden, nicht nur umgeschrieben:**
+`radar.spec.js` setzt im erzeugten PHP `define('ABSPATH', __DIR__ . '/')` —
+ein anderes Verzeichnis ändert also `__DIR__`; und `kern.spec.js` schiebt den
+Pfad in einen **Shell**-Block, der hineinschreibt. Beide laufen weiter (188
+Tests der sechs Suiten grün), aber das war eine Messung und keine Annahme.
+
+**Der erklärende Kommentar trägt hier die Regel mit.** Zwei der umgestellten
+Stellen nennen `os.tmpdir()` im Kommentar — genau die Form, an der in diesem
+Projekt schon viermal eine Prüfung gescheitert ist. Deshalb ist der
+Kommentarabzug an dieser Regel nicht Vorsichtsmaßnahme, sondern belegt: die
+Mutation „zieht die Kommentare nicht mehr ab" macht sie rot.
+
+Fünf Mutationen, jede macht die Suite rot: `css-minify` zurück auf den selbst
+gebauten Pfad · `upload` ebenso · der Kommentarabzug entfernt · die Wache
+umgedreht · das Suchmuster trifft nichts mehr (dann greift die **Gegenprobe**,
+die verlangt, dass überhaupt Fundstellen gesehen werden — sonst erfüllte man
+die Regel, indem man die Messung entfernt).
 
 Geprüft wird **nach Abzug der JS-Kommentare**, zeichenweise statt per
 Ausdruck: ein regulärer Ausdruck über Kommentargrenzen wäre genau der Griff,
@@ -4734,7 +4781,7 @@ npm run test:smoke      # nur Routen-Smoke-Tests
 npm run test:css        # CSS-Minify-Regression (Verlaufsschrift)
 ```
 
-1277 Tests in 88 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
+1278 Tests in 88 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
 Sätze), Gebühren (centgenau, JS↔PHP-Parität), Wissensbasis (Antworten +
 Leckage-Schutz), Zufluss (Quarantäne-Tor + Demo-Feed-Ehrlichkeit),
 Verbindungen (HQ-Zugang + Connector-Katalog), Auftragsstrom (Herkunft +
@@ -4784,7 +4831,9 @@ Daten an; `viewport-fit` und die safe-area-Abstände sind gekoppelt; die
 Kontolöschung nach 5.1.1(v) ist noch da),
 **Prüfhygiene** (keine Suite schneidet HTML-Kommentare selbst heraus, keine
 überspringt sich, keine verlässt sich auf Playwrights `reducedMotion`-Option —
-sie erreicht die Seite nicht, und `page.emulateMedia()` tut es),
+sie erreicht die Seite nicht, und `page.emulateMedia()` tut es; und keine baut
+sich einen vorhersagbaren Pfad in `os.tmpdir()` — CodeQL meldete eine von acht
+Fundstellen, die übrigen sah es nur nicht),
 **Zusammenarbeit** (der Rahmen für zwei Modelle zeigt auf nichts, das es nicht
 gibt; er nennt die Bau-Schritte so, wie die Skripte heissen; und er führt
 keine Zahl ein zweites Mal, die `kontext.mjs` ohnehin gegen den Code misst),

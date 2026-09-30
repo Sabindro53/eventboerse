@@ -1669,7 +1669,8 @@ test.describe('Der Arbeitskontext überlebt lange Notizen', () => {
     // Ausgeführt wird der echte Block aus dem Workflow, mit genau den
     // Shell-Optionen, die GitHub setzt — nicht ein Nachbau davon.
     let skript = schrittBlock('Belegten Arbeitskontext bauen');
-    const ziel = path.join(os.tmpdir(), `ctx-${Date.now()}-${Math.random()}.txt`);
+    const kontextHeim = fs.mkdtempSync(path.join(os.tmpdir(), 'eb-ctx-'));
+    const ziel = path.join(kontextHeim, 'ensemble-context.txt');
     skript = skript
       .replace(/\.ai-run\/ensemble-context\.txt/g, ziel)
       .replace(/mkdir -p \.ai-run/, 'true')
@@ -1695,7 +1696,7 @@ test.describe('Der Arbeitskontext überlebt lange Notizen', () => {
       expect(zeilen.length, 'der Kontext läuft ungebremst voll').toBeLessThan(60);
     } finally {
       fs.writeFileSync(sprint, original, 'utf8');
-      try { fs.unlinkSync(ziel); } catch { /* nie geschrieben */ }
+      fs.rmSync(kontextHeim, { recursive: true, force: true });
     }
   });
 

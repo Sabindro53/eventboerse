@@ -187,7 +187,8 @@ test.describe('Demo-Bilder in die eigene Mediathek', () => {
       + `\nconst EB_DEMO_BILDER_LOCK_OPTION = 'lock';\nconst EB_DEMO_BILDER_LOCK_TTL = `
       + (FUNCTIONS.match(/EB_DEMO_BILDER_LOCK_TTL\s*=\s*(\d+)/) || [, '30'])[1] + ';';
 
-    const datei = path.join(os.tmpdir(), 'eb-lock-' + process.pid + '.php');
+    const heim = fs.mkdtempSync(path.join(os.tmpdir(), 'eb-lock-'));
+    const datei = path.join(heim, 'lock.php');
     fs.writeFileSync(datei, '<?php\n' + `
       // Optionen wie WordPress: add_option legt NUR an, wenn es den
       // Schluessel noch nicht gibt — daher ist es die atomare Stelle.
@@ -211,7 +212,7 @@ test.describe('Demo-Bilder in die eigene Mediathek', () => {
       echo json_encode( $r );`);
     let roh;
     try { roh = execFileSync('php', [datei], { encoding: 'utf8' }); }
-    finally { fs.unlinkSync(datei); }
+    finally { fs.rmSync(heim, { recursive: true, force: true }); }
     const d = JSON.parse(roh);
 
     expect(d.erster, 'der erste Lauf bekommt die Sperre nicht').toBe(true);
@@ -233,7 +234,8 @@ test.describe('Demo-Bilder in die eigene Mediathek', () => {
     expect(von, 'eb_demo_bilder_stand fehlt').toBeGreaterThan(-1);
     const quelle = FUNCTIONS.slice(von, FUNCTIONS.indexOf('\n}\n', von) + 2);
 
-    const datei = path.join(os.tmpdir(), 'eb-stand-' + process.pid + '.php');
+    const heim = fs.mkdtempSync(path.join(os.tmpdir(), 'eb-stand-'));
+    const datei = path.join(heim, 'stand.php');
     fs.writeFileSync(datei, '<?php\n' + quelle + '\n' + `
       $adressen = array( 'a', 'b', 'c' );
       echo json_encode( array(
@@ -247,7 +249,7 @@ test.describe('Demo-Bilder in die eigene Mediathek', () => {
     try {
       roh = execFileSync('php', [datei], { encoding: 'utf8' });
     } finally {
-      fs.unlinkSync(datei);
+      fs.rmSync(heim, { recursive: true, force: true });
     }
     const d = JSON.parse(roh);
 
