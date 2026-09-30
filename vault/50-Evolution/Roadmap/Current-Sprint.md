@@ -136,6 +136,39 @@ Inhaber und ist eine Einstellung" führt. Der Code-Weg von damals (`needs:
 tests` + `if: always()`) bleibt, wo er ist — er ersetzt sie nicht, er hat sie
 überbrückt, und er schadet auch danach nicht.
 
+### Der Auftragsstrom widerspricht seit sechs Tagen seiner eigenen Quelle
+
+Am 30.09.2026 beim Nachziehen von main gemessen:
+
+| auf `main` | |
+|---|---|
+| `assets/eb-arbeit.json` (Journal, täglich erneuert) | Stand **30.09.** |
+| `assets/eb-auftragsstrom.json` (daraus erzeugt) | `journalStand` **24.09.**, `erzeugt` 24.09. |
+| `ausserhalb` im committeten Strom | **0** |
+| `ausserhalb` nach echter Neuerzeugung | **3** |
+
+**`tagesroutine.yml` nennt `auftragsstrom` an keiner Stelle.** Die Routine
+erneuert also das Journal und **nicht** das Artefakt, das daraus entsteht. Der
+PR-Check erzeugt es, prüft es und wirft den Baum weg; lokal erzeugt es
+`npm run gate`. Auf `main` steht deshalb ein erzeugtes Artefakt, das seiner
+eigenen Quelle widerspricht — genau der Zustand, der am 13.09.2026 schon
+einmal beschrieben wurde, diesmal nicht als Einzelfall, sondern als
+Dauerzustand.
+
+**Die Wirkung ist nicht kosmetisch.** Der Strom ist die Brücke Befund → Arbeit
+und wird im HQ gelesen. Mit `ausserhalb: []` sieht er aus wie ein Haus ohne
+Grenzen — drei Befunde ausserhalb des freigegebenen Rahmens sind darin
+unsichtbar. Die `auftraege`-Liste selbst ist in beiden Fassungen leer, es
+entgeht also **keine Arbeit**; es entgeht die Grenze.
+
+**Bewusst nicht in PR #303 behoben:** ein Schritt in `tagesroutine.yml` ist
+eine andere Baustelle als der Steuer-Deploy, und die Routine ist ausdrücklich
+als *Bericht* gebaut, nicht als Tor — wer dort einen Erzeuger einhängt, muss
+entscheiden, ob ein fehlgeschlagener Lauf nachts rot werden darf. Eine eigene
+Ablieferung. Der **Stand** der Datei ist in #303 mitgezogen, weil ein Artefakt,
+das seiner Quelle widerspricht, schlimmer ist als eines, das morgen wieder
+altert.
+
 ### Vorhersagbare Pfade in /tmp — CodeQL hat einen gemeldet, es sind mehr
 
 CodeQL meldete auf PR #303 *„Insecure creation of file in the os temp dir"*
