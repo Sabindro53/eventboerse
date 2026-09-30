@@ -137,6 +137,21 @@ node scripts/auftragsstrom.mjs           # assets/eb-auftragsstrom.json aus dem 
 node scripts/auftragsstrom.mjs --check   # Herkunft + Sicherheitsrahmen (CI-Tor)
 ```
 
+**Erzeugt wird an zwei Stellen, und die zweite fehlte sechs Tage.**
+`hq-operations.yml` baut den Strom alle 30 Minuten und lädt ihn per SFTP live
+— aber **committet ihn nie**. Die Tagesroutine erneuerte und committete
+`assets/eb-arbeit.json`, also die **Quelle**, und nannte den Strom an keiner
+Stelle: auf `main` stand am 30.09.2026 eine Quelle vom 30.09. neben einem
+daraus erzeugten Artefakt vom 24.09. Es entging dabei **keine Arbeit**
+(`auftraege` war beidemal leer) — es entging die **Grenze**: drei Befunde
+unter `ausserhalb` fehlten. Seitdem läuft der Schritt auch in der
+Tagesroutine, **nach** dem Journal (er liest es) und **ohne `--check`** (die
+Routine hält den Zustand fest und wird nicht nachts rot; der Commit kommt erst
+danach, ein Tor dort nähme Feed, Selbstcheck und Rechtslage mit). Gemessen
+wird die Aufrufstelle im Workflow nach Abzug der YAML-Kommentare
+(`tests/e2e/lib/yaml-code.js`) — die wahrscheinlichste Gestalt des Rückfalls
+ist „Schritt entfernt, erklärender Kommentar stehengelassen".
+
 Jeder Auftrag nennt seinen Journaleintrag — ein Auftrag ohne Herkunft wäre
 erfundene Arbeit. Der Strom kann den freigegebenen Rahmen **nie weiten**: er
 führt ausschließlich Dateien aus `scripts/lib/sichere-dateien.mjs`, die sich

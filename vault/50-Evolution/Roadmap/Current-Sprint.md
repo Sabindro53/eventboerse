@@ -604,6 +604,54 @@ liegt. Die Rückholung vom Dienstleister (`transfer_reversal`) ist technisch
 möglich und bleibt bewusst ungebaut: sie braucht zuerst die AGB-Klausel aus
 Punkt 5.
 
+## Der Auftragsstrom widersprach seiner eigenen Quelle — erledigt (2026-09-30)
+
+**Es gab für diesen Posten keine Warnung.** Er stand nirgends: nicht hier,
+nicht in CLAUDE.md, in keinem Tor. Aufgefallen ist er beim Nachziehen von
+`main` in einen Feature-Branch — und ein Befund, den nur ein Zufall sichtbar
+macht, ist genau die Klasse, die dieses Projekt sonst bekämpft. Deshalb steht
+er hier als Protokoll und nicht nur als Häkchen.
+
+`assets/eb-auftragsstrom.json` wird von `scripts/auftragsstrom.mjs` aus
+`assets/eb-arbeit.json` **erzeugt**. Die Tagesroutine erneuerte und committete
+die Quelle jede Nacht und nannte `auftragsstrom` an **keiner** Stelle:
+
+| auf `main`, am 30.09.2026 gemessen | |
+|---|---|
+| `eb-arbeit.json` (Quelle) | Stand **30.09.** |
+| `eb-auftragsstrom.json` (daraus erzeugt) | `journalStand` **24.09.** |
+| `ausserhalb` im committeten Strom | **0** |
+| `ausserhalb` nach echter Neuerzeugung | **3** |
+| `auftraege` | in beiden Fassungen leer |
+
+**Es entging keine Arbeit — es entging die GRENZE.** Drei Befunde ausserhalb
+des freigegebenen Rahmens (alle Nils Falk, Reliability) waren im HQ unsichtbar.
+*„Eine Schlange, die nur Aufnahmen führt, sieht aus wie ein Haus ohne
+Grenzen."* Dieselbe Klasse wie der Einzelfall vom 13.09.2026 („Nicht jedes Tor
+ist nur ein Prüfer"), nur als Dauerzustand.
+
+- [x] **Schritt in `tagesroutine.yml`**, nach dem Journal — der Strom liest es;
+      davor gebaut trüge er den Stand von gestern
+- [x] **`assets/eb-auftragsstrom.json` in der Commit-Liste** (`ERGEBNISSE`) —
+      ohne diese Zeile wäre der Schritt die bekannte stille Lücke: gemessen,
+      geschrieben, nie committet
+- [x] **Erzeugen ja, `--check` nein** — bewusst, Grund als Kommentar am
+      Schritt: die Routine hält den Zustand fest und wird nicht nachts rot,
+      der Commit kommt erst danach (ein Tor hier nähme Feed, Selbstcheck und
+      Rechtslage mit), und ein alter Stand entsteht durch eine ausgefallene
+      Routine, nicht durch einen Commit. Blockierend bleibt der PR-Check
+- [x] **Zwei Tests** in `auftragsstrom.spec.js`, gemessen an der
+      **Aufrufstelle** nach Abzug der YAML-Kommentare
+      (`tests/e2e/lib/yaml-code.js`, der fünfte Griff dieser Art) — die Datei
+      nennt `auftragsstrom` in ihren Absätzen mehrfach, und die
+      wahrscheinlichste Gestalt des Unfalls ist „Schritt entfernt, Kommentar
+      stehengelassen". Fünf Mutationen, jede macht die Suite rot
+
+**Was bewusst nicht angefasst wurde:** `ionos-deploy.yml` schliesst die Datei
+weiter vom SFTP-Upload aus, und `hq-operations.yml` schreibt den Live-Stand
+alle 30 Minuten direkt auf den Server. Repariert ist der Stand **im
+Repository** — der, aus dem jeder Branch abzweigt.
+
 ## Offen aus der Oberflächenprüfung (2026-09-15) — grösstenteils erledigt
 
 **Am 24.09.2026 nachgemessen, nicht angenommen:** `barrierefreiheit.spec.js`
