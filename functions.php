@@ -49,6 +49,12 @@ require_once get_template_directory() . '/includes/payments/storno-routen.php';
 // `kontaktschutz.spec.js` die Einbindung ausdruecklich mit.
 require_once get_template_directory() . '/includes/chat/kontaktschutz.php';
 
+// Sprachausgabe und Spracherkennung — EINE Fassung fuer HQ und Assistent.
+// Vorher standen beide Richtungen nur im HQ; der Assistent haette sie
+// kopieren muessen, und eine Kopie einer Grenzwertliste driftet immer.
+require_once get_template_directory() . '/includes/stimme/sprachdienst.php';
+require_once get_template_directory() . '/includes/stimme/routen.php';
+
 // PStTG (DAC7): die Angaben, die wir bis zum 31. Januar ans BZSt melden
 // muessen. Fuer vermittelte persoenliche Dienstleistungen gibt es KEINE
 // Bagatellgrenze — die Ausnahme des § 4 Abs. 5 Nr. 4 gilt nur fuer den
@@ -11107,7 +11113,7 @@ function eb_hq_demo_bilder_holen( WP_REST_Request $request ) {
 }
 
 /**
- * Groesstes entgegengenommenes Tonstueck. Opus bei 24 kbit/s: rund 20 Minuten.
+ * Hoechstmass der HQ-Aufnahme. Opus bei 24 kbit/s: rund 20 Minuten.
  *
  * Bewusst ausgeschrieben statt MB_IN_BYTES: eine `const` wird beim Einlesen
  * dieser Datei ausgewertet, und eine Konstante aus dem Core an dieser Stelle
@@ -11116,200 +11122,82 @@ function eb_hq_demo_bilder_holen( WP_REST_Request $request ) {
  */
 const EB_HQ_GEHOER_MAX = 4 * 1024 * 1024;
 
+/** Dreissig Ausgaben je Minute reichen fuer ein Gespraech am Kreis. */
+const EB_HQ_STIMME_PRO_MINUTE = 30;
 /**
- * Spracheingabe fuer das HQ — Whisper, serverseitig.
+ * Und tausend am Tag.
  *
- * Das Gegenstueck zu eb_hq_stimme(). Bisher lief die Erkennung ueber
- * `SpeechRecognition` im Browser: in Chrome brauchbar, in Firefox und Safari
- * gar nicht vorhanden. Wer dort auf das Mikrofon drueckte, bekam nichts —
- * keine Fehlermeldung, keine Eingabe.
- *
- * Dieselben drei Eigenschaften wie bei der Ausgabe:
- *
- * 1. DER SCHLUESSEL ERREICHT DEN BROWSER NIE. Ton hin, Text zurueck.
- *
- * 2. OHNE SCHLUESSEL EIN EHRLICHES NEIN, damit der Browser sichtbar auf
- *    seine eigene Erkennung zurueckfallen kann. Ein Mikrofon, das nichts
- *    tut und nichts sagt, ist von einem Defekt nicht zu unterscheiden.
- *
- * 3. GROESSE BEGRENZT. Sprache kostet pro Minute, und ein unbegrenztes
- *    Feld waere zugleich eine offene Rechnung und ein Speicherproblem:
- *    base64 wird im Arbeitsspeicher dekodiert.
- *
- * Der Ton wird NICHT auf die Platte geschrieben. Eine Sprachaufnahme, die
- * als Datei liegen bleibt, ist ein personenbezogenes Datum mit unklarer
- * Loeschfrist — sie existiert hier nur fuer die Dauer des Aufrufs.
+ * Hier stand bis zum 01.10.2026 NUR ein Minutendeckel — dreissig pro Minute
+ * sind 43 200 am Tag. Fuer eine Handvoll Administratoren war das kein
+ * praktisches Risiko, aber es war auch keine Grenze; und als der Assistent
+ * dieselbe Mechanik bekam, waere die Luecke mitgewandert. Ein Deckel, der
+ * erst beim zweiten Nutzer gebraucht wird, gehoert beim ersten eingebaut.
  */
-function eb_hq_gehoer( WP_REST_Request $request ) {
-    if ( ! defined( 'EB_OPENAI_API_KEY' ) || ! EB_OPENAI_API_KEY ) {
-        return new WP_REST_Response( array(
-            'verfuegbar' => false,
-            'grund'      => 'EB_OPENAI_API_KEY ist auf dem Server nicht hinterlegt.',
-        ), 200 );
-    }
+const EB_HQ_STIMME_PRO_TAG = 1000;
+/** 1200 Zeichen sind rund zwei Minuten — laenger hoert ohnehin niemand zu. */
+const EB_HQ_STIMME_ZEICHEN = 1200;
 
-    $roh = (string) $request->get_param( 'audio' );
-    // Vor dem Dekodieren messen, nicht danach: base64 ist rund ein Drittel
-    // groesser als der Inhalt, und erst decodieren, dann pruefen hiesse, den
-    // Speicher schon belegt zu haben.
-    if ( strlen( $roh ) > (int) ceil( EB_HQ_GEHOER_MAX * 4 / 3 ) + 1024 ) {
-        return new WP_REST_Response( array(
-            'verfuegbar' => false,
-            'grund'      => 'Aufnahme zu lang.',
-        ), 413 );
-    }
-    // strict: sonst schluckt PHP Muell und liefert Bytes, die kein Ton sind.
-    $audio = base64_decode( $roh, true );
-    if ( $audio === false || $audio === '' ) {
-        return new WP_REST_Response( array( 'verfuegbar' => false, 'grund' => 'Keine gültige Aufnahme.' ), 400 );
-    }
-    if ( strlen( $audio ) > EB_HQ_GEHOER_MAX ) {
-        return new WP_REST_Response( array( 'verfuegbar' => false, 'grund' => 'Aufnahme zu lang.' ), 413 );
-    }
-
-    $limit = eventboerse_check_rate_limit( 'hq_gehoer', 30, MINUTE_IN_SECONDS );
-    if ( is_wp_error( $limit ) ) {
-        return new WP_REST_Response( array(
-            'verfuegbar' => false,
-            'grund'      => $limit->get_error_message(),
-        ), 429 );
-    }
-
-    // multipart von Hand: wp_remote_post kennt keinen Datei-Upload.
-    $grenze = 'eb' . wp_generate_password( 24, false );
-    $teil   = function ( $name, $wert ) use ( $grenze ) {
-        return "--{$grenze}\r\nContent-Disposition: form-data; name=\"{$name}\"\r\n\r\n{$wert}\r\n";
-    };
-    $body  = $teil( 'model', 'whisper-1' );
-    // Sprache fest auf Deutsch: ohne Angabe raet Whisper mit, und bei kurzen
-    // Aeusserungen ("ja", "stopp") raet es regelmaessig auf Englisch.
-    $body .= $teil( 'language', 'de' );
-    $body .= "--{$grenze}\r\nContent-Disposition: form-data; name=\"file\"; filename=\"ton.webm\"\r\n"
-           . "Content-Type: audio/webm\r\n\r\n" . $audio . "\r\n";
-    $body .= "--{$grenze}--\r\n";
-
-    $res = wp_remote_post( 'https://api.openai.com/v1/audio/transcriptions', array(
-        'timeout' => 30,
-        'headers' => array(
-            'Authorization' => 'Bearer ' . EB_OPENAI_API_KEY,
-            'Content-Type'  => 'multipart/form-data; boundary=' . $grenze,
-        ),
-        'body' => $body,
-    ) );
-
-    if ( is_wp_error( $res ) ) {
-        return new WP_REST_Response( array(
-            'verfuegbar' => false,
-            'grund'      => 'Erkennung nicht erreichbar: ' . $res->get_error_message(),
-        ), 200 );
-    }
-    $code = (int) wp_remote_retrieve_response_code( $res );
-    if ( $code !== 200 ) {
-        // Wie bei der Ausgabe: der Text der Gegenstelle nennt Organisation
-        // und Kontodetails und wird darum nicht durchgereicht.
-        return new WP_REST_Response( array(
-            'verfuegbar' => false,
-            'grund'      => 'Erkennung antwortete mit HTTP ' . $code . '.',
-        ), 200 );
-    }
-
-    $d    = json_decode( wp_remote_retrieve_body( $res ), true );
-    $text = is_array( $d ) && isset( $d['text'] ) ? trim( (string) $d['text'] ) : '';
-    return new WP_REST_Response( array(
-        'verfuegbar' => true,
-        // Leer ist eine gueltige Antwort: es wurde nichts gesagt. Das ist
-        // etwas anderes als ein Fehler, und der Browser behandelt es anders.
-        'text'       => $text,
-    ), 200 );
+/**
+ * Der Rahmen des HQ an EINER Stelle. Ausgabe und Erkennung teilen ihn,
+ * damit die Deckel nicht auseinanderlaufen.
+ *
+ * KEINE Kennung: das HQ haengt hinter `eb_hq_proxy_darf` und damit hinter
+ * Anmeldung plus zweitem Faktor. Der Eimer darf hier an der IP haengen —
+ * und `eventboerse_check_rate_limit()` weitet ihn hinter einem Proxy dann
+ * von selbst, statt die zwei Berechtigten gemeinsam auszusperren. Beim
+ * Assistenten ist das anders und steht dort begruendet.
+ */
+function eb_hq_sprachrahmen( $eimer ) {
+    return array(
+        'eimer'      => $eimer,
+        'kennung'    => null,
+        'proMinute'  => EB_HQ_STIMME_PRO_MINUTE,
+        'proTag'     => EB_HQ_STIMME_PRO_TAG,
+        'maxZeichen' => EB_HQ_STIMME_ZEICHEN,
+        'maxBytes'   => EB_HQ_GEHOER_MAX,
+    );
 }
 
 /**
- * Sprachausgabe fuer das HQ — serverseitig, damit der Schluessel bleibt, wo er hingehoert.
+ * Spracheingabe fuer das HQ — Whisper, serverseitig.
  *
- * Warum ueberhaupt: das HQ sprach bisher ausschliesslich ueber
+ * Die Mechanik steht seit dem 01.10.2026 in
+ * `includes/stimme/sprachdienst.php` und wird mit dem Assistenten geteilt;
+ * hier bleibt nur der Rahmen. Vorher standen beide Richtungen als rund 160
+ * Zeilen an dieser Stelle, und der Assistent haette sie kopieren muessen.
+ *
+ * Warum es diese Route ueberhaupt gibt: bis dahin lief die Erkennung ueber
+ * `SpeechRecognition` im Browser — in Chrome brauchbar, in Firefox und
+ * Safari gar nicht vorhanden. Wer dort auf das Mikrofon drueckte, bekam
+ * nichts: keine Fehlermeldung, keine Eingabe.
+ */
+function eb_hq_gehoer( WP_REST_Request $request ) {
+    list( $daten, $status ) = eb_sprachdienst_hoeren(
+        $request->get_param( 'audio' ),
+        eb_hq_sprachrahmen( 'hq_gehoer' )
+    );
+    return new WP_REST_Response( $daten, $status );
+}
+
+/**
+ * Sprachausgabe fuer das HQ — serverseitig, damit der Schluessel bleibt, wo
+ * er hingehoert.
+ *
+ * Warum ueberhaupt: das HQ sprach bis dahin ausschliesslich ueber
  * `window.speechSynthesis`, also die Stimme des Betriebssystems. Die klingt
  * auf Windows und Android blechern, in manchen Browsern fehlt sie ganz. Das
  * ist keine Modellfrage gewesen, sondern gar kein Modell.
  *
- * Drei Eigenschaften, die diese Route durchhaelt:
- *
- * 1. DER SCHLUESSEL ERREICHT DEN BROWSER NIE. Der Text geht hin, die fertigen
- *    Audiodaten kommen zurueck. Genau wie bei den Probe-Routen.
- *
- * 2. OHNE SCHLUESSEL EIN EHRLICHES NEIN. Kein Fehler, kein leerer Klang: die
- *    Route sagt „nicht hinterlegt", und der Browser faellt sichtbar auf seine
- *    eigene Stimme zurueck. Eine Sprachausgabe, die still bleibt, waere fuer
- *    den Nutzer nicht von einem Absturz zu unterscheiden.
- *
- * 3. LAENGE BEGRENZT. Sprachausgabe kostet pro Zeichen. 1200 Zeichen sind
- *    rund zwei Minuten — laenger hoert ohnehin niemand zu, und ein
- *    unbegrenztes Feld waere eine offene Rechnung.
+ * Die drei Eigenschaften, die die Route durchhaelt — Schluessel bleibt auf
+ * dem Server, ohne Schluessel ein ehrliches Nein, Laenge begrenzt — stehen
+ * jetzt beim gemeinsamen Dienst und gelten damit fuer beide Aufrufer.
  */
 function eb_hq_stimme( WP_REST_Request $request ) {
-    if ( ! defined( 'EB_OPENAI_API_KEY' ) || ! EB_OPENAI_API_KEY ) {
-        return new WP_REST_Response( array(
-            'verfuegbar' => false,
-            'grund'      => 'EB_OPENAI_API_KEY ist auf dem Server nicht hinterlegt.',
-        ), 200 );
-    }
-
-    $text = trim( (string) $request->get_param( 'text' ) );
-    if ( $text === '' ) {
-        return new WP_REST_Response( array( 'verfuegbar' => false, 'grund' => 'Kein Text.' ), 400 );
-    }
-    // mb_substr, nicht substr: ein Schnitt mitten durch ein Mehrbyte-Zeichen
-    // erzeugt ungueltiges UTF-8, und die Gegenstelle antwortet dann mit 400.
-    $text = function_exists( 'mb_substr' ) ? mb_substr( $text, 0, 1200 ) : substr( $text, 0, 1200 );
-
-    // Ein sprechender Kreis, den man in Dauerschleife anwerfen kann, ist eine
-    // offene Rechnung. 30 Ausgaben je Minute reichen fuer ein Gespraech.
-    $limit = eventboerse_check_rate_limit( 'hq_stimme', 30, MINUTE_IN_SECONDS );
-    if ( is_wp_error( $limit ) ) {
-        return new WP_REST_Response( array(
-            'verfuegbar' => false,
-            'grund'      => $limit->get_error_message(),
-        ), 429 );
-    }
-
-    $res = wp_remote_post( 'https://api.openai.com/v1/audio/speech', array(
-        'timeout' => 25,
-        'headers' => array(
-            'Authorization' => 'Bearer ' . EB_OPENAI_API_KEY,
-            'Content-Type'  => 'application/json',
-        ),
-        'body' => wp_json_encode( array(
-            'model'           => 'gpt-4o-mini-tts',
-            'voice'           => 'onyx',
-            'input'           => $text,
-            'response_format' => 'mp3',
-        ) ),
-    ) );
-
-    if ( is_wp_error( $res ) ) {
-        return new WP_REST_Response( array(
-            'verfuegbar' => false,
-            'grund'      => 'Sprachdienst nicht erreichbar: ' . $res->get_error_message(),
-        ), 200 );
-    }
-    $code = (int) wp_remote_retrieve_response_code( $res );
-    if ( $code !== 200 ) {
-        // Den Text der Gegenstelle NICHT durchreichen: er kann den
-        // Organisationsnamen und Kontodetails enthalten.
-        return new WP_REST_Response( array(
-            'verfuegbar' => false,
-            'grund'      => 'Sprachdienst antwortete mit HTTP ' . $code . '.',
-        ), 200 );
-    }
-
-    $audio = wp_remote_retrieve_body( $res );
-    if ( $audio === '' ) {
-        return new WP_REST_Response( array( 'verfuegbar' => false, 'grund' => 'Leere Antwort.' ), 200 );
-    }
-    return new WP_REST_Response( array(
-        'verfuegbar' => true,
-        'format'     => 'mp3',
-        'audio'      => base64_encode( $audio ),
-    ), 200 );
+    list( $daten, $status ) = eb_sprachdienst_ausgeben(
+        $request->get_param( 'text' ),
+        eb_hq_sprachrahmen( 'hq_stimme' )
+    );
+    return new WP_REST_Response( $daten, $status );
 }
 
 /**

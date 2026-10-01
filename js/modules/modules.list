@@ -26,6 +26,7 @@ payments/44-kv-buchung.js
 payments/45-storno.js
 board/46-dienstleister-termine.js
 ai/50-planungs-assistent.js
+ai/53-assistent-stimme.js
 ui/51-inserat-maske-kalender.js
 ui/52-release-vision.js
 social/60-freunde-gruppen.js

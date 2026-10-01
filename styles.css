@@ -186,6 +186,10 @@ html.dark-early body {
      Definitionen aendern also nichts am Bild, sie geben den Namen nur
      endlich einen Wert, den der Dunkelmodus ueberschreiben KANN. */
   --danger: #d33;
+  /* Der Schein des Mikrofon-Pulses. Eigenes Token, weil `box-shadow` aus
+     `--danger` keinen Alphawert ableiten kann — ein Literal dort folgte dem
+     Farbmodus nicht, und genau das war am 15.09.2026 der `--white`-Fund. */
+  --danger-glow: rgba(221, 51, 51, .45);
   --primary-ultralight: rgba(255,56,92,.05);
   --bg-soft: rgba(0,0,0,.04);
   /* Konfetti-Runden. Der Kommentar bei .ai-popper sagte seit dem 13.09.2026,
@@ -1705,7 +1709,7 @@ body.dark-mode .ai-spark { filter: blur(0.2px) brightness(1.1); }
   background-clip: text;
   -webkit-text-fill-color: transparent;
 }
-/* Markenzeile „EVENTBÖRSE, finde dein Event ©"
+/* Markenzeile „EVENTBÖRSE, PLANE DEIN PERFEKTES EVENT."
    WICHTIG: `background-image` statt der `background`-Kurzform verwenden.
    Die Kurzform setzt `background-clip` zurück — schiebt ein Minifier sie
    hinter die clip-Zeile, wird aus der Verlaufsschrift ein Farbblock.
@@ -1727,17 +1731,18 @@ body:not(.dark-mode) .ai-hero-brand {
   color: var(--primary);
   -webkit-text-fill-color: var(--primary);
 }
-.ai-hero-line2 { display: inline-block; white-space: nowrap; }
-.ai-hero-cr {
-  font-size: 0.28em;
-  font-weight: 700;
-  vertical-align: super;
-  margin-left: 2px;
-  opacity: 0.7;
-  color: var(--text-light);
-  -webkit-text-fill-color: currentColor;
-  background-image: none;
-}
+/* KEIN `white-space: nowrap` mehr. Es hielt das fruehere `©` an seinem Wort
+   („finde dein Event©", 16 Zeichen). Die Zeile heisst seit dem 01.10.2026
+   „PLANE DEIN PERFEKTES EVENT." — 27 Zeichen in Grossbuchstaben, und die
+   passen bei 390 px nicht in eine Zeile. Mit nowrap waere das ein Querscroll
+   auf der Landeseite: `inline-block` haelt den Verlauf ueber beide Zeilen
+   zusammen, das Umbrechen darf er trotzdem. Gemessen an drei Breiten
+   (`hero-headline.spec.js`), nicht angenommen. */
+.ai-hero-line2 { display: inline-block; }
+/* `.ai-hero-cr` ist entfallen: das `©` hing an der alten Parole und ist mit
+   ihr gegangen. Eine CSS-Regel ohne Subjekt ueberlebt jeden Umbau — dieselbe
+   Klasse wie die drei Konfetti-Popper hinter `display: none`. Soll die Marke
+   auf die neue Zeile, kommt sie samt Regel zurueck. */
 
 /* ── KI-Bildmontage im Hero ───────────────────────────────────────── */
 .ai-hero-shots { position: absolute; inset: 0; overflow: hidden; }
@@ -9842,6 +9847,7 @@ body.dark-mode {
   --warn-text: #F0A93B;
   --danger-text: #FF6B6B;
   --danger: #FF6B6B;
+  --danger-glow: rgba(255, 107, 107, .45);
   /* Auf #121212 trägt das originale Gold 10,5:1 — im Dunkelmodus bleibt es. */
   --star-text: #FFB400;
   --border: #333333;
@@ -16943,6 +16949,40 @@ body.dark-mode .bai-dl.od { color: #f87171; }
 }
 .bai-send:hover { background: var(--primary-dark); }
 
+/* ── Assistent: Sprechen und Hören ──────────────────────────────────────
+   Beide Knöpfe tragen 44x44 px Trefferfläche. WCAG 2.2 SC 2.5.8 verlangt
+   24x24; 44 ist Apples Mass und hier billig zu haben, weil die Zeile ohnehin
+   46 px hoch ist. Die Farben kommen aus Tokens, nicht als Literal — sonst
+   folgt der Knopf dem Dunkelmodus nicht (siehe `--white`, 15.09.2026). */
+.bai-voice, .bai-mic {
+  width: 44px; height: 44px; flex: 0 0 44px; border-radius: 50%;
+  border: 1px solid var(--border); background: var(--bg); color: var(--text-light);
+  cursor: pointer; display: flex; align-items: center; justify-content: center;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+.bai-voice:hover, .bai-mic:hover { border-color: var(--primary); color: var(--primary-text); }
+.bai-voice:focus-visible, .bai-mic:focus-visible {
+  outline: 2px solid var(--primary); outline-offset: 2px;
+}
+/* Eingeschaltet: deutlich anders, nicht nur eine Nuance — ein Zustand, den
+   man nicht sieht, ist keiner. */
+.bai-voice.an { background: var(--primary); border-color: var(--primary); color: #fff; }
+.bai-mic.hoert { background: var(--danger); border-color: var(--danger); color: #fff; }
+/* Der Puls sagt „ich höre JETZT zu". Er läuft ausschliesslich während der
+   Aufnahme — eine Dauer-Animation auf einem Knopf, der nichts tut, war in
+   diesem Projekt schon einmal 287 ms Hauptthread je vier Sekunden. */
+.bai-mic.hoert { animation: baiMicPuls 1.1s ease-in-out infinite; }
+@keyframes baiMicPuls {
+  0%, 100% { box-shadow: 0 0 0 0 var(--danger-glow); }
+  50%      { box-shadow: 0 0 0 7px transparent; }
+}
+@media (prefers-reduced-motion: reduce) {
+  /* Gezielt, nicht über den globalen Dauer-Block: der setzt nur die Dauer
+     auf ~0, und eine Endlosanimation steht damit nicht still, sie flimmert.
+     Gemessen am 10.09.2026. */
+  .bai-mic.hoert { animation: none; box-shadow: 0 0 0 3px var(--danger-glow); }
+}
+
 /* Mobile: Sidebar oben (horizontal scrollbar), Chat darunter */
 @media (max-width: 900px) {
   .board-ai-layout { flex-direction: column; height: auto; max-height: none; min-height: 0; }
@@ -16957,6 +16997,12 @@ body.dark-mode .bai-dl.od { color: #f87171; }
   .bai-chat { min-height: 340px; max-height: 56vh; }
   .bai-msg { max-width: 95%; }
   .bai-lcard-acts { flex-direction: column; }
+  /* Vier Elemente in einer Zeile bei 390 px: die Knöpfe schrumpfen, das
+     Eingabefeld behält den Platz. Es ist das Element, in das getippt wird. */
+  .bai-inputrow { gap: 6px; padding: 10px 12px 14px; }
+  .bai-voice, .bai-mic { width: 40px; height: 40px; flex: 0 0 40px; }
+  .bai-send { width: 40px; height: 40px; flex: 0 0 40px; }
+  .bai-inputrow input { padding: 11px 14px; }
 }
 
 /* ==================== Inserat-Maske: einseitig, Biete/Suche, Verfügbarkeitskalender ==================== */

@@ -52,13 +52,17 @@ $out = array();
 foreach ($amounts as $a) { $out[] = eb_stripe_calculate_fee_quote($a); }
 echo json_encode($out);
 `;
-  const tmp = path.join(os.tmpdir(), `eb-fee-harness-${process.pid}.php`);
+  // Nie `path.join(os.tmpdir(), 'name-' + pid)`: ein vorhersagbarer Pfad im
+  // gemeinsamen Temp-Verzeichnis ist vorbelegbar. `pruefhygiene.spec.js`
+  // hält die Regel für alle Suiten.
+  const heim = fs.mkdtempSync(path.join(os.tmpdir(), 'eb-fee-'));
+  const tmp = path.join(heim, 'harness.php');
   fs.writeFileSync(tmp, harness);
   try {
     const raw = execFileSync('php', [tmp, JSON.stringify(amountsCents)], { encoding: 'utf8' });
     return JSON.parse(raw);
   } finally {
-    fs.unlinkSync(tmp);
+    fs.rmSync(heim, { recursive: true, force: true });
   }
 }
 

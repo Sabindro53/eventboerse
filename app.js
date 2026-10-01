@@ -941,6 +941,9 @@ var EB_SPEICHER_KLASSEN = {
   eb_passkey_prompt_dismissed_: 'funktional',
   eb_stripe_onboarding_prompt_: 'funktional',
   eb_ai_chat_v1_: 'funktional',
+  // Der Sprachausgabe-Schalter des Assistenten. Funktional, nicht
+  // profilbildend: er hält eine Bedieneinstellung, kein Verhalten.
+  eb_assistent_stimme_v1: 'funktional',
   eb_radar_ort: 'funktional',
 
   eb_kb_misses: 'profil',
@@ -1564,7 +1567,11 @@ var _spaBase = (typeof eventboerseApi !== 'undefined' && eventboerseApi.siteUrl)
   : '';
 
 function _spaPath(page, data) {
-  if (!page || page === 'browse') return _spaBase + '/';
+  // `browse` ist die Wurzel — ABER mit Kategorie braucht sie ein Segment,
+  // sonst wäre `/dj` von der Seite `dj` nicht zu unterscheiden. Die Regel
+  // `^browse/([^/]+)/?$` steht in `functions.php` längst; ein geteilter Link
+  // auf `/browse/dj` endet also nicht auf `404.php`.
+  if (!page || (page === 'browse' && !data)) return _spaBase + '/';
   return _spaBase + '/' + page + (data ? '/' + data : '');
 }
 
@@ -1982,6 +1989,15 @@ function navigateTo(page, data, skipHistory) {
       try { _initHeroShots(); } catch (err) { console.warn('Hero-Montage konnte nicht starten', err); }
       pageReady = loadDbListings().then(function() {
         renderBrowseGrid(LISTINGS);
+        // `data` traegt eine Kategorie ('dj', 'location', …) — der Weg, auf
+        // dem der Assistent und der QA-Bot in die GEFILTERTE Suche
+        // uebergeben. Gesetzt wird NACH renderBrowseGrid(), denn das zeichnet
+        // ungefiltert: andersherum ueberschriebe der Grundaufbau das Ergebnis,
+        // der Chip blieb markiert und darunter stuenden alle Inserate.
+        // Dieselbe Falle wie bei feedTabAktivieren() am 31.08.2026.
+        // Ein unbekannter Wert filtert NICHT und bricht nichts — `/browse/xyz`
+        // zeigt die ganze Liste, statt eine Fehlerseite zu erzeugen.
+        if (data) ebSucheKategorieSetzen(data);
         try { renderHeroMarquees(); } catch (err) { console.error('Fehler renderHeroMarquees in navigateTo(browse)', err); }
         _initCategoryScrollHint();
       });
@@ -3583,19 +3599,92 @@ function aiMatchKeyword(input) {
     .slice(0, 5);
 }
 
+// ─── Die EINE Kategorientabelle ────────────────────────────────────────────
+//
+// Bis zum 01.10.2026 stand dieselbe Zuordnung an VIER Stellen: hier (10
+// Einträge), `_AI_CATS` im Planungs-Assistenten (8), `_aiCatFromText` dort
+// (8 Ausdrücke) und `_GUIDE_CAT_RULES` in `board/42` (10 Ausdrücke). Am
+// Korpus gemessen waren die beiden Erkenner **nicht ineinander enthalten** —
+// jeder fing, was der andere verfehlte (32/45 gegen 35/45), und beide
+// zusammen hatten zwei echte Fehler:
+//
+//   · `pyrotechnik` → **licht**, weil `technik` vor `pyro` greift. Ein
+//     Inserat „Pyrotechnik" wurde damit als Licht & Technik geführt.
+//   · `wer hilft beim aufräumen` → **location**, weil `/räum/` unverankert
+//     auch in „aufräumen" trifft. Wer nach Aufräumhilfe fragte, bekam
+//     Schlösser empfohlen.
+//
+// Die zehn Keys sind nicht frei gewählt: sie sind genau die, die ein Anbieter
+// im Inseratsformular (`#createCategory`) wählen kann. Eine elfte hier wäre
+// ein Filter ohne Inserate, eine fehlende ein Inserat ohne Filter.
+//
+// REIHENFOLGE IST LOGIK, nicht Gestaltung: `_guideCategoryFor()` nimmt den
+// ERSTEN Treffer. `pyro` steht deshalb vor `licht` — sonst ist der Befund
+// oben sofort zurück. Ein Test hält genau das fest.
 const AI_CATEGORIES = [
-  { key: 'dj', label: 'DJ & Musik', icon: 'headphones' },
-  { key: 'catering', label: 'Catering', icon: 'restaurant' },
-  { key: 'foto', label: 'Fotografie', icon: 'photo_camera' },
-  { key: 'florist', label: 'Floristik', icon: 'local_florist' },
-  { key: 'deko', label: 'Dekoration', icon: 'celebration' },
-  { key: 'licht', label: 'Licht & Technik', icon: 'lightbulb' },
-  { key: 'planung', label: 'Planung', icon: 'event_note' },
-  { key: 'moderation', label: 'Moderation', icon: 'mic' },
-  { key: 'pyro', label: 'Pyrotechnik', icon: 'local_fire_department' },
-  { key: 'location', label: 'Location', icon: 'castle' },
+  { key: 'dj', label: 'DJ & Musik', icon: 'headphones', emoji: '🎧',
+    muster: /\bdjs?\b|musik|band|line-?up|playlist/i },
+  { key: 'catering', label: 'Catering', icon: 'restaurant', emoji: '🍽️',
+    muster: /catering|essen|buffet|men[üu]|getr[äa]nke|kuchen|torte/i },
+  { key: 'foto', label: 'Fotografie', icon: 'photo_camera', emoji: '📷',
+    muster: /fotograf|videograf|foto|kamera|video/i },
+  { key: 'florist', label: 'Floristik', icon: 'local_florist', emoji: '💐',
+    muster: /florist|blume|strau[ßs]/i },
+  { key: 'deko', label: 'Dekoration', icon: 'celebration', emoji: '🎈',
+    muster: /deko/i },
+  // VOR `licht`: „pyrotechnik" enthält „technik".
+  { key: 'pyro', label: 'Pyrotechnik', icon: 'local_fire_department', emoji: '🎆',
+    muster: /feuerwerk|pyro/i },
+  { key: 'licht', label: 'Licht & Technik', icon: 'lightbulb', emoji: '💡',
+    muster: /licht|technik|\bav\b|strom|b[üu]hne|\bton|livestream/i },
+  { key: 'planung', label: 'Planung', icon: 'event_note', emoji: '🗂️',
+    muster: /koordinator|planer\b|komplettplanung|eventplanung/i },
+  { key: 'moderation', label: 'Moderation', icon: 'mic', emoji: '🎤',
+    muster: /moderat|sprecher/i },
+  // `\br[äa]um` statt `/räum/`: der Wortanfang hält „aufräumen" draussen.
+  { key: 'location', label: 'Location', icon: 'castle', emoji: '🏰',
+    muster: /location|venue|gel[äa]nde|meetingraum|schloss|saal|halle|\br[äa]um/i },
 ];
+
 let selectedCategories = new Set();
+
+/** Gibt es diesen Kategorie-Key wirklich? Jede Übergabe von aussen fragt hier. */
+function ebKategorieBekannt(key) {
+  return AI_CATEGORIES.some(function(c) { return c.key === key; });
+}
+
+/**
+ * Eine Kategorie von aussen in die Suche übergeben — der Weg, den der
+ * Planungs-Assistent und der QA-Bot benutzen.
+ *
+ * ERSETZT die Auswahl, statt sie zu ergänzen: wer aus dem Assistenten mit
+ * „zeig mir DJs" herkommt, hat eine frische Absicht. Bliebe ein alter Filter
+ * stehen, stünde am Ende eine leere Liste da — und die sähe aus wie „es gibt
+ * keine DJs", nicht wie „zwei Filter schliessen sich aus".
+ */
+function ebSucheKategorieSetzen(key) {
+  // ZUERST leeren, DANN pruefen — nicht umgekehrt. Hier stand eine
+  // Fruehabweisung (`if (!bekannt) return false`), und sie hinterliess am
+  // 01.10.2026 messbar den schlimmsten Zustand: `/browse/quatsch` direkt nach
+  // `/browse/location` zeigte den Location-Chip MARKIERT ueber der
+  // ungefilterten Liste — Markierung und Inhalt widersprachen sich, und zwar
+  // lautlos. Ein unbekannter Wert bedeutet jetzt „keine Kategorie", und das
+  // sieht man: kein Chip markiert, alle Inserate da.
+  selectedCategories.clear();
+  if (ebKategorieBekannt(key)) selectedCategories.add(key);
+  // KEIN try/catch. Hier stand eines, „defensiv" begruendet — es haette den
+  // einen Fall verschluckt, auf den es ankommt: scheitert `filterListings()`,
+  // steht ein markierter Chip ueber der ungefilterten Liste. Das ist die
+  // Schadensart „sieht heil aus und tut nichts", und niemand sucht sie.
+  // Die drei Funktionen und ihre Plaetze stehen in derselben Verkettung bzw.
+  // in `app-shell.html`; fehlt einer, ist die Shell kaputt und der
+  // Smoke-Test (0 Page-Errors je Route) meldet es laut.
+  renderCategoryPicker();
+  renderSelectedTags();
+  filterListings();
+  return selectedCategories.size > 0;
+}
+
 let aiDebounce = null;
 
 function renderCategoryPicker() {
@@ -24217,18 +24306,18 @@ function _getProjectChecklist(project) {
 // die bestehende freie Checkliste bleibt unverändert darunter.
 
 // Step-Text → Browse-Kategorie (Keys wie in AI_CATEGORIES / browseCategory).
-var _GUIDE_CAT_RULES = [
-  [/location|venue|gel[äa]nde|meetingraum|schloss|saal/i, 'location'],
-  [/fotograf|videograf|foto/i, 'foto'],
-  [/\bdj\b|band|musik|line-up|playlist/i, 'dj'],
-  [/catering|kuchen|torte|men[üu]|getr[äa]nke/i, 'catering'],
-  [/florist|blumen|brautstrau/i, 'florist'],
-  [/deko/i, 'deko'],
-  [/technik|licht|\bav\b|strom|b[üu]hne|livestream/i, 'licht'],
-  [/moderation|sprecher/i, 'moderation'],
-  [/koordinator|planer|komplettplanung/i, 'planung'],
-  [/feuerwerk|pyro/i, 'pyro'],
-];
+// ABGELEITET aus der einen Tabelle in `search/11-suche-ki.js` (laedt davor).
+// Hier stand bis zum 01.10.2026 eine zweite, eigene Liste von zehn
+// Ausdruecken. Am Korpus gemessen erkannte sie Dinge, die der Assistent
+// verfehlte, und verfehlte Dinge, die er erkannte — zwei gepflegte Fassungen
+// derselben Zuordnung, in beide Richtungen auseinandergelaufen.
+// KEIN `typeof`-Schutz: `AI_CATEGORIES` ist `const`, und `typeof` auf eine
+// Variable in der TDZ WIRFT, statt 'undefined' zu liefern — ein Schutz, der
+// im Ernstfall nicht greift, ist schlimmer als keiner. Bricht die Reihenfolge
+// in `modules.list`, soll app.js laut beim Laden scheitern (der Smoke-Test
+// fährt jede Route auf 0 Page-Errors), statt still eine leere Liste zu führen
+// und keine Kategorie mehr zu erkennen.
+var _GUIDE_CAT_RULES = AI_CATEGORIES.map(function(c) { return [c.muster, c.key]; });
 function _guideCategoryFor(text) {
   for (var i = 0; i < _GUIDE_CAT_RULES.length; i++) {
     if (_GUIDE_CAT_RULES[i][0].test(text || '')) return _GUIDE_CAT_RULES[i][1];
@@ -26553,20 +26642,23 @@ var _navSelectedCategory = '';
 var _navAiCatSelection = new Set();
 
 // ── Helpers ──
+// ABGELEITET, nicht gewählt. Hier stand ein `_getNavAiCategories()` mit
+// `typeof AI_CATEGORIES !== 'undefined'` und einer ELF Einträge langen
+// Ersatzliste dahinter. Beides war falsch:
+//
+//   · Der Schutz greift nie. `AI_CATEGORIES` ist `const` im selben Skript;
+//     ist es noch nicht initialisiert, WIRFT `typeof` (TDZ), statt
+//     'undefined' zu liefern. Der Ersatzzweig war unerreichbar.
+//   · Und er war schon auseinandergelaufen: Floristik trug 🌸 statt 💐,
+//     und `wellness` stand drin — eine Kategorie, die KEIN Inserat tragen
+//     kann, weil `#createCategory` genau zehn Werte anbietet. Wäre der
+//     Zweig je gelaufen, hätte die Leistensuche einen Filter angeboten, der
+//     garantiert nichts findet.
+//
+// Dieselbe Klasse wie die drei Konfetti-Popper hinter `display: none`:
+// etwas ist da, sieht aus als täte es etwas, und tut nichts.
 function _getNavAiCategories() {
-  return (typeof AI_CATEGORIES !== 'undefined') ? AI_CATEGORIES : [
-    { key: 'dj', label: 'DJ & Musik', emoji: '🎧' },
-    { key: 'catering', label: 'Catering', emoji: '🍽️' },
-    { key: 'foto', label: 'Fotografie', emoji: '📷' },
-    { key: 'florist', label: 'Floristik', emoji: '🌸' },
-    { key: 'deko', label: 'Dekoration', emoji: '🎈' },
-    { key: 'licht', label: 'Licht & Technik', emoji: '💡' },
-    { key: 'planung', label: 'Planung', emoji: '📋' },
-    { key: 'moderation', label: 'Moderation', emoji: '🎤' },
-    { key: 'pyro', label: 'Pyrotechnik', emoji: '🎆' },
-    { key: 'location', label: 'Location', emoji: '🏰' },
-    { key: 'wellness', label: 'Wellness & Spa', emoji: '💆' },
-  ];
+  return AI_CATEGORIES;
 }
 
 var _NAV_AI_POPULAR = [
@@ -28574,16 +28666,14 @@ function ebAuftraegeGruppieren(jobs, jetzt) {
 // Event-Typen, Dienstleister-Kategorien, Budget-/Termin-/Checklisten-Fragen
 // und legt Projekte & Board-Karten direkt an.
 
-var _AI_CATS = [
-  { key: 'dj',         emoji: '🎧', label: 'DJ & Musik' },
-  { key: 'catering',   emoji: '🍽️', label: 'Catering' },
-  { key: 'foto',       emoji: '📷', label: 'Fotografie' },
-  { key: 'location',   emoji: '🏰', label: 'Location' },
-  { key: 'licht',      emoji: '💡', label: 'Licht & Technik' },
-  { key: 'florist',    emoji: '💐', label: 'Floristik' },
-  { key: 'moderation', emoji: '🎤', label: 'Moderation' },
-  { key: 'deko',       emoji: '🎈', label: 'Dekoration' }
-];
+// ABGELEITET aus der einen Tabelle in `search/11-suche-ki.js` (laedt davor).
+// Hier standen acht von Hand gepflegte Eintraege — `pyro` und `planung`
+// fehlten, obwohl ein Anbieter beide im Formular waehlen kann. Nach
+// Pyrotechnik zu fragen war im Assistenten also unmoeglich, waehrend die
+// Suche daneben einen Chip dafuer anbot.
+var _AI_CATS = AI_CATEGORIES.map(function(c) {
+  return { key: c.key, emoji: c.emoji, label: c.label, icon: c.icon };
+});
 var _AI_TYPES = [
   [/hochzeit|heirat|braut/i,                                        'wedding',    '💍', 'Hochzeit'],
   [/kinderfest|kindergeburtstag/i,                                  'kids',       '🎈', 'Kinderfest'],
@@ -28649,8 +28739,18 @@ function _aiBoardLayoutHtml(isProvider) {
       '<div class="bai-chat" id="baiChat"></div>' +
       '<div class="bai-suggests" id="baiSuggests"></div>' +
       '<form class="bai-inputrow" onsubmit="_aiSend(event)">' +
+        // Sprachausgabe ist AUS, bis jemand sie einschaltet — ein Assistent,
+        // der unaufgefordert zu sprechen anfängt, ist in der Bahn ein
+        // Übergriff. `aria-pressed` statt nur einer Klasse: der Zustand muss
+        // auch für einen Screenreader lesbar sein.
+        '<button type="button" class="bai-voice" id="baiVoiceToggle" aria-pressed="false" ' +
+          'onclick="ebStimmeUmschalten()" title="Sprachausgabe an" aria-label="Sprachausgabe einschalten">' +
+          '<span class="material-icons-round" aria-hidden="true">volume_off</span></button>' +
         '<input type="text" id="baiInput" placeholder="Beschreib dein Event oder stell eine Frage…" autocomplete="off" maxlength="300" oninput="_aiInputSuggest(this)" />' +
-        '<button type="submit" class="bai-send" aria-label="Senden"><span class="material-icons-round">arrow_upward</span></button>' +
+        '<button type="button" class="bai-mic" id="baiMic" aria-pressed="false" ' +
+          'onclick="ebAssistentMikro()" title="Per Sprache fragen" aria-label="Per Sprache fragen">' +
+          '<span class="material-icons-round" aria-hidden="true">mic</span></button>' +
+        '<button type="submit" class="bai-send" aria-label="Senden"><span class="material-icons-round" aria-hidden="true">arrow_upward</span></button>' +
       '</form>' +
     '</div>' +
   '</div>' +
@@ -28704,6 +28804,10 @@ function _aiRenderChat() {
   } else {
     chat.innerHTML = msgs.map(_aiMsgHtml).join('');
   }
+  // Der Schalter überlebt das Neuzeichnen — sonst stünde „aus" da, während
+  // die Einstellung „an" ist, und der nächste Druck schaltete sie ab.
+  ebStimmeKnopfAuffrischen();
+  ebMikroKnopfAuffrischen();
   _aiRenderSuggests();
   chat.scrollTop = chat.scrollHeight;
 }
@@ -28770,7 +28874,15 @@ function _aiPushMsg(role, html) {
   if (hello) hello.remove();
   chat.insertAdjacentHTML('beforeend', _aiMsgHtml({ role: role, html: html }));
   chat.scrollTop = chat.scrollHeight;
-  if (role === 'ai') _aiRenderSuggests();
+  if (role === 'ai') {
+    _aiRenderSuggests();
+    // HIER, nicht an den fünfzehn Stellen, die `_aiPushMsg('ai', …)` rufen.
+    // Eine Vorlese-Zeile je Antwortstelle müsste man an jeder neuen
+    // wiederholen — und dann schweigt genau die nächste. Dieselbe
+    // Begründung wie bei `defaults: run: shell: bash` am Job statt je
+    // Schritt. Der Schalter wird in `ebAssistentAntwortSprechen()` gefragt.
+    ebAssistentAntwortSprechen(html);
+  }
 }
 
 function _aiTyping(on) {
@@ -28827,16 +28939,13 @@ function _aiUserSays(text) {
 }
 
 /* ─── Antwort-Engine (Intent-Erkennung) ─────────────────────── */
+// Was der Nutzer TIPPT, geht durch dieselben Muster wie das, was auf einem
+// Inserat STEHT. Vorher waren das zwei Listen, und sie erkannten
+// Verschiedenes: „getraenke", „torte", „venue", „gelaende", „strom",
+// „livestream", „feuerwerk", „koordinator" liefen im Assistenten ins Leere,
+// obwohl `_guideCategoryFor()` sie kannte.
 function _aiCatFromText(t) {
-  if (/\bdjs?\b|musik|band/.test(t)) return 'dj';
-  if (/catering|essen|buffet|men[üu]/.test(t)) return 'catering';
-  if (/fotograf|foto|kamera|video/.test(t)) return 'foto';
-  if (/location|saal|halle|räum|raum|schloss/.test(t)) return 'location';
-  if (/licht|technik|ton|bühne/.test(t)) return 'licht';
-  if (/blume|florist|strauß/.test(t)) return 'florist';
-  if (/moderat|sprecher/.test(t)) return 'moderation';
-  if (/deko/.test(t)) return 'deko';
-  return null;
+  return _guideCategoryFor(t);
 }
 
 function _aiAnswer(raw) {
@@ -29186,7 +29295,8 @@ function _aiIsSearch(l) {
 }
 
 function _aiAnswerCategory(catKey) {
-  var cat = _AI_CATS.find(function(c) { return c.key === catKey; }) || { key: catKey, emoji: '✨', label: catKey };
+  var cat = _AI_CATS.find(function(c) { return c.key === catKey; })
+    || { key: catKey, emoji: '✨', label: _escHtml(String(catKey)), icon: 'search' };
   var base = (typeof _visibleListings === 'function') ? _visibleListings() : (LISTINGS || []);
   var list = base.filter(function(l) {
     if (!l || _aiIsSearch(l)) return false;
@@ -29195,12 +29305,34 @@ function _aiAnswerCategory(catKey) {
       _guideCategoryFor(l.title || '') === catKey;
   }).sort(function(a, b) {
     return (parseFloat(b.rating) || 0) - (parseFloat(a.rating) || 0);
-  }).slice(0, 3);
+  });
+
+  // VOR dem Abschneiden gezaehlt: „Alle 7 ansehen" bei drei gezeigten Karten
+  // ist die Zahl, auf die es ankommt. Nach `.slice(0,3)` stuende dort 3.
+  var gesamt = list.length;
+  list = list.slice(0, 3);
+
+  // Der Knopf in die Suche entsteht NUR fuer einen Key aus der Tabelle.
+  // Er landet in einem `onclick`-Attribut; eine Weissliste ist dort die
+  // einzige Form, die auch bei einem erfundenen Argument traegt.
+  var sucheKnopf = ebKategorieBekannt(catKey)
+    ? '<button type="button" class="bai-act" onclick="navigateTo(\'browse\',\'' + catKey + '\')">' +
+      '<span class="material-icons-round">' + (cat.icon || 'search') + '</span> ' +
+      (gesamt > list.length ? 'Alle ' + gesamt + ' in der Suche' : cat.label + ' in der Suche') +
+      '</button>'
+    : '';
 
   if (!list.length) {
-    return 'In der Kategorie <b>' + cat.label + '</b> habe ich gerade keine Inserate gefunden. Schau mal in der Suche vorbei!' +
-      '<div class="bai-actions"><button type="button" class="bai-act" onclick="navigateTo(\'browse\')">' +
-      '<span class="material-icons-round">search</span> Zur Suche</button></div>';
+    // Auch hier mit Kategorie: der Assistent sieht `_visibleListings()`, die
+    // Suche laedt aus der Datenbank. „Schau in der Suche vorbei" ohne Filter
+    // hiesse, den Nutzer die Kategorie ein zweites Mal anklicken zu lassen —
+    // genau den Weg, den er sich gerade gespart hat.
+    return 'In der Kategorie <b>' + cat.label + '</b> habe ich gerade keine Inserate gefunden.' +
+      (sucheKnopf ? ' In der Suche ist der Filter schon gesetzt:' : ' Schau mal in der Suche vorbei!') +
+      '<div class="bai-actions">' +
+      (sucheKnopf || '<button type="button" class="bai-act" onclick="navigateTo(\'browse\')">' +
+        '<span class="material-icons-round">search</span> Zur Suche</button>') +
+      '</div>';
   }
   var cards = list.map(function(l) {
     var img = l.image || l.providerImg || '';
@@ -29217,7 +29349,8 @@ function _aiAnswerCategory(catKey) {
       '</span></div>';
   }).join('');
   return cat.emoji + ' Hier sind Top-Empfehlungen für <b>' + cat.label + '</b>:' +
-    '<div class="bai-lcards">' + cards + '</div>';
+    '<div class="bai-lcards">' + cards + '</div>' +
+    (sucheKnopf ? '<div class="bai-actions">' + sucheKnopf + '</div>' : '');
 }
 
 function _aiAddListing(listingId) {
@@ -29339,6 +29472,437 @@ function _aiAnswerStatus() {
     '<span class="material-icons-round">view_kanban</span> Board öffnen</button></div>';
 }
 
+/* ==================== ASSISTENT: SPRECHEN UND HÖREN ====================
+ *
+ * Der Planungs-Assistent konnte bis zum 01.10.2026 nur getippt werden. Das
+ * HQ sprach längst — über `/hq/stimme` und `/hq/gehoer`, serverseitig, mit
+ * echtem Modell statt der blechernen Stimme des Betriebssystems. Für die
+ * Website gab es davon nichts.
+ *
+ * Die Mechanik liegt auf dem Server (`includes/stimme/sprachdienst.php`) und
+ * wird mit dem HQ geteilt; hier steht nur der Weg dorthin. Fünf
+ * Entscheidungen tragen das, und sie sind alle an einem Fehler gelernt, der
+ * in diesem Projekt schon einmal passiert ist.
+ *
+ * 1 · KEIN DAUERHAFT OFFENES MIKROFON. Ein Druck ist EINE Aufnahme: sie
+ *     endet bei Stille, nach `MAX_MS`, oder beim zweiten Druck. Das HQ hat
+ *     am 22.08.2026 die andere Variante gehabt — das Mikrofon ging 120 ms
+ *     nach der Sprachausgabe von selbst wieder auf, hörte seinen eigenen
+ *     Nachhall und antwortete darauf. Gemeldet wurde es als „redet einfach
+ *     so, ohne dass ich was frage". Dort brauchte es danach eine
+ *     Echo-Erkennung, eine Runden-Grenze und eine Eichung des Pegels, um
+ *     den Zustand wieder einzufangen. Hier gibt es die Klasse nicht, weil
+ *     es die Schleife nicht gibt.
+ *
+ * 2 · GESPROCHEN WIRD NUR AUF WUNSCH. Der Schalter ist aus, bis ihn jemand
+ *     einschaltet, und die Wahl bleibt gespeichert. Ein Assistent, der
+ *     unaufgefordert zu sprechen anfängt, ist in einem Büro oder einer Bahn
+ *     ein Übergriff — und er kostet Geld für eine Ausgabe, die niemand
+ *     wollte.
+ *
+ * 3 · DIE KONVERSATION STEHT IM CHAT. Das Gesprochene läuft durch
+ *     `_aiUserSays()`, also durch denselben Weg wie das Getippte: eigene
+ *     Sprechblase, Antwort darunter, im Verlauf gespeichert. Eine
+ *     Sprachbedienung ohne Mitschrift ist nicht nachvollziehbar — man weiß
+ *     hinterher nicht, ob falsch verstanden oder falsch geantwortet wurde.
+ *
+ * 4 · DER RÜCKFALL IST HÖRBAR. Fehlt der Serverschlüssel, ist das Konto
+ *     abgemeldet oder greift der Tagesdeckel, spricht `speechSynthesis` des
+ *     Betriebssystems. Dieselbe Begründung wie im HQ: eine Sprachausgabe,
+ *     die still bleibt, ist für den Nutzer von einem Absturz nicht zu
+ *     unterscheiden.
+ *
+ * 5 · DAS MIKROFON WIRD IMMER FREIGEGEBEN. Jeder Ausgang stoppt die Spuren
+ *     des `MediaStream`. Ein Mikrofon, das nach dem Beenden weiterläuft,
+ *     ist ein Datenschutzproblem und kein Schönheitsfehler.
+ */
+
+/** Längste Aufnahme. Eine Suchanfrage braucht fünf Sekunden, nicht fünf Minuten. */
+var EB_STIMME_MAX_MS = 15000;
+/** Ohne ein Wort passiert nach dieser Zeit nichts mehr — Stille kostet und liefert nichts. */
+var EB_STIMME_LEER_MS = 6000;
+/** So lange Ruhe nach dem letzten Laut gilt als „ausgesprochen". */
+var EB_STIMME_STILLE_MS = 900;
+/** Der Schalterzustand. Funktional, nicht profilbildend — siehe Cookie-Liste.md. */
+var EB_STIMME_SCHLUESSEL = 'eb_assistent_stimme_v1';
+
+// Der Schalterzustand DIESER Sitzung. Gemessen am 01.10.2026: ohne
+// Cookie-Einwilligung verweigert `ebSpeichern()` den nicht-essenziellen
+// Schlüssel — richtig, aber `localStorage` blieb dann leer, und
+// `ebStimmeAn()` las weiter `false`. Der Knopf liess sich druecken und tat
+// nichts: „sieht heil aus und tut nichts", die teuerste Schadensart dieses
+// Projekts, und sie traf genau die Nutzer, die Speicherung abgelehnt haben.
+//
+// Jetzt traegt der Zustand die Sitzung, und `ebSpeichern()` entscheidet nur
+// noch, ob er das Neuladen UEBERLEBT. Genau das bedeutet „keine
+// Speicherung" — nicht „keine Funktion".
+var _ebStimmeWunsch = null;     // null = noch nicht gefragt
+var _ebStimmeAudio = null;      // laufende Serverausgabe
+var _ebStimmeAufnahme = null;   // { rec, stream, timer, stilleTimer }
+var _ebStimmeServer = null;     // null = ungefragt, true/false = gemessen
+
+/* ─── Der Schalter ──────────────────────────────────────────── */
+
+function ebStimmeAn() {
+  if (_ebStimmeWunsch === null) {
+    // Einmal nachsehen, ob eine frühere Sitzung das speichern durfte.
+    try { _ebStimmeWunsch = localStorage.getItem(EB_STIMME_SCHLUESSEL) === '1'; }
+    catch (e) { _ebStimmeWunsch = false; }
+  }
+  return _ebStimmeWunsch;
+}
+
+function ebStimmeUmschalten() {
+  var neu = !ebStimmeAn();
+  _ebStimmeWunsch = neu;
+  // ebSpeichern(), nicht localStorage.setItem(): der Schlüssel ist nicht
+  // essenziell, und ohne diesen Weg wäre die Einwilligung hier wirkungslos.
+  // recht.spec.js bricht sonst ab. Ob es ankommt, entscheidet die
+  // Einwilligung — die Funktion oben hängt nicht davon ab.
+  ebSpeichern(EB_STIMME_SCHLUESSEL, neu ? '1' : '0');
+  if (!neu) ebStimmeStoppen();
+  ebStimmeKnopfAuffrischen();
+  if (neu) {
+    // Eine Bestätigung, die man HÖRT, belegt das Einschalten. Eine stille
+    // Zusage wäre von einem defekten Schalter nicht zu unterscheiden.
+    ebAssistentSprechen('Sprachausgabe ist an. Frag mich einfach.');
+  }
+  return neu;
+}
+
+function ebStimmeKnopfAuffrischen() {
+  var k = document.getElementById('baiVoiceToggle');
+  if (!k) return;
+  var an = ebStimmeAn();
+  k.classList.toggle('an', an);
+  k.setAttribute('aria-pressed', an ? 'true' : 'false');
+  k.setAttribute('title', an ? 'Sprachausgabe aus' : 'Sprachausgabe an');
+  k.setAttribute('aria-label', an ? 'Sprachausgabe ausschalten' : 'Sprachausgabe einschalten');
+  var ico = k.querySelector('.material-icons-round');
+  if (ico) ico.textContent = an ? 'volume_up' : 'volume_off';
+}
+
+/* ─── Sprechen ──────────────────────────────────────────────── */
+
+/**
+ * Jede Stelle, die das Sprechen beendet, ruft DIESE Funktion.
+ *
+ * Nicht `speechSynthesis.cancel()` allein — dieselbe Regel wie im HQ: sonst
+ * spricht die Serverstimme weiter, während der Browser schon still ist.
+ */
+function ebStimmeStoppen() {
+  if (_ebStimmeAudio) {
+    try { _ebStimmeAudio.pause(); } catch (e) {}
+    _ebStimmeAudio = null;
+  }
+  try { if (window.speechSynthesis) window.speechSynthesis.cancel(); } catch (e) {}
+}
+
+/**
+ * HTML einer Chat-Antwort in SPRECHBAREN Text verwandeln.
+ *
+ * Die Ligaturen müssen raus. `<span class="material-icons-round">search</span>`
+ * hat den Textinhalt „search" — vorgelesen würde der Assistent mitten im
+ * Satz „search" sagen. Genau diese Falle stand am 15.09.2026 in der
+ * Barrierefreiheit: vier Icon-Spans wurden von einem Screenreader
+ * mitgelesen, nachdem die Beschriftungen repariert waren. Eine Reparatur,
+ * die man zu Ende messen muss, statt sie zu beschliessen.
+ *
+ * UND DIE KNOEPFE MUESSEN RAUS. Gemessen am 01.10.2026 las die erste
+ * Fassung „Max Beats 4.9 · 450–700€ / Event **Ansehen + Board**" vor — die
+ * Beschriftungen der Schaltflächen. Gesprochen wird, was GESAGT wird, nicht
+ * was klickbar ist: eine Stimme kann nicht klicken, und eine Aufforderung
+ * zum Drücken, die man nur hört, ist eine Sackgasse. Die Knöpfe bleiben im
+ * Chat sichtbar — das ist ihr Platz.
+ *
+ * Gearbeitet wird über einen abgetrennten DOM-Baum, nicht mit einem
+ * Ausdruck über `<[^>]*>`: ein Ausdruck trifft auch ein `<` im Text und
+ * wirft den Rest weg. Derselbe Griff wie bei den Kommentar-Entfernern.
+ */
+function ebStimmeTextAusHtml(html) {
+  var huelle = document.createElement('div');
+  huelle.innerHTML = String(html || '');
+  huelle.querySelectorAll(
+    '.material-icons-round, .bai-cat-emoji, .bai-lcard-img, ' +
+    'button, .bai-actions, .bai-lcard-acts, script, style'
+  ).forEach(function(n) { n.remove(); });
+  // Blockgrenzen tragen die Satzzeichen. `textContent` kennt sie nicht —
+  // ohne diesen Schritt wird aus „…für DJ & Musik:</b></div><div>Max Beats"
+  // das Wort „MusikMax", und die Stimme stolpert mitten im Satz.
+  // VON INNEN NACH AUSSEN. `querySelectorAll` liefert Dokumentreihenfolge,
+  // also den Umschlag VOR seinen Karten — der Umschlag sah dann noch keinen
+  // Punkt, hängte einen an, und der landete hinter dem der letzten Karte:
+  // „… Event. .". Umgedreht sieht jeder Elternknoten die fertigen Kinder.
+  Array.prototype.slice.call(huelle.querySelectorAll('div, p, li, h1, h2, h3, h4, tr'))
+    .reverse().forEach(function(n) {
+      var vorher = (n.textContent || '').trim();
+      if (!vorher) return;
+      // Trennzeichen DAVOR, nicht nur danach: der Fliesstext vor einer
+      // Kartenliste ist ein blankes Textknoten-Geschwister und bekäme sonst
+      // nichts — gemessen wurde „…für DJ & Musik:Max Beats".
+      n.insertBefore(document.createTextNode(' '), n.firstChild);
+      n.appendChild(document.createTextNode(/[.,:;!?]$/.test(vorher) ? ' ' : '. '));
+    });
+  var t = (huelle.textContent || '').replace(/\s+/g, ' ').trim();
+  // Emojis vorzulesen ergibt „Pizzastück" mitten im Satz. Weg damit, aber
+  // nur die Bildzeichen — Ziffern, Umlaute und Interpunktion bleiben.
+  t = t.replace(/[←-⇿⌀-➿⬀-⯿️‍]/g, '')
+       .replace(/[\uD800-\uDBFF][\uDC00-\uDFFF]/g, '')
+       .replace(/\s+/g, ' ').trim();
+  return t.slice(0, 600);
+}
+
+/**
+ * Sprechen — zuerst über den Server, hörbar zurückfallend.
+ *
+ * Das Ergebnis der Serverfrage wird EINMAL gemerkt (`_ebStimmeServer`).
+ * Sonst kostet jede Antwort einen Aufruf für einen Schlüssel, den es nicht
+ * gibt — dieselbe Regel wie im HQ.
+ */
+function ebAssistentSprechen(text) {
+  var t = String(text || '').trim();
+  if (!t) return Promise.resolve(false);
+  ebStimmeStoppen();
+
+  if (_ebStimmeServer === false) return Promise.resolve(ebStimmeSystem(t));
+
+  if (!isLoggedIn) {
+    // Angemeldet ist Voraussetzung der Route (Kostenschutz). Das ist kein
+    // Defekt, also wird es nicht als einer behandelt: es wird gesprochen,
+    // nur mit der Stimme des Geräts.
+    return Promise.resolve(ebStimmeSystem(t));
+  }
+
+  return _fetchWithTimeout(_apiUrl('assistent/stimme'), {
+    method: 'POST',
+    headers: _apiHeaders({ 'Content-Type': 'application/json' }),
+    body: JSON.stringify({ text: t })
+  }, 20000).then(function(r) { return r.json(); }).then(function(d) {
+    if (!d || !d.verfuegbar || !d.audio) {
+      // Ein 429 ist VORÜBERGEHEND — den Server deswegen für die ganze
+      // Sitzung abzuschreiben wäre derselbe Fehler wie ein gemerktes
+      // abgelehntes Versprechen im Stripe-Lader: eine Minute Deckel
+      // kostete dann die ganze Sitzung.
+      if (!d || d.verfuegbar === false) {
+        var dauerhaft = /nicht hinterlegt/i.test(String(d && d.grund || ''));
+        if (dauerhaft) _ebStimmeServer = false;
+      }
+      return ebStimmeSystem(t);
+    }
+    _ebStimmeServer = true;
+    var a = new Audio('data:audio/' + (d.format || 'mp3') + ';base64,' + d.audio);
+    _ebStimmeAudio = a;
+    // Scheitert das Abspielen (Autoplay-Sperre, kaputte Daten), darf nicht
+    // einfach Stille bleiben.
+    a.onerror = function() { if (_ebStimmeAudio === a) { _ebStimmeAudio = null; ebStimmeSystem(t); } };
+    a.onended = function() { if (_ebStimmeAudio === a) _ebStimmeAudio = null; };
+    var p = a.play();
+    if (p && p.catch) p.catch(function() { if (_ebStimmeAudio === a) { _ebStimmeAudio = null; ebStimmeSystem(t); } });
+    return true;
+  }).catch(function() {
+    // Netzfehler ist nicht „kein Schlüssel" — nicht merken, nur zurückfallen.
+    return ebStimmeSystem(t);
+  });
+}
+
+/** Der hörbare Rückfall. Gibt zurück, ob überhaupt etwas klingt. */
+function ebStimmeSystem(text) {
+  try {
+    if (!window.speechSynthesis || typeof SpeechSynthesisUtterance === 'undefined') return false;
+    var u = new SpeechSynthesisUtterance(String(text || ''));
+    u.lang = 'de-DE';
+    window.speechSynthesis.speak(u);
+    return true;
+  } catch (e) { return false; }
+}
+
+/** Antwort des Assistenten vorlesen — nur wenn der Schalter an ist. */
+function ebAssistentAntwortSprechen(html) {
+  if (!ebStimmeAn()) return;
+  var t = ebStimmeTextAusHtml(html);
+  if (t) ebAssistentSprechen(t);
+}
+
+/* ─── Hören ─────────────────────────────────────────────────── */
+
+function ebStimmeHoertZu() {
+  return !!_ebStimmeAufnahme;
+}
+
+function ebMikroKnopfAuffrischen() {
+  var k = document.getElementById('baiMic');
+  if (!k) return;
+  var an = ebStimmeHoertZu();
+  k.classList.toggle('hoert', an);
+  k.setAttribute('aria-pressed', an ? 'true' : 'false');
+  k.setAttribute('title', an ? 'Aufnahme beenden' : 'Per Sprache fragen');
+  k.setAttribute('aria-label', an ? 'Aufnahme beenden' : 'Per Sprache fragen');
+  var ico = k.querySelector('.material-icons-round');
+  if (ico) ico.textContent = an ? 'stop_circle' : 'mic';
+}
+
+/**
+ * Aufnahme in JEDEM Ausgang abbauen.
+ *
+ * Eine Funktion, nicht drei Stellen: beim HQ hing genau daran die Regel
+ * „neue Stelle, die das Gespräch beendet → `aufnahmeBeenden()` mit
+ * aufrufen". Wer hier einen Weg hinzufügt und das Aufräumen vergisst, lässt
+ * das Mikrofon offen.
+ */
+function ebMikroAbbauen() {
+  var a = _ebStimmeAufnahme;
+  _ebStimmeAufnahme = null;
+  if (!a) return;
+  if (a.timer) clearTimeout(a.timer);
+  if (a.stilleTimer) clearTimeout(a.stilleTimer);
+  if (a.pegelTimer) clearInterval(a.pegelTimer);
+  try { if (a.rec && a.rec.state !== 'inactive') a.rec.stop(); } catch (e) {}
+  try { if (a.ctx && a.ctx.close) a.ctx.close(); } catch (e) {}
+  // Die Spuren zuletzt: solange eine lebt, leuchtet die Aufnahme-Anzeige
+  // des Browsers, und für den Nutzer hört das Gerät weiter zu.
+  try { (a.stream.getTracks() || []).forEach(function(t) { t.stop(); }); } catch (e) {}
+  ebMikroKnopfAuffrischen();
+}
+
+function ebAssistentMikro() {
+  if (ebStimmeHoertZu()) { ebMikroAbbauen(); return; }
+  ebStimmeStoppen();
+
+  if (!isLoggedIn) {
+    // Ein Mikrofon, das nichts tut und nichts sagt, ist von einem Defekt
+    // nicht zu unterscheiden. Also wird der Grund genannt — und der Weg.
+    _aiPushMsg('ai', 'Sprache braucht ein Konto — die Erkennung läuft über unseren Server, ' +
+      'und ohne Anmeldung gibt es niemanden, dem die Nutzung zugeordnet wäre. ' +
+      'Tippen funktioniert natürlich weiterhin.' +
+      '<div class="bai-actions"><button type="button" class="bai-act primary" onclick="openModal(\'loginModal\')">' +
+      '<span class="material-icons-round">login</span> Anmelden</button></div>');
+    return;
+  }
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia || typeof MediaRecorder === 'undefined') {
+    _aiPushMsg('ai', 'Dieser Browser gibt kein Mikrofon her. Schreib mir einfach, was du suchst.');
+    return;
+  }
+
+  navigator.mediaDevices.getUserMedia({
+    audio: { echoCancellation: true, noiseSuppression: true }
+  }).then(function(stream) {
+    var rec, stuecke = [];
+    try { rec = new MediaRecorder(stream); }
+    catch (e) {
+      try { (stream.getTracks() || []).forEach(function(t) { t.stop(); }); } catch (e2) {}
+      _aiPushMsg('ai', 'Die Aufnahme ließ sich nicht starten. Schreib mir einfach, was du suchst.');
+      return;
+    }
+
+    var a = { rec: rec, stream: stream, timer: null, stilleTimer: null, pegelTimer: null, ctx: null, hatLaut: false };
+    _ebStimmeAufnahme = a;
+    ebMikroKnopfAuffrischen();
+
+    rec.ondataavailable = function(ev) { if (ev.data && ev.data.size) stuecke.push(ev.data); };
+    rec.onstop = function() {
+      var blob = new Blob(stuecke, { type: (stuecke[0] && stuecke[0].type) || 'audio/webm' });
+      // Nichts gesprochen: KEIN Aufruf. Stille erkennen zu lassen kostet
+      // und liefert nichts — und Whisper erfindet bei Stille Text.
+      if (!a.hatLaut || blob.size < 1200) return;
+      ebMikroSenden(blob);
+    };
+
+    // Pegel messen, um Stille zu erkennen. GEEICHT statt fest: eine feste
+    // Schwelle ist auf dem einen Gerät taub und auf dem anderen ein
+    // Dauerauslöser — dieselbe Lehre wie beim Mithören im HQ.
+    try {
+      var AC = window.AudioContext || window.webkitAudioContext;
+      if (AC) {
+        var ctx = new AC();
+        a.ctx = ctx;
+        var an = ctx.createAnalyser();
+        an.fftSize = 512;
+        ctx.createMediaStreamSource(stream).connect(an);
+        var buf = new Uint8Array(an.fftSize);
+        var grund = null, proben = [];
+        a.pegelTimer = setInterval(function() {
+          if (!_ebStimmeAufnahme) return;
+          an.getByteTimeDomainData(buf);
+          var summe = 0;
+          for (var i = 0; i < buf.length; i++) { var d = buf[i] - 128; summe += d * d; }
+          var pegel = Math.sqrt(summe / buf.length);
+          if (grund === null) {
+            proben.push(pegel);
+            if (proben.length >= 6) {
+              grund = proben.reduce(function(x, y) { return x + y; }, 0) / proben.length;
+            }
+            return;
+          }
+          var schwelle = Math.max(grund * 3.5, 2.2);
+          if (pegel > schwelle) {
+            a.hatLaut = true;
+            if (a.stilleTimer) { clearTimeout(a.stilleTimer); a.stilleTimer = null; }
+          } else if (a.hatLaut && !a.stilleTimer) {
+            a.stilleTimer = setTimeout(function() { ebMikroAbbauen(); }, EB_STIMME_STILLE_MS);
+          }
+        }, 100);
+      } else {
+        // Ohne Pegelmessung keine Stille-Erkennung — dann gilt der Laut als
+        // gegeben, sonst käme nie etwas an. Lieber ein Aufruf zu viel als
+        // ein Mikrofon, das grundsätzlich nichts liefert.
+        a.hatLaut = true;
+      }
+    } catch (e) { a.hatLaut = true; }
+
+    a.timer = setTimeout(function() { ebMikroAbbauen(); }, EB_STIMME_MAX_MS);
+    // Wer gar nichts sagt, soll nicht fünfzehn Sekunden warten.
+    setTimeout(function() { if (_ebStimmeAufnahme === a && !a.hatLaut) ebMikroAbbauen(); }, EB_STIMME_LEER_MS);
+    rec.start();
+  }).catch(function() {
+    _ebStimmeAufnahme = null;
+    ebMikroKnopfAuffrischen();
+    _aiPushMsg('ai', 'Ich habe keinen Zugriff auf das Mikrofon bekommen. ' +
+      'Du kannst die Freigabe in der Adressleiste erteilen — oder einfach schreiben.');
+  });
+}
+
+function ebMikroSenden(blob) {
+  _aiTyping(true);
+  var leser = new FileReader();
+  leser.onerror = function() { _aiTyping(false); };
+  leser.onload = function() {
+    var roh = String(leser.result || '');
+    var komma = roh.indexOf(',');
+    var b64 = komma >= 0 ? roh.slice(komma + 1) : '';
+    if (!b64) { _aiTyping(false); return; }
+    _fetchWithTimeout(_apiUrl('assistent/gehoer'), {
+      method: 'POST',
+      headers: _apiHeaders({ 'Content-Type': 'application/json' }),
+      body: JSON.stringify({ audio: b64 })
+    }, 35000).then(function(r) { return r.json(); }).then(function(d) {
+      _aiTyping(false);
+      if (!d || !d.verfuegbar) {
+        _aiPushMsg('ai', 'Die Spracherkennung ist gerade nicht verfügbar' +
+          (d && d.grund ? ' (' + _escHtml(String(d.grund)) + ')' : '') +
+          '. Schreib mir einfach, was du suchst.');
+        return;
+      }
+      var text = String(d.text || '').trim();
+      if (!text) {
+        // „Nichts verstanden" ist etwas anderes als „Störung", und der
+        // Unterschied gehört dem Nutzer. Dasselbe Prinzip wie bei den vier
+        // leeren Zuständen der Jetzt-Ansicht.
+        _aiPushMsg('ai', d.phantom
+          ? 'Da war nur Stille — ich habe nichts gezählt. Drück nochmal und sag einfach, was du suchst.'
+          : 'Ich habe nichts verstanden. Probier es noch einmal, etwas näher am Mikrofon.');
+        return;
+      }
+      // DURCH DEN NORMALEN WEG: eigene Sprechblase, Antwort darunter, im
+      // Verlauf gespeichert. Ein zweiter Pfad für Sprache wäre eine zweite
+      // Wahrheit, und das Gesagte stünde nicht im Chat.
+      _aiUserSays(text);
+    }).catch(function() {
+      _aiTyping(false);
+      _aiPushMsg('ai', 'Die Spracherkennung war nicht erreichbar. Schreib mir einfach, was du suchst.');
+    });
+  };
+  leser.readAsDataURL(blob);
+}
 /* ==================== INSERAT-MASKE: Biete/Suche-Typ + Verfügbarkeitskalender ==================== */
 // Einseitige Erstell-Maske: Typ-Umschalter („Ich biete" / „Ich suche") passt
 // Labels und sichtbare Blöcke an; der Verfügbarkeitskalender (nur Biete)

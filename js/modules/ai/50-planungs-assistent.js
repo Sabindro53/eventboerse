@@ -4,16 +4,14 @@
 // Event-Typen, Dienstleister-Kategorien, Budget-/Termin-/Checklisten-Fragen
 // und legt Projekte & Board-Karten direkt an.
 
-var _AI_CATS = [
-  { key: 'dj',         emoji: '🎧', label: 'DJ & Musik' },
-  { key: 'catering',   emoji: '🍽️', label: 'Catering' },
-  { key: 'foto',       emoji: '📷', label: 'Fotografie' },
-  { key: 'location',   emoji: '🏰', label: 'Location' },
-  { key: 'licht',      emoji: '💡', label: 'Licht & Technik' },
-  { key: 'florist',    emoji: '💐', label: 'Floristik' },
-  { key: 'moderation', emoji: '🎤', label: 'Moderation' },
-  { key: 'deko',       emoji: '🎈', label: 'Dekoration' }
-];
+// ABGELEITET aus der einen Tabelle in `search/11-suche-ki.js` (laedt davor).
+// Hier standen acht von Hand gepflegte Eintraege — `pyro` und `planung`
+// fehlten, obwohl ein Anbieter beide im Formular waehlen kann. Nach
+// Pyrotechnik zu fragen war im Assistenten also unmoeglich, waehrend die
+// Suche daneben einen Chip dafuer anbot.
+var _AI_CATS = AI_CATEGORIES.map(function(c) {
+  return { key: c.key, emoji: c.emoji, label: c.label, icon: c.icon };
+});
 var _AI_TYPES = [
   [/hochzeit|heirat|braut/i,                                        'wedding',    '💍', 'Hochzeit'],
   [/kinderfest|kindergeburtstag/i,                                  'kids',       '🎈', 'Kinderfest'],
@@ -79,8 +77,18 @@ function _aiBoardLayoutHtml(isProvider) {
       '<div class="bai-chat" id="baiChat"></div>' +
       '<div class="bai-suggests" id="baiSuggests"></div>' +
       '<form class="bai-inputrow" onsubmit="_aiSend(event)">' +
+        // Sprachausgabe ist AUS, bis jemand sie einschaltet — ein Assistent,
+        // der unaufgefordert zu sprechen anfängt, ist in der Bahn ein
+        // Übergriff. `aria-pressed` statt nur einer Klasse: der Zustand muss
+        // auch für einen Screenreader lesbar sein.
+        '<button type="button" class="bai-voice" id="baiVoiceToggle" aria-pressed="false" ' +
+          'onclick="ebStimmeUmschalten()" title="Sprachausgabe an" aria-label="Sprachausgabe einschalten">' +
+          '<span class="material-icons-round" aria-hidden="true">volume_off</span></button>' +
         '<input type="text" id="baiInput" placeholder="Beschreib dein Event oder stell eine Frage…" autocomplete="off" maxlength="300" oninput="_aiInputSuggest(this)" />' +
-        '<button type="submit" class="bai-send" aria-label="Senden"><span class="material-icons-round">arrow_upward</span></button>' +
+        '<button type="button" class="bai-mic" id="baiMic" aria-pressed="false" ' +
+          'onclick="ebAssistentMikro()" title="Per Sprache fragen" aria-label="Per Sprache fragen">' +
+          '<span class="material-icons-round" aria-hidden="true">mic</span></button>' +
+        '<button type="submit" class="bai-send" aria-label="Senden"><span class="material-icons-round" aria-hidden="true">arrow_upward</span></button>' +
       '</form>' +
     '</div>' +
   '</div>' +
@@ -134,6 +142,10 @@ function _aiRenderChat() {
   } else {
     chat.innerHTML = msgs.map(_aiMsgHtml).join('');
   }
+  // Der Schalter überlebt das Neuzeichnen — sonst stünde „aus" da, während
+  // die Einstellung „an" ist, und der nächste Druck schaltete sie ab.
+  ebStimmeKnopfAuffrischen();
+  ebMikroKnopfAuffrischen();
   _aiRenderSuggests();
   chat.scrollTop = chat.scrollHeight;
 }
@@ -200,7 +212,15 @@ function _aiPushMsg(role, html) {
   if (hello) hello.remove();
   chat.insertAdjacentHTML('beforeend', _aiMsgHtml({ role: role, html: html }));
   chat.scrollTop = chat.scrollHeight;
-  if (role === 'ai') _aiRenderSuggests();
+  if (role === 'ai') {
+    _aiRenderSuggests();
+    // HIER, nicht an den fünfzehn Stellen, die `_aiPushMsg('ai', …)` rufen.
+    // Eine Vorlese-Zeile je Antwortstelle müsste man an jeder neuen
+    // wiederholen — und dann schweigt genau die nächste. Dieselbe
+    // Begründung wie bei `defaults: run: shell: bash` am Job statt je
+    // Schritt. Der Schalter wird in `ebAssistentAntwortSprechen()` gefragt.
+    ebAssistentAntwortSprechen(html);
+  }
 }
 
 function _aiTyping(on) {
@@ -257,16 +277,13 @@ function _aiUserSays(text) {
 }
 
 /* ─── Antwort-Engine (Intent-Erkennung) ─────────────────────── */
+// Was der Nutzer TIPPT, geht durch dieselben Muster wie das, was auf einem
+// Inserat STEHT. Vorher waren das zwei Listen, und sie erkannten
+// Verschiedenes: „getraenke", „torte", „venue", „gelaende", „strom",
+// „livestream", „feuerwerk", „koordinator" liefen im Assistenten ins Leere,
+// obwohl `_guideCategoryFor()` sie kannte.
 function _aiCatFromText(t) {
-  if (/\bdjs?\b|musik|band/.test(t)) return 'dj';
-  if (/catering|essen|buffet|men[üu]/.test(t)) return 'catering';
-  if (/fotograf|foto|kamera|video/.test(t)) return 'foto';
-  if (/location|saal|halle|räum|raum|schloss/.test(t)) return 'location';
-  if (/licht|technik|ton|bühne/.test(t)) return 'licht';
-  if (/blume|florist|strauß/.test(t)) return 'florist';
-  if (/moderat|sprecher/.test(t)) return 'moderation';
-  if (/deko/.test(t)) return 'deko';
-  return null;
+  return _guideCategoryFor(t);
 }
 
 function _aiAnswer(raw) {
@@ -616,7 +633,8 @@ function _aiIsSearch(l) {
 }
 
 function _aiAnswerCategory(catKey) {
-  var cat = _AI_CATS.find(function(c) { return c.key === catKey; }) || { key: catKey, emoji: '✨', label: catKey };
+  var cat = _AI_CATS.find(function(c) { return c.key === catKey; })
+    || { key: catKey, emoji: '✨', label: _escHtml(String(catKey)), icon: 'search' };
   var base = (typeof _visibleListings === 'function') ? _visibleListings() : (LISTINGS || []);
   var list = base.filter(function(l) {
     if (!l || _aiIsSearch(l)) return false;
@@ -625,12 +643,34 @@ function _aiAnswerCategory(catKey) {
       _guideCategoryFor(l.title || '') === catKey;
   }).sort(function(a, b) {
     return (parseFloat(b.rating) || 0) - (parseFloat(a.rating) || 0);
-  }).slice(0, 3);
+  });
+
+  // VOR dem Abschneiden gezaehlt: „Alle 7 ansehen" bei drei gezeigten Karten
+  // ist die Zahl, auf die es ankommt. Nach `.slice(0,3)` stuende dort 3.
+  var gesamt = list.length;
+  list = list.slice(0, 3);
+
+  // Der Knopf in die Suche entsteht NUR fuer einen Key aus der Tabelle.
+  // Er landet in einem `onclick`-Attribut; eine Weissliste ist dort die
+  // einzige Form, die auch bei einem erfundenen Argument traegt.
+  var sucheKnopf = ebKategorieBekannt(catKey)
+    ? '<button type="button" class="bai-act" onclick="navigateTo(\'browse\',\'' + catKey + '\')">' +
+      '<span class="material-icons-round">' + (cat.icon || 'search') + '</span> ' +
+      (gesamt > list.length ? 'Alle ' + gesamt + ' in der Suche' : cat.label + ' in der Suche') +
+      '</button>'
+    : '';
 
   if (!list.length) {
-    return 'In der Kategorie <b>' + cat.label + '</b> habe ich gerade keine Inserate gefunden. Schau mal in der Suche vorbei!' +
-      '<div class="bai-actions"><button type="button" class="bai-act" onclick="navigateTo(\'browse\')">' +
-      '<span class="material-icons-round">search</span> Zur Suche</button></div>';
+    // Auch hier mit Kategorie: der Assistent sieht `_visibleListings()`, die
+    // Suche laedt aus der Datenbank. „Schau in der Suche vorbei" ohne Filter
+    // hiesse, den Nutzer die Kategorie ein zweites Mal anklicken zu lassen —
+    // genau den Weg, den er sich gerade gespart hat.
+    return 'In der Kategorie <b>' + cat.label + '</b> habe ich gerade keine Inserate gefunden.' +
+      (sucheKnopf ? ' In der Suche ist der Filter schon gesetzt:' : ' Schau mal in der Suche vorbei!') +
+      '<div class="bai-actions">' +
+      (sucheKnopf || '<button type="button" class="bai-act" onclick="navigateTo(\'browse\')">' +
+        '<span class="material-icons-round">search</span> Zur Suche</button>') +
+      '</div>';
   }
   var cards = list.map(function(l) {
     var img = l.image || l.providerImg || '';
@@ -647,7 +687,8 @@ function _aiAnswerCategory(catKey) {
       '</span></div>';
   }).join('');
   return cat.emoji + ' Hier sind Top-Empfehlungen für <b>' + cat.label + '</b>:' +
-    '<div class="bai-lcards">' + cards + '</div>';
+    '<div class="bai-lcards">' + cards + '</div>' +
+    (sucheKnopf ? '<div class="bai-actions">' + sucheKnopf + '</div>' : '');
 }
 
 function _aiAddListing(listingId) {

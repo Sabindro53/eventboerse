@@ -21,11 +21,12 @@ function php(schnipsel) {
   const anfang = FUNCTIONS.indexOf('const EB_TOTP_STEP');
   const ende = FUNCTIONS.indexOf('function eb_totp_aktiv');
   const kern = FUNCTIONS.slice(anfang, ende);
-  const datei = path.join(require('node:os').tmpdir(), `totp-${Date.now()}-${Math.random()}.php`);
+  const heim = fs.mkdtempSync(path.join(require('node:os').tmpdir(), 'eb-totp-'));
+  const datei = path.join(heim, 'totp.php');
   fs.writeFileSync(datei, `<?php\n${kern}\n${schnipsel}\n`, 'utf8');
   try {
     return execFileSync('php', [datei], { encoding: 'utf8' }).trim();
-  } finally { fs.unlinkSync(datei); }
+  } finally { fs.rmSync(heim, { recursive: true, force: true }); }
 }
 
 test.describe('TOTP rechnet nach RFC 6238', () => {

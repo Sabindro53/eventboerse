@@ -16,8 +16,85 @@ Zahlen ihrer Zeit — die sind Historie, kein Ist-Stand. Der Ensemble-Kontext
 liest diese Datei von oben; ein Modell, das „68 Tests" als aktuell meldet, hat
 einen alten Abschnitt gelesen und nicht diesen.
 
-- **Playwright-Suite: 1266 Tests in 87 Suiten**, blockierendes Gate in `pr-check.yml`.
+- **Playwright-Suite: 1333 Tests in 91 Suiten**, blockierendes Gate in `pr-check.yml`.
   Läuft seit dem Self-Hosting auch ohne Netzzugang vollständig durch
+
+## Assistent ausgebaut (2026-10-01) — Kategorie und Sprache
+
+Zwei Aufträge des Inhabers an einem Tag, beide gemessen statt angenommen.
+
+### 1 · „wenn ich dj suche … sollen dj Erscheinen"
+
+Die Kette war an **zwei** Stellen durchtrennt, keine davon sichtbar: der
+Knopf des Assistenten rief `navigateTo('browse')` **ohne Argument**, und der
+Router las `data` im `browse`-Zweig **gar nicht**. Gemessen nach
+`navigateTo('browse','dj')`: kein Chip markiert, alle 15 Inserate.
+
+Dahinter **vier gepflegte Fassungen** derselben Zuordnung, die nicht
+ineinander enthalten waren — am 45-Satz-Korpus 32/45 gegen 35/45, jede
+verfehlte etwas, das die andere kannte. `pyro` und `planung` fehlten in den
+Knöpfen ganz: nach Pyrotechnik zu fragen war unmöglich.
+
+| | vorher | jetzt |
+|---|---:|---:|
+| `_aiCatFromText` | 32/45, 1 Fehlalarm | **45/45, 0** |
+| `_guideCategoryFor` | 35/45, 0 | **45/45, 0** |
+| Kategorieknöpfe im Assistenten | 8 | **10** |
+| Fassungen der Zuordnung | 4 (+1 tote) | **1** |
+
+Eine **fünfte** Fassung war seit jeher unerreichbar: `_getNavAiCategories()`
+trug `typeof AI_CATEGORIES !== 'undefined'` mit elf Einträgen dahinter — der
+Schutz greift nie (`const` in der TDZ **wirft**), und die tote Liste führte
+`wellness`, eine Kategorie, die kein Inserat tragen kann.
+
+Dazu ein gemessener Fund beim Bauen: die Frühabweisung in
+`ebSucheKategorieSetzen()` hinterliess `/browse/quatsch` mit **markiertem
+Chip über ungefilterter Liste**. Jetzt wird zuerst geleert, dann geprüft.
+
+`/browse/dj` ist teilbar — `_spaPath` trägt die Kategorie, die Rewrite-Regel
+`^browse/([^/]+)/?$` stand längst da und wurde von nichts benutzt.
+
+### 2 · „Spracheingabe und Ausgabe mit Menschlicher Stimme"
+
+Das HQ sprach seit August, die Website hatte davon nichts. Die Mechanik liegt
+jetzt **einmal** in `includes/stimme/sprachdienst.php`; HQ und Assistent geben
+nur ihren Rahmen mit (`includes/stimme/routen.php`, zwei neue Routen).
+
+Sicherheit, alles im echten PHP ausgeführt:
+
+- **nur angemeldet** (`is_user_logged_in`) — eine offene Sprachroute ist ein
+  Kostenverstärker auf dem OpenAI-Schlüssel;
+- **Eimer am Konto**, nie an der IP — hinter einem Proxy meint `REMOTE_ADDR`
+  alle; die Gegenprobe („ein anderes Konto darf") ist Teil des Tests;
+- **je Minute UND je Tag** (20/200 beim Assistenten). Das HQ hatte nur einen
+  Minutendeckel — 30/min sind 43 200/Tag. Nachgezogen: 1000/Tag;
+- 600 Zeichen Ausgabe, 1 MB Aufnahme (HQ: 1200 / 4 MB);
+- **der Ton wird nie zur Datei** — er existiert nur für den einen Aufruf;
+- base64 `strict`, Länge **vor** dem Dekodieren geprüft;
+- Whisper-Phantome (Untertitel-Abspann) filtert jetzt der **Server**, also für
+  beide Aufrufer.
+
+Oberfläche: Mikrofon und Lautsprecher-Schalter in der Eingabezeile,
+Sprachausgabe **aus** bis man sie einschaltet, kein dauerhaft offenes Mikrofon
+(ein Druck = eine Aufnahme), hörbarer Rückfall auf `speechSynthesis`. Das
+Gesprochene läuft durch `_aiUserSays()` — **dieselbe** Sprechblase wie das
+Getippte, damit die Konversation im Chat steht.
+
+Zwei gemessene Funde beim Bauen: der Vorlesetext las **Knopfbeschriftungen**
+und Icon-Ligaturen mit („Ansehen + Board", „search"), und der Schalter
+**schaltete nicht** für Nutzer ohne Cookie-Einwilligung — `ebStimmeAn()` las
+nur `localStorage`, das dort leer bleibt. Der Wunsch trägt jetzt die Sitzung;
+`ebSpeichern()` entscheidet nur, ob er das Neuladen überlebt.
+
+**Offen beim Inhaber:** `EB_OPENAI_API_KEY` ist als GitHub-Secret gesetzt, muss
+aber über den Deploy in `wp-config.php` landen (das tut `ionos-deploy.yml`
+bereits im Schritt „Inject AI keys"). Ohne ihn spricht die Systemstimme — hörbar,
+kein Defekt. Und: wie `nova` klingt, kann aus der Agent-Umgebung niemand hören —
+die Stimme steht an einer Zeile (`EB_STIMME_STIMME`) und ist umzustellen, wenn
+sie nicht gefällt.
+
+**47 neue Tests, 33 Mutationen, alle rot.** Vollständig in CLAUDE.md unter
+„Vier Fassungen einer Zuordnung" und „Der Assistent spricht".
 
 ## Release-Bereitschaft (2026-09-23) — der aktuelle Engpass
 
@@ -60,21 +137,40 @@ geschlossen. Vollständig: [[40-Governance/Legal/Launch-Befund-UG]].
 
    **Es fehlt also nur der echte Durchlauf, nicht der Code.**
 2. `EB_STEUERNUMMER` / `EB_UST_ID` — vorher entsteht bewusst kein
-   Provisionsbeleg (§ 14 UStG).
+   Provisionsbeleg (§ 14 UStG). **Der Weg dorthin ist seit dem 26.09.2026
+   gebaut:** ein Secret setzen, der nächste Deploy schreibt das `define()`
+   nach `wp-config.php` — dasselbe Muster wie bei `EB_APPLE_TEAM_ID`.
+
+   Bis dahin behauptete CLAUDE.md genau diesen Weg, **und es gab ihn nicht.**
+   `ionos-deploy.yml` trug Schritte für SMTP, Stripe, Apple und die
+   KI-Schlüssel — für die Steuerangaben keinen. Wer dem Satz folgte, setzte
+   ein Secret, das nichts liest. Aufgefallen beim Schreiben der
+   Cowork-Anleitung, also erst, als jemand danach handeln sollte.
+
+   Es fehlen jetzt nur noch die **Werte**, und die gibt es erst mit der
+   Eintragung der UG. Gemessen wird beim Schreiben: die USt-IdNr gegen
+   dieselbe Form wie in `eb_provision_absender()` (`DE` + 9 Ziffern), die
+   Steuernummer nur auf ihre Gestalt (10–13 Ziffern mit Trennern) — sie hat
+   kein bundeseinheitliches Format, und eine engere eigene Regel wiese
+   rechtmäßige Nummern ab.
 3. Vier Impressum-Platzhalter füllen, danach „i. G." entfernen (das Tor
    verlangt beides zusammen).
 4. Stripe-Konto von `business_type: individual` auf die UG umstellen.
 5. **Chargebacks** werden seit 23.09. festgehalten und gemeldet — **ohne Geld
-   zu bewegen**. Offen: (a) eine **AGB-Klausel**, ob der Dienstleister dafür
-   einsteht, erst danach ist eine Rückholung baubar; (b) **drei Haken** im
-   Stripe-Dashboard (`charge.dispute.created/updated/closed`), sonst ist der
-   Empfänger ein toter Zweig — `stripe-webhook.mjs` meldet das ab sofort.
+   zu bewegen**. Offen bleibt allein (a) eine **AGB-Klausel**, ob der
+   Dienstleister dafür einsteht; erst danach ist eine Rückholung baubar.
 
-6. **Das OpenRouter-Konto ist leer** (24.09.). Der Autopilot lief 34-mal in
-   Folge rot, weil jedes Modell mit `402: Insufficient credits` antwortete.
-   Er stoppt jetzt tokenfrei statt rot zu werden — arbeiten tut er erst
-   wieder nach dem Aufladen. Sperrt den Release nicht, kostet aber jeden Tag
-   die Selbstverbesserung.
+   (b) ist **erledigt** (26.09.2026, über den Browser): der Endpunkt
+   `we_1TWdQjARRBfHayLnU1lz3jqT` trägt jetzt **zehn** Ereignisse, die drei
+   Streitfall-Ereignisse darunter. Nicht am gespeicherten Dialog abgelesen,
+   sondern über `GET /v1/webhook_endpoints` zurückgelesen; `vergleiche()`
+   meldet `fehltAbo []` und `ohneEmpfaenger []`. `url`, `status: enabled` und
+   `api_version` unverändert, weiterhin genau ein Endpunkt auf dem Konto.
+
+6. ~~**Das OpenRouter-Konto ist leer**~~ — **aufgeladen (26.09., 20 $).** Der
+   Autopilot lief vom 23. bis 24.09. 34-mal in Folge rot, weil jedes Modell
+   mit `402: Insufficient credits` antwortete; er stoppt seither tokenfrei
+   statt rot zu werden. Der erste grüne Lauf danach war `35978335860`.
 
 ### Ein Test hat einmal geflackert, und die Ursache ist NICHT gemessen
 
@@ -102,9 +198,122 @@ Steuerberater (inkl. was Stripe Connect abdeckt) · Datenschutzerklärung § 10a
 danach `EB_HANDLE_NACHTRAG`.
 
 **Von mir baubar, wenn beauftragt:** API-Version pinnen (nur mit Gegenprobe im
-Testmodus — es ändert die Gestalt jeder Stripe-Antwort) · Ruleset auf
-`E2E-Testsuite (Playwright)` · die 105 Deko-Animationen · App-Store-Reste
-(APNs, `Info.plist`, Händlerstatus).
+Testmodus — es ändert die Gestalt jeder Stripe-Antwort) · die 105
+Deko-Animationen · App-Store-Reste (APNs, `Info.plist`, Händlerstatus).
+
+### Der Pflicht-Check hängt jetzt wirklich an der Suite (26.09.2026)
+
+Hier stand *„Ruleset auf `E2E-Testsuite (Playwright)`"* als offener Posten.
+Er ist erledigt: `main-protection` verlangt jetzt **zwei** Kontexte —
+`PR Check / PR-Validierung (pull_request)` **und** `E2E-Testsuite
+(Playwright)`.
+
+Das ist die saubere Lösung, die CLAUDE.md seit dem 14.09. als „liegt beim
+Inhaber und ist eine Einstellung" führt. Der Code-Weg von damals (`needs:
+tests` + `if: always()`) bleibt, wo er ist — er ersetzt sie nicht, er hat sie
+überbrückt, und er schadet auch danach nicht.
+
+### Der Auftragsstrom widerspricht seit sechs Tagen seiner eigenen Quelle
+
+Am 30.09.2026 beim Nachziehen von main gemessen:
+
+| auf `main` | |
+|---|---|
+| `assets/eb-arbeit.json` (Journal, täglich erneuert) | Stand **30.09.** |
+| `assets/eb-auftragsstrom.json` (daraus erzeugt) | `journalStand` **24.09.**, `erzeugt` 24.09. |
+| `ausserhalb` im committeten Strom | **0** |
+| `ausserhalb` nach echter Neuerzeugung | **3** |
+
+**`tagesroutine.yml` nennt `auftragsstrom` an keiner Stelle.** Die Routine
+erneuert also das Journal und **nicht** das Artefakt, das daraus entsteht. Der
+PR-Check erzeugt es, prüft es und wirft den Baum weg; lokal erzeugt es
+`npm run gate`. Auf `main` steht deshalb ein erzeugtes Artefakt, das seiner
+eigenen Quelle widerspricht — genau der Zustand, der am 13.09.2026 schon
+einmal beschrieben wurde, diesmal nicht als Einzelfall, sondern als
+Dauerzustand.
+
+**Die Wirkung ist nicht kosmetisch.** Der Strom ist die Brücke Befund → Arbeit
+und wird im HQ gelesen. Mit `ausserhalb: []` sieht er aus wie ein Haus ohne
+Grenzen — drei Befunde ausserhalb des freigegebenen Rahmens sind darin
+unsichtbar. Die `auftraege`-Liste selbst ist in beiden Fassungen leer, es
+entgeht also **keine Arbeit**; es entgeht die Grenze.
+
+**Bewusst nicht in PR #303 behoben:** ein Schritt in `tagesroutine.yml` ist
+eine andere Baustelle als der Steuer-Deploy, und die Routine ist ausdrücklich
+als *Bericht* gebaut, nicht als Tor — wer dort einen Erzeuger einhängt, muss
+entscheiden, ob ein fehlgeschlagener Lauf nachts rot werden darf. Eine eigene
+Ablieferung. Der **Stand** der Datei ist in #303 mitgezogen, weil ein Artefakt,
+das seiner Quelle widerspricht, schlimmer ist als eines, das morgen wieder
+altert.
+
+### Vorhersagbare Pfade in /tmp — CodeQL hat einen gemeldet, es sind mehr
+
+CodeQL meldete auf PR #303 *„Insecure creation of file in the os temp dir"*
+an einer neuen Zeile in `steuernummer-deploy.spec.js`: ein selbst gebauter
+Name in `os.tmpdir()`. Zu Recht — ein vorhersagbarer Pfad im gemeinsamen
+Temp-Verzeichnis lässt sich von einem fremden Prozess vorbelegen. Behoben
+mit `mkdtempSync`, dem Griff, den zehn andere Suiten ohnehin benutzen.
+
+**Beim Beheben gezählt: es gibt in `tests/e2e/` noch rund acht weitere
+Stellen derselben Form** — `css-minify`, `gebuehren`, `totp`, `upload`
+(zweimal), `radar` (zweimal), `kern`. CodeQL sieht sie nicht, weil sie nicht
+im Diff stehen; das macht sie nicht sicherer.
+
+Hier stand: *„Bewusst nicht in diesem PR mitgenommen … eine eigene
+Ablieferung."* **Am 30.09.2026 doch in #303 erledigt**, und zwar aus einem
+Grund, der die erste Einschätzung widerlegt: der PR trägt den Fix für die
+**erste** Fundstelle schon. Die übrigen dort zu schliessen ist nicht Weitung,
+sondern der Abschluss desselben Befunds — *eine Fundstelle zu beheben
+verhindert die nächste nicht, solange jede Suite den Griff von Hand nachbaut.*
+Ein halb behobener Befund ist die schlechtere Ablieferung.
+
+Nachgezählt beim Umstellen — die Schätzung „rund acht" war richtig:
+
+| | |
+|---|---|
+| Fundstellen mit `os.tmpdir()` in `tests/` | **24** |
+| davon schon sicher (`mkdtempSync`) | **16** |
+| selbst gebauter Name | **8** |
+
+Umgestellt auf `fs.mkdtempSync(path.join(os.tmpdir(), …))` — **kein eigener
+Helfer**: ein drittes Verfahren neben den 16 bestehenden Stellen wäre selbst
+die Drift. Aufgeräumt wird jetzt das Verzeichnis statt nur die Datei; bei
+`radar` blieb vorher je Lauf ein Paar Dateien liegen.
+
+**Zwei Stellen waren nicht bloss Umschreiben.** `radar.spec.js` setzt im
+erzeugten PHP `define('ABSPATH', __DIR__ . '/')` — ein anderes Verzeichnis
+ändert `__DIR__`; `kern.spec.js` schiebt den Pfad in einen **Shell**-Block,
+der hineinschreibt. Beide laufen weiter (188 Tests der sechs Suiten grün),
+aber das ist gemessen, nicht angenommen.
+
+**Die Regel steht in `pruefhygiene.spec.js`** und ist die sechste dort. Fünf
+Mutationen machen sie rot, darunter „der Kommentarabzug entfernt" — zwei der
+umgestellten Stellen nennen `os.tmpdir()` im erklärenden Kommentar, also trägt
+der Abzug hier wirklich etwas — und „das Suchmuster trifft nichts mehr", das
+die Gegenprobe auslöst.
+
+### Wer bei einem Chargeback zahlt — an Stripes Dokumentation nachgelesen
+
+Die Frage kam aus dem Connect-Assistenten („wer haftet bei Rückbuchungen?"),
+und sie ist **im Code längst entschieden**, nicht frei wählbar:
+
+| gemessen | |
+|---|---|
+| Kontotyp (`functions.php:9122`) | **Express**, `country: DE`, `card_payments` + `transfers` |
+| Zahlungsart (`functions.php:8891`) | Destination Charge: `transfer_data[destination]` + `on_behalf_of` + `application_fee_amount` |
+
+Stripe ist in beiden Punkten eindeutig: *„For destination charges and
+separate charges and transfers, **with or without `on_behalf_of`**, Stripe
+debits dispute amounts and fees from your platform account"*, und für
+Express-Konten *„your platform is responsible for disputes and fraud"*.
+
+**Die Plattform haftet also, und zwar unabhängig davon, was im Assistenten
+angeklickt wird.** Der Assistent ist an dieser Stelle dem Code anzupassen,
+nie umgekehrt — eine Einstellung, die etwas anderes behauptet als der
+Zahlungspfad tut, ist die teuerste Sorte Drift, weil sie auf einem Geldweg
+liegt. Die Rückholung vom Dienstleister (`transfer_reversal`) ist technisch
+möglich und bleibt bewusst ungebaut: sie braucht zuerst die AGB-Klausel aus
+Punkt 5.
 
 ## Offen aus der Oberflächenprüfung (2026-09-15) — grösstenteils erledigt
 

@@ -20,12 +20,17 @@ let minifiedCss = null;
 // --no-restructure ist PFLICHT.
 function minify() {
   if (minifiedCss) return minifiedCss;
-  const tmp = path.join(os.tmpdir(), `eb-min-${process.pid}.css`);
+  // Ein selbst gebauter Name in `os.tmpdir()` wäre vorhersagbar und damit
+  // von einem fremden Prozess vorbelegbar — CodeQL meldet genau das als
+  // „Insecure creation of file in the os temp dir". `mkdtempSync` legt das
+  // Verzeichnis atomar mit 0700 und zufälligem Namen an.
+  const heim = fs.mkdtempSync(path.join(os.tmpdir(), 'eb-min-'));
+  const tmp = path.join(heim, 'styles.min.css');
   execFileSync('npx', ['--yes', 'csso-cli@4.0.2', '--no-restructure', 'styles.css', '-o', tmp], {
     cwd: ROOT, encoding: 'utf8', timeout: 120000,
   });
   minifiedCss = fs.readFileSync(tmp, 'utf8');
-  fs.unlinkSync(tmp);
+  fs.rmSync(heim, { recursive: true, force: true });
   return minifiedCss;
 }
 

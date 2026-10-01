@@ -347,6 +347,7 @@ star_half
 stars
 start
 stop
+stop_circle
 storage
 store
 storefront
@@ -396,6 +397,8 @@ view_list
 vignette
 visibility
 visibility_off
+volume_off
+volume_up
 wallet
 warning
 warning_amber
