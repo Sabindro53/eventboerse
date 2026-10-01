@@ -60,6 +60,7 @@ Die gemessene Lage steht in [[40-Governance/Legal/Rechtliche-Lage]].
 | `eb_stripe_onboarding_prompt_<kontext>_<userId>` | funktional | Stripe-Hinweis weggeklickt | `core/30-auth.js` |
 | `eb_ai_chat_v1_<userId\|gast>` | funktional | **Gesprächsverlauf** mit dem Planungs-Assistenten, letzte 60 Nachrichten | `ai/50-planungs-assistent.js` |
 | `eb_radar_ort` | funktional | **Standort** (Koordinaten + Herkunft: Geolocation oder Adresse) | `search/13-event-radar.js` |
+| `eb_assistent_stimme_v1` | funktional | **Sprachausgabe an/aus** beim Planungs-Assistenten — nur `'1'` oder `'0'` | `ai/53-assistent-stimme.js` |
 | `eb_kb_misses` | profilbildend | unbeantwortete Fragen an den KI-Bot; Export von Hand über das HQ | `ui/31-modals-toast-qabot.js` |
 | `eb_taste_v1` | profilbildend | **abgeleitetes Präferenzprofil** aus Such- und Klickverhalten | `search/11-suche-ki.js` |
 
@@ -72,6 +73,15 @@ Die gemessene Lage steht in [[40-Governance/Legal/Rechtliche-Lage]].
   `scripts/openrouter-agents.mjs`.
 - **`eb_taste_v1`** bildet ein Profil. Das ist die Kategorie, für die TDDDG § 25 gemacht
   wurde — hier ist eine wirksame Einwilligung nicht Auslegungssache.
+- **`eb_assistent_stimme_v1`** hält ausschliesslich den Schalterzustand der
+  Sprachausgabe (`'1'`/`'0'`). Kein Ton, kein Text, keine Aufnahme — die
+  Sprachaufnahme wird **nie** gespeichert, weder im Browser noch auf dem
+  Server: sie existiert nur für die Dauer des einen Aufrufs
+  (`includes/stimme/sprachdienst.php`). Ein gespeicherter Mitschnitt wäre ein
+  personenbezogenes Datum mit unklarer Löschfrist. Was gesprochen wurde,
+  landet als **Text** im Gesprächsverlauf — also in `eb_ai_chat_v1_*`, dort
+  unter denselben Bedingungen wie das Getippte.
+
 - **`eb_ai_chat_v1_*`** enthält, was Nutzer dem Assistenten geschrieben haben. Inhalt, den
   der Nutzer selbst erzeugt hat, aber unbegrenzt liegend und ohne Löschweg in der Oberfläche.
 

@@ -16,8 +16,85 @@ Zahlen ihrer Zeit — die sind Historie, kein Ist-Stand. Der Ensemble-Kontext
 liest diese Datei von oben; ein Modell, das „68 Tests" als aktuell meldet, hat
 einen alten Abschnitt gelesen und nicht diesen.
 
-- **Playwright-Suite: 1278 Tests in 88 Suiten**, blockierendes Gate in `pr-check.yml`.
+- **Playwright-Suite: 1325 Tests in 90 Suiten**, blockierendes Gate in `pr-check.yml`.
   Läuft seit dem Self-Hosting auch ohne Netzzugang vollständig durch
+
+## Assistent ausgebaut (2026-10-01) — Kategorie und Sprache
+
+Zwei Aufträge des Inhabers an einem Tag, beide gemessen statt angenommen.
+
+### 1 · „wenn ich dj suche … sollen dj Erscheinen"
+
+Die Kette war an **zwei** Stellen durchtrennt, keine davon sichtbar: der
+Knopf des Assistenten rief `navigateTo('browse')` **ohne Argument**, und der
+Router las `data` im `browse`-Zweig **gar nicht**. Gemessen nach
+`navigateTo('browse','dj')`: kein Chip markiert, alle 15 Inserate.
+
+Dahinter **vier gepflegte Fassungen** derselben Zuordnung, die nicht
+ineinander enthalten waren — am 45-Satz-Korpus 32/45 gegen 35/45, jede
+verfehlte etwas, das die andere kannte. `pyro` und `planung` fehlten in den
+Knöpfen ganz: nach Pyrotechnik zu fragen war unmöglich.
+
+| | vorher | jetzt |
+|---|---:|---:|
+| `_aiCatFromText` | 32/45, 1 Fehlalarm | **45/45, 0** |
+| `_guideCategoryFor` | 35/45, 0 | **45/45, 0** |
+| Kategorieknöpfe im Assistenten | 8 | **10** |
+| Fassungen der Zuordnung | 4 (+1 tote) | **1** |
+
+Eine **fünfte** Fassung war seit jeher unerreichbar: `_getNavAiCategories()`
+trug `typeof AI_CATEGORIES !== 'undefined'` mit elf Einträgen dahinter — der
+Schutz greift nie (`const` in der TDZ **wirft**), und die tote Liste führte
+`wellness`, eine Kategorie, die kein Inserat tragen kann.
+
+Dazu ein gemessener Fund beim Bauen: die Frühabweisung in
+`ebSucheKategorieSetzen()` hinterliess `/browse/quatsch` mit **markiertem
+Chip über ungefilterter Liste**. Jetzt wird zuerst geleert, dann geprüft.
+
+`/browse/dj` ist teilbar — `_spaPath` trägt die Kategorie, die Rewrite-Regel
+`^browse/([^/]+)/?$` stand längst da und wurde von nichts benutzt.
+
+### 2 · „Spracheingabe und Ausgabe mit Menschlicher Stimme"
+
+Das HQ sprach seit August, die Website hatte davon nichts. Die Mechanik liegt
+jetzt **einmal** in `includes/stimme/sprachdienst.php`; HQ und Assistent geben
+nur ihren Rahmen mit (`includes/stimme/routen.php`, zwei neue Routen).
+
+Sicherheit, alles im echten PHP ausgeführt:
+
+- **nur angemeldet** (`is_user_logged_in`) — eine offene Sprachroute ist ein
+  Kostenverstärker auf dem OpenAI-Schlüssel;
+- **Eimer am Konto**, nie an der IP — hinter einem Proxy meint `REMOTE_ADDR`
+  alle; die Gegenprobe („ein anderes Konto darf") ist Teil des Tests;
+- **je Minute UND je Tag** (20/200 beim Assistenten). Das HQ hatte nur einen
+  Minutendeckel — 30/min sind 43 200/Tag. Nachgezogen: 1000/Tag;
+- 600 Zeichen Ausgabe, 1 MB Aufnahme (HQ: 1200 / 4 MB);
+- **der Ton wird nie zur Datei** — er existiert nur für den einen Aufruf;
+- base64 `strict`, Länge **vor** dem Dekodieren geprüft;
+- Whisper-Phantome (Untertitel-Abspann) filtert jetzt der **Server**, also für
+  beide Aufrufer.
+
+Oberfläche: Mikrofon und Lautsprecher-Schalter in der Eingabezeile,
+Sprachausgabe **aus** bis man sie einschaltet, kein dauerhaft offenes Mikrofon
+(ein Druck = eine Aufnahme), hörbarer Rückfall auf `speechSynthesis`. Das
+Gesprochene läuft durch `_aiUserSays()` — **dieselbe** Sprechblase wie das
+Getippte, damit die Konversation im Chat steht.
+
+Zwei gemessene Funde beim Bauen: der Vorlesetext las **Knopfbeschriftungen**
+und Icon-Ligaturen mit („Ansehen + Board", „search"), und der Schalter
+**schaltete nicht** für Nutzer ohne Cookie-Einwilligung — `ebStimmeAn()` las
+nur `localStorage`, das dort leer bleibt. Der Wunsch trägt jetzt die Sitzung;
+`ebSpeichern()` entscheidet nur, ob er das Neuladen überlebt.
+
+**Offen beim Inhaber:** `EB_OPENAI_API_KEY` ist als GitHub-Secret gesetzt, muss
+aber über den Deploy in `wp-config.php` landen (das tut `ionos-deploy.yml`
+bereits im Schritt „Inject AI keys"). Ohne ihn spricht die Systemstimme — hörbar,
+kein Defekt. Und: wie `nova` klingt, kann aus der Agent-Umgebung niemand hören —
+die Stimme steht an einer Zeile (`EB_STIMME_STIMME`) und ist umzustellen, wenn
+sie nicht gefällt.
+
+**47 neue Tests, 33 Mutationen, alle rot.** Vollständig in CLAUDE.md unter
+„Vier Fassungen einer Zuordnung" und „Der Assistent spricht".
 
 ## Release-Bereitschaft (2026-09-23) — der aktuelle Engpass
 

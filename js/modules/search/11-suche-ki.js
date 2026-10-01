@@ -584,19 +584,92 @@ function aiMatchKeyword(input) {
     .slice(0, 5);
 }
 
+// ─── Die EINE Kategorientabelle ────────────────────────────────────────────
+//
+// Bis zum 01.10.2026 stand dieselbe Zuordnung an VIER Stellen: hier (10
+// Einträge), `_AI_CATS` im Planungs-Assistenten (8), `_aiCatFromText` dort
+// (8 Ausdrücke) und `_GUIDE_CAT_RULES` in `board/42` (10 Ausdrücke). Am
+// Korpus gemessen waren die beiden Erkenner **nicht ineinander enthalten** —
+// jeder fing, was der andere verfehlte (32/45 gegen 35/45), und beide
+// zusammen hatten zwei echte Fehler:
+//
+//   · `pyrotechnik` → **licht**, weil `technik` vor `pyro` greift. Ein
+//     Inserat „Pyrotechnik" wurde damit als Licht & Technik geführt.
+//   · `wer hilft beim aufräumen` → **location**, weil `/räum/` unverankert
+//     auch in „aufräumen" trifft. Wer nach Aufräumhilfe fragte, bekam
+//     Schlösser empfohlen.
+//
+// Die zehn Keys sind nicht frei gewählt: sie sind genau die, die ein Anbieter
+// im Inseratsformular (`#createCategory`) wählen kann. Eine elfte hier wäre
+// ein Filter ohne Inserate, eine fehlende ein Inserat ohne Filter.
+//
+// REIHENFOLGE IST LOGIK, nicht Gestaltung: `_guideCategoryFor()` nimmt den
+// ERSTEN Treffer. `pyro` steht deshalb vor `licht` — sonst ist der Befund
+// oben sofort zurück. Ein Test hält genau das fest.
 const AI_CATEGORIES = [
-  { key: 'dj', label: 'DJ & Musik', icon: 'headphones' },
-  { key: 'catering', label: 'Catering', icon: 'restaurant' },
-  { key: 'foto', label: 'Fotografie', icon: 'photo_camera' },
-  { key: 'florist', label: 'Floristik', icon: 'local_florist' },
-  { key: 'deko', label: 'Dekoration', icon: 'celebration' },
-  { key: 'licht', label: 'Licht & Technik', icon: 'lightbulb' },
-  { key: 'planung', label: 'Planung', icon: 'event_note' },
-  { key: 'moderation', label: 'Moderation', icon: 'mic' },
-  { key: 'pyro', label: 'Pyrotechnik', icon: 'local_fire_department' },
-  { key: 'location', label: 'Location', icon: 'castle' },
+  { key: 'dj', label: 'DJ & Musik', icon: 'headphones', emoji: '🎧',
+    muster: /\bdjs?\b|musik|band|line-?up|playlist/i },
+  { key: 'catering', label: 'Catering', icon: 'restaurant', emoji: '🍽️',
+    muster: /catering|essen|buffet|men[üu]|getr[äa]nke|kuchen|torte/i },
+  { key: 'foto', label: 'Fotografie', icon: 'photo_camera', emoji: '📷',
+    muster: /fotograf|videograf|foto|kamera|video/i },
+  { key: 'florist', label: 'Floristik', icon: 'local_florist', emoji: '💐',
+    muster: /florist|blume|strau[ßs]/i },
+  { key: 'deko', label: 'Dekoration', icon: 'celebration', emoji: '🎈',
+    muster: /deko/i },
+  // VOR `licht`: „pyrotechnik" enthält „technik".
+  { key: 'pyro', label: 'Pyrotechnik', icon: 'local_fire_department', emoji: '🎆',
+    muster: /feuerwerk|pyro/i },
+  { key: 'licht', label: 'Licht & Technik', icon: 'lightbulb', emoji: '💡',
+    muster: /licht|technik|\bav\b|strom|b[üu]hne|\bton|livestream/i },
+  { key: 'planung', label: 'Planung', icon: 'event_note', emoji: '🗂️',
+    muster: /koordinator|planer\b|komplettplanung|eventplanung/i },
+  { key: 'moderation', label: 'Moderation', icon: 'mic', emoji: '🎤',
+    muster: /moderat|sprecher/i },
+  // `\br[äa]um` statt `/räum/`: der Wortanfang hält „aufräumen" draussen.
+  { key: 'location', label: 'Location', icon: 'castle', emoji: '🏰',
+    muster: /location|venue|gel[äa]nde|meetingraum|schloss|saal|halle|\br[äa]um/i },
 ];
+
 let selectedCategories = new Set();
+
+/** Gibt es diesen Kategorie-Key wirklich? Jede Übergabe von aussen fragt hier. */
+function ebKategorieBekannt(key) {
+  return AI_CATEGORIES.some(function(c) { return c.key === key; });
+}
+
+/**
+ * Eine Kategorie von aussen in die Suche übergeben — der Weg, den der
+ * Planungs-Assistent und der QA-Bot benutzen.
+ *
+ * ERSETZT die Auswahl, statt sie zu ergänzen: wer aus dem Assistenten mit
+ * „zeig mir DJs" herkommt, hat eine frische Absicht. Bliebe ein alter Filter
+ * stehen, stünde am Ende eine leere Liste da — und die sähe aus wie „es gibt
+ * keine DJs", nicht wie „zwei Filter schliessen sich aus".
+ */
+function ebSucheKategorieSetzen(key) {
+  // ZUERST leeren, DANN pruefen — nicht umgekehrt. Hier stand eine
+  // Fruehabweisung (`if (!bekannt) return false`), und sie hinterliess am
+  // 01.10.2026 messbar den schlimmsten Zustand: `/browse/quatsch` direkt nach
+  // `/browse/location` zeigte den Location-Chip MARKIERT ueber der
+  // ungefilterten Liste — Markierung und Inhalt widersprachen sich, und zwar
+  // lautlos. Ein unbekannter Wert bedeutet jetzt „keine Kategorie", und das
+  // sieht man: kein Chip markiert, alle Inserate da.
+  selectedCategories.clear();
+  if (ebKategorieBekannt(key)) selectedCategories.add(key);
+  // KEIN try/catch. Hier stand eines, „defensiv" begruendet — es haette den
+  // einen Fall verschluckt, auf den es ankommt: scheitert `filterListings()`,
+  // steht ein markierter Chip ueber der ungefilterten Liste. Das ist die
+  // Schadensart „sieht heil aus und tut nichts", und niemand sucht sie.
+  // Die drei Funktionen und ihre Plaetze stehen in derselben Verkettung bzw.
+  // in `app-shell.html`; fehlt einer, ist die Shell kaputt und der
+  // Smoke-Test (0 Page-Errors je Route) meldet es laut.
+  renderCategoryPicker();
+  renderSelectedTags();
+  filterListings();
+  return selectedCategories.size > 0;
+}
+
 let aiDebounce = null;
 
 function renderCategoryPicker() {

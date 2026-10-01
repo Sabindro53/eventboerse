@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "erzeugt": "2026-09-30T11:55:27.185Z",
+  "erzeugt": "2026-10-01T09:31:08.195Z",
   "hinweis": "Erzeugt von scripts/auftragsstrom.mjs aus assets/eb-arbeit.json. Nicht von Hand bearbeiten.",
   "journalStand": "2026-09-30T03:40:19.091Z",
   "lage": "Kein Befund im freigegebenen Rahmen — der Scout wählt selbst.",
@@ -34,7 +34,9 @@
         ".github/workflows/site-monitor.yml"
       ],
       "grund": "nennt audit/latest.json, .github/workflows/site-monitor.yml — außerhalb des freigegebenen Rahmens"
-    },
+    }
+  ],
+  "verworfen": [
     {
       "herkunft": {
         "rolle": "mistral-ops",
@@ -44,13 +46,8 @@
         "zeit": "2026-09-28T03:44:07.962Z",
         "aufgabe": "Releaseweg auf den nächsten vermeidbaren Engpass prüfen."
       },
-      "dateien": [
-        ".github/workflows/pr-check.yml"
-      ],
-      "grund": "nennt .github/workflows/pr-check.yml — außerhalb des freigegebenen Rahmens"
-    }
-  ],
-  "verworfen": [
+      "grund": "älter als 72 h — beschreibt einen anderen Code-Stand"
+    },
     {
       "herkunft": {
         "rolle": "mistral-ops",

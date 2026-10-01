@@ -4,7 +4,11 @@ var _spaBase = (typeof eventboerseApi !== 'undefined' && eventboerseApi.siteUrl)
   : '';
 
 function _spaPath(page, data) {
-  if (!page || page === 'browse') return _spaBase + '/';
+  // `browse` ist die Wurzel — ABER mit Kategorie braucht sie ein Segment,
+  // sonst wäre `/dj` von der Seite `dj` nicht zu unterscheiden. Die Regel
+  // `^browse/([^/]+)/?$` steht in `functions.php` längst; ein geteilter Link
+  // auf `/browse/dj` endet also nicht auf `404.php`.
+  if (!page || (page === 'browse' && !data)) return _spaBase + '/';
   return _spaBase + '/' + page + (data ? '/' + data : '');
 }
 
@@ -422,6 +426,15 @@ function navigateTo(page, data, skipHistory) {
       try { _initHeroShots(); } catch (err) { console.warn('Hero-Montage konnte nicht starten', err); }
       pageReady = loadDbListings().then(function() {
         renderBrowseGrid(LISTINGS);
+        // `data` traegt eine Kategorie ('dj', 'location', …) — der Weg, auf
+        // dem der Assistent und der QA-Bot in die GEFILTERTE Suche
+        // uebergeben. Gesetzt wird NACH renderBrowseGrid(), denn das zeichnet
+        // ungefiltert: andersherum ueberschriebe der Grundaufbau das Ergebnis,
+        // der Chip blieb markiert und darunter stuenden alle Inserate.
+        // Dieselbe Falle wie bei feedTabAktivieren() am 31.08.2026.
+        // Ein unbekannter Wert filtert NICHT und bricht nichts — `/browse/xyz`
+        // zeigt die ganze Liste, statt eine Fehlerseite zu erzeugen.
+        if (data) ebSucheKategorieSetzen(data);
         try { renderHeroMarquees(); } catch (err) { console.error('Fehler renderHeroMarquees in navigateTo(browse)', err); }
         _initCategoryScrollHint();
       });

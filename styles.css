@@ -16943,6 +16943,40 @@ body.dark-mode .bai-dl.od { color: #f87171; }
 }
 .bai-send:hover { background: var(--primary-dark); }
 
+/* ── Assistent: Sprechen und Hören ──────────────────────────────────────
+   Beide Knöpfe tragen 44x44 px Trefferfläche. WCAG 2.2 SC 2.5.8 verlangt
+   24x24; 44 ist Apples Mass und hier billig zu haben, weil die Zeile ohnehin
+   46 px hoch ist. Die Farben kommen aus Tokens, nicht als Literal — sonst
+   folgt der Knopf dem Dunkelmodus nicht (siehe `--white`, 15.09.2026). */
+.bai-voice, .bai-mic {
+  width: 44px; height: 44px; flex: 0 0 44px; border-radius: 50%;
+  border: 1px solid var(--border); background: var(--bg); color: var(--text-light);
+  cursor: pointer; display: flex; align-items: center; justify-content: center;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+.bai-voice:hover, .bai-mic:hover { border-color: var(--primary); color: var(--primary-text); }
+.bai-voice:focus-visible, .bai-mic:focus-visible {
+  outline: 2px solid var(--primary); outline-offset: 2px;
+}
+/* Eingeschaltet: deutlich anders, nicht nur eine Nuance — ein Zustand, den
+   man nicht sieht, ist keiner. */
+.bai-voice.an { background: var(--primary); border-color: var(--primary); color: #fff; }
+.bai-mic.hoert { background: var(--danger, #e5484d); border-color: var(--danger, #e5484d); color: #fff; }
+/* Der Puls sagt „ich höre JETZT zu". Er läuft ausschliesslich während der
+   Aufnahme — eine Dauer-Animation auf einem Knopf, der nichts tut, war in
+   diesem Projekt schon einmal 287 ms Hauptthread je vier Sekunden. */
+.bai-mic.hoert { animation: baiMicPuls 1.1s ease-in-out infinite; }
+@keyframes baiMicPuls {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(229, 72, 77, 0.45); }
+  50%      { box-shadow: 0 0 0 7px rgba(229, 72, 77, 0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  /* Gezielt, nicht über den globalen Dauer-Block: der setzt nur die Dauer
+     auf ~0, und eine Endlosanimation steht damit nicht still, sie flimmert.
+     Gemessen am 10.09.2026. */
+  .bai-mic.hoert { animation: none; box-shadow: 0 0 0 3px rgba(229, 72, 77, 0.35); }
+}
+
 /* Mobile: Sidebar oben (horizontal scrollbar), Chat darunter */
 @media (max-width: 900px) {
   .board-ai-layout { flex-direction: column; height: auto; max-height: none; min-height: 0; }
@@ -16957,6 +16991,12 @@ body.dark-mode .bai-dl.od { color: #f87171; }
   .bai-chat { min-height: 340px; max-height: 56vh; }
   .bai-msg { max-width: 95%; }
   .bai-lcard-acts { flex-direction: column; }
+  /* Vier Elemente in einer Zeile bei 390 px: die Knöpfe schrumpfen, das
+     Eingabefeld behält den Platz. Es ist das Element, in das getippt wird. */
+  .bai-inputrow { gap: 6px; padding: 10px 12px 14px; }
+  .bai-voice, .bai-mic { width: 40px; height: 40px; flex: 0 0 40px; }
+  .bai-send { width: 40px; height: 40px; flex: 0 0 40px; }
+  .bai-inputrow input { padding: 11px 14px; }
 }
 
 /* ==================== Inserat-Maske: einseitig, Biete/Suche, Verfügbarkeitskalender ==================== */

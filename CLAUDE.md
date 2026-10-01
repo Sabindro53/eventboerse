@@ -2614,6 +2614,337 @@ durchzureichen.
 npx playwright test tests/e2e/aktivitaet-weiterleiten.spec.js   # 10 Tests, 9 Mutationen
 ```
 
+### Vier Fassungen einer Zuordnung — und die Kette war zweimal durchtrennt
+
+Gemeldet am 01.10.2026: *„wenn ich dj suche, und über die Verlinkung Suche gehe
+dann sollen dj Erscheinen, oder wenn ich nach Locations suche soll dann auch im
+Filter Location finden lassen."* Im echten Browser nachgemessen war die Kette an
+**zwei** Stellen durchtrennt, und keine der beiden war an der Oberfläche
+sichtbar:
+
+| | |
+|---|---|
+| der Knopf des Assistenten | `onclick="navigateTo('browse')"` — **ohne Argument** |
+| der Router | `case 'browse':` las `data` **gar nicht** |
+| gemessen nach `navigateTo('browse','dj')` | kein Chip markiert, **alle 15** Inserate |
+
+Beide Hälften sahen für sich vollständig aus. Der Knopf führte in die Suche, die
+Suche funktionierte — nur ging zwischen ihnen nichts über, und der Nutzer klickte
+die Kategorie ein zweites Mal an. Genau den Weg hatte er sich gerade gespart.
+
+**Dahinter lagen VIER gepflegte Fassungen derselben Zuordnung**, und die Messung
+hat gezeigt, dass sie nicht ineinander enthalten waren:
+
+| Fassung | Einträge | Korpus (45 Sätze) |
+|---|---:|---:|
+| `AI_CATEGORIES` (Chips der Suche) | 10 | — |
+| `_AI_CATS` (Knöpfe des Assistenten) | **8** | — |
+| `_aiCatFromText` (getippter Text) | 8 Ausdrücke | **32/45**, 1 Fehlalarm |
+| `_GUIDE_CAT_RULES` (Inseratstext) | 10 Ausdrücke | **35/45**, 0 Fehlalarme |
+
+**Jeder verfehlte etwas, das der andere kannte.** Im Assistenten liefen
+„getränke", „torte", „venue", „gelände", „strom", „livestream", „feuerwerk" und
+„koordinator" ins Leere — am Inserat wurden sie erkannt. Und `pyro` und `planung`
+fehlten in den Knöpfen ganz: **nach Pyrotechnik zu fragen war unmöglich**, während
+die Suche daneben einen Chip dafür anbot.
+
+Nach der Vereinheitlichung: **45/45 in beiden Erkennern, 0 Fehlalarme.**
+
+**Die autoritative Quelle ist das Formular, nicht die längste Liste.** Gefragt
+wurde nicht „welche Zuordnung ist die beste", sondern „was kann ein Anbieter
+überhaupt wählen" — `#createCategory` bietet genau zehn Werte. Ein Chip ohne
+Formular-Gegenstück filtert auf eine Kategorie, die kein Inserat tragen kann; ein
+Formularwert ohne Chip ist unsuchbar. Der Test verlangt deshalb **Gleichheit**,
+nicht „mindestens".
+
+**Die Reihenfolge der Tabelle IST die Logik.** „pyrotechnik" enthält „technik" —
+vor dem 01.10. gewann `licht` in **beiden** Erkennern. `pyro` steht jetzt davor,
+und ein eigener Test hält die Stellung fest: beim nächsten alphabetischen
+Aufräumen ginge das sonst still wieder kaputt.
+
+**Ein Fehlalarm war die teurere Hälfte.** „wer hilft beim aufräumen" ergab
+`location`, weil `/räum/` unverankert war. Der Assistent beantwortete damit eine
+Frage, die niemand gestellt hat. `\br[äa]um` hält den Wortanfang.
+
+#### Und eine fünfte Fassung war seit jeher unerreichbar
+
+Beim Bauen des Tests gefunden: `_getNavAiCategories()` in
+`board/42-guide-social-feed.js` trug
+
+```js
+return (typeof AI_CATEGORIES !== 'undefined') ? AI_CATEGORIES : [ …elf Einträge… ];
+```
+
+**Der Schutz greift nie.** `AI_CATEGORIES` ist `const` im selben verketteten
+Skript; ist es noch nicht initialisiert, **wirft** `typeof` (TDZ), statt
+`'undefined'` zu liefern. Der Ersatzzweig war toter Code — und war schon
+auseinandergelaufen: Floristik trug 🌸 statt 💐, und `wellness` stand darin, eine
+Kategorie, die **kein Inserat tragen kann**. Wäre der Zweig je gelaufen, hätte die
+Leistensuche einen Filter angeboten, der garantiert nichts findet.
+
+Dieselbe Klasse wie die drei Konfetti-Popper hinter `display: none`: etwas ist da,
+sieht aus, als täte es etwas, und tut nichts. Deshalb steht nirgends mehr ein
+`typeof` auf dieser Tabelle. Bricht die Reihenfolge in `modules.list`, **soll**
+`app.js` laut beim Laden scheitern — der Smoke-Test fährt jede Route auf 0
+Page-Errors. Ein Schutz, der im Ernstfall nicht greift, ist schlimmer als keiner,
+weil er einen vortäuscht.
+
+#### Die Weitergabe steht NACH dem Grundaufbau
+
+`ebSucheKategorieSetzen(data)` läuft im `.then` von `loadDbListings()`, **hinter**
+`renderBrowseGrid(LISTINGS)`. Andersherum überschreibt der Grundaufbau das
+gefilterte Ergebnis, der Chip bleibt markiert, und darunter stehen alle Inserate —
+dieselbe Falle wie bei `feedTabAktivieren()` am 31.08.2026. Gemessen wird die
+**Reihenfolge im Code**, weil sie am Ergebnis nur sichtbar ist, wenn
+`loadDbListings()` langsam genug ist.
+
+**Und `/browse/dj` ist teilbar.** `_spaPath` trägt die Kategorie als Segment; ohne
+es wäre `/dj` von der **Seite** `dj` nicht zu unterscheiden, und ein geteilter Link
+endete auf `404.php`. Die Regel `^browse/([^/]+)/?$` stand in `functions.php`
+längst — es gab nur nichts, was sie benutzt hätte.
+
+#### Die Frühabweisung hinterliess den schlimmsten Zustand
+
+`ebSucheKategorieSetzen()` begann mit `if (!ebKategorieBekannt(key)) return false`.
+Gemessen: `/browse/quatsch` direkt nach `/browse/location` zeigte den
+**Location-Chip markiert über der ungefilterten Liste** — Markierung und Inhalt
+widersprachen sich, lautlos. Zwei Zeilen darüber stand mein eigener Kommentar, der
+genau davor warnt.
+
+Jetzt wird **zuerst geleert, dann geprüft**: ein unbekannter Wert heisst „keine
+Kategorie", und das sieht man.
+
+**Das `try/catch` darin war ebenfalls falsch** — „defensiv" begründet, und es
+hätte den einen Fall verschluckt, auf den es ankommt: scheitert
+`filterListings()`, steht ein markierter Chip über der ungefilterten Liste.
+
+#### Der Knopf nennt die ganze Zahl
+
+Die Antwort zeigt drei Karten und sagt „Alle 7 in der Suche". Gezählt wird
+**vor** `.slice(0, 3)` — danach stünde dort 3, und der Nutzer hielte die Liste für
+vollständig. Diese Eigenschaft hat ein eigenes Subjekt bekommen (ein Test stellt
+sieben Inserate), denn mit den Demo-Daten allein ist sie nicht beobachtbar, und
+eine Wache ohne Subjekt ist eine Behauptung — dieselbe Lehre wie bei
+`ebAuftragSchluessel()`.
+
+**Der Key landet in einem `onclick`-Attribut.** Der Knopf entsteht deshalb nur für
+einen Key aus der Tabelle (`ebKategorieBekannt`) — eine Weissliste ist dort die
+einzige Form, die auch bei einem erfundenen Argument trägt. Dieselbe Begründung wie
+beim `pi_…`-Knopf des Stornos.
+
+**Der leere Zweig trägt die Kategorie ebenfalls.** Der Assistent sieht
+`_visibleListings()`, die Suche lädt aus der Datenbank — „schau mal in der Suche
+vorbei" ohne Filter war die schlechtere Auskunft.
+
+Dreizehn Mutationen, jede macht die Suite rot: `_AI_CATS` wieder als Handliste
+(**3 rot**) · `_GUIDE_CAT_RULES` wieder eigene Liste (4) · `pyro` nach `licht` (4) ·
+Wortanfang bei `r[äa]um` entfernt · `typeof`-Schutz zurück · Weitergabe vor dem
+Grundaufbau · Weitergabe ganz entfernt (3) · `_spaPath` wirft die Kategorie weg ·
+Frühabweisung zurück · Assistent gibt die Kategorie nicht mit (2) · Weissliste
+entfernt · erst abschneiden, dann zählen · tote Ersatzliste mit `wellness` zurück.
+
+```bash
+npx playwright test tests/e2e/assistent-kategorie.spec.js   # 16 Tests, 13 Mutationen
+```
+
+### Der Assistent spricht — mit einer Fassung, nicht zwei
+
+Gefordert am 01.10.2026: *„unserer Assistent braucht ein Spracheingabe und Ausgabe
+mit Menschlicher Stimme der dann im Chat zu sehen ist die konversation."*
+
+Das HQ sprach seit August — serverseitig über `/hq/stimme` (OpenAI TTS) und
+`/hq/gehoer` (Whisper), rund 160 Zeilen in `functions.php`. Für die Website gab es
+davon **nichts**.
+
+**Den Assistenten mit einer Kopie zu bedienen wäre der kürzere Weg gewesen.** In
+diesem Projekt sind so schon eine Sicherheitsliste, eine Testzahl, eine
+Icon-Liste, ein Privacy-Manifest und — einen Abschnitt weiter oben — eine
+Kategorientabelle auseinandergelaufen. Eine Kopie einer **Grenzwertliste** driftet
+auch, und die Frage ist nur, in welche Richtung. Die Mechanik liegt deshalb in
+`includes/stimme/sprachdienst.php`; HQ und Assistent geben nur noch ihren **Rahmen**
+mit. Was sie unterscheidet, sind fünf Zahlen und ein Eimername — nicht die Logik.
+
+#### Der Unterschied ist nicht die Logik, sondern wer davorsteht
+
+| | HQ | Assistent |
+|---|---|---|
+| davor | Administratoren mit zweitem Faktor | **jeder angemeldete Nutzer** |
+| Eimer | IP (vom Proxy-Faktor geweitet) | **Konto** (`'u' . user_id`, nie geweitet) |
+| je Minute | 30 | 20 |
+| **je Tag** | 1000 | **200** |
+| Ausgabe | 1200 Zeichen | 600 |
+| Aufnahme | 4 MB | 1 MB |
+
+**Nur angemeldet.** Eine offene Sprachroute ist ein Kostenverstärker: wer sie ohne
+Konto in eine Schleife legt, schreibt eine Rechnung auf meinen OpenAI-Schlüssel,
+und es gibt niemanden, den man dafür deckeln könnte. Der Preis ist ehrlich benannt
+— ein Besucher ohne Konto kann den Assistenten nicht besprechen, und die
+Oberfläche **sagt das**, statt das Mikrofon wortlos auszublenden.
+
+**Gedeckelt am Konto, nicht an der IP.** Hinter einem Reverse-Proxy bezeichnet
+`REMOTE_ADDR` alle Besucher gemeinsam. Die Gegenprobe gehört zum Test: ein Deckel,
+der **alle** sperrt, bestünde „der zweite Aufruf wird abgewiesen" ebenso — und
+wäre an einem Starttag eine kaputte Seite.
+
+**Je Minute UND je Tag.** Zwanzig pro Minute allein sind 28 800 am Tag. Der
+Tagesdeckel ist der eigentliche Kostenschutz, der Minutendeckel hält nur die
+Schleife auf. **Das HQ hatte bis dahin nur einen Minutendeckel** — für zwei
+Berechtigte kein praktisches Risiko, aber auch keine Grenze; und beim Teilen wäre
+die Lücke mitgewandert. Ein Deckel, der erst beim zweiten Nutzer gebraucht wird,
+gehört beim ersten eingebaut.
+
+**Ein fehlender Deckel im Rahmen gilt als der strengste, nicht als keiner.** Eine
+fehlende Grenze ist keine Erlaubnis.
+
+#### Kein dauerhaft offenes Mikrofon — die Klasse gibt es hier nicht
+
+Ein Druck ist **eine** Aufnahme: sie endet bei Stille (900 ms), nach 15 s oder beim
+zweiten Druck. Das HQ hatte am 22.08.2026 die andere Bauart — das Mikrofon ging
+120 ms nach der Sprachausgabe von selbst wieder auf, hörte seinen eigenen Nachhall
+und antwortete darauf. Gemeldet wurde es als *„redet einfach so, ohne dass ich was
+frage"*, und es brauchte danach eine Echo-Erkennung, eine Runden-Grenze und eine
+Pegel-Eichung, um den Zustand wieder einzufangen.
+
+**Hier gibt es die Klasse nicht, weil es die Schleife nicht gibt.** Ein Test hält
+fest, dass kein `setTimeout` das Mikrofon neu startet.
+
+**Die Pegelschwelle ist trotzdem geeicht** (Ruhepegel der ersten 600 ms × 3,5): eine
+feste Zahl ist auf dem einen Gerät taub und auf dem anderen ein Dauerauslöser.
+Ohne `AudioContext` gilt der Laut als gegeben — lieber ein Aufruf zu viel als ein
+Mikrofon, das grundsätzlich nichts liefert.
+
+**Das Mikrofon wird in jedem Ausgang freigegeben.** `ebMikroAbbauen()` ist die
+eine Stelle: Zeitgeber, Recorder, AudioContext, dann die Spuren. Solange eine Spur
+lebt, leuchtet die Aufnahme-Anzeige des Browsers, und für den Nutzer hört das
+Gerät weiter zu. Dieselbe Regel wie im HQ: neue Stelle, die beendet → diese
+Funktion rufen.
+
+#### Die Konversation steht im Chat
+
+Das Gesprochene läuft durch `_aiUserSays()` — **denselben Weg wie das Getippte**:
+eigene Sprechblase, Antwort darunter, im Verlauf gespeichert. Ein zweiter Pfad für
+Sprache wäre eine zweite Wahrheit, und das Gesagte stünde nicht im Chat. Nur so
+ist hinterher zu sehen, ob falsch **verstanden** oder falsch **geantwortet** wurde.
+
+**Vorgelesen wird an EINER Stelle** — in `_aiPushMsg`, nicht an den fünfzehn
+Stellen, die es rufen. Eine Vorlese-Zeile je Antwortstelle müsste man an jeder
+neuen wiederholen, und dann schweigt genau die nächste. Dieselbe Begründung wie
+`defaults: run: shell: bash` am Job statt je Schritt.
+
+**Gesprochen wird nur auf Wunsch.** Der Schalter ist aus, bis ihn jemand
+einschaltet. Ein Assistent, der unaufgefordert zu sprechen anfängt, ist in einem
+Büro oder einer Bahn ein Übergriff — und er kostet Geld für eine Ausgabe, die
+niemand wollte.
+
+#### Der Schalter schaltete nicht, und zwar für die Vorsichtigen
+
+Gemessen am 01.10.2026: `ebStimmeAn()` las **nur** `localStorage`. Ohne
+Cookie-Einwilligung verweigert `ebSpeichern()` den nicht-essenziellen Schlüssel —
+richtig —, also blieb der Speicher leer, der Knopf blieb aus, und der Druck tat
+**nichts**. „Sieht heil aus und tut nichts", die teuerste Schadensart dieses
+Projekts, und sie traf genau die Nutzer, die Speicherung abgelehnt haben.
+
+Jetzt trägt der Wunsch die Sitzung, und `ebSpeichern()` entscheidet nur noch, ob er
+das Neuladen **überlebt**. Genau das bedeutet „keine Speicherung" — nicht „keine
+Funktion". Die Gegenprobe gehört dazu: ohne Einwilligung darf auch wirklich nichts
+liegen bleiben.
+
+#### Der Vorlesetext ist Prosa, nicht Oberfläche
+
+Gemessen las die erste Fassung *„Max Beats 4.9 · 450–700€ / Event **Ansehen +
+Board**"* vor — die Beschriftungen der Schaltflächen. **Eine Stimme kann nicht
+klicken**, und eine Aufforderung zum Drücken, die man nur hört, ist eine
+Sackgasse. Die Knöpfe bleiben im Chat sichtbar; das ist ihr Platz.
+
+**Die Icon-Ligaturen müssen ebenfalls raus.**
+`<span class="material-icons-round">search</span>` hat den Textinhalt „search" —
+vorgelesen sagte der Assistent mitten im Satz „search". Genau diese Falle stand am
+15.09.2026 in der Barrierefreiheit, als vier Icon-Spans von einem Screenreader
+mitgelesen wurden, nachdem die Beschriftungen repariert waren.
+
+**Die Satzgrenzen entstehen von innen nach aussen.** `querySelectorAll` liefert
+Dokumentreihenfolge, also den Umschlag **vor** seinen Karten — der Umschlag sah
+dann noch keinen Punkt, hängte einen an, und der landete hinter dem der letzten
+Karte: „… Event. .". Umgedreht sieht jeder Elternknoten die fertigen Kinder. Und
+das Trennzeichen steht **davor** wie danach, sonst wird aus „…für DJ & Musik:" plus
+Kartenliste ein „MusikMax Beats".
+
+Geschnitten wird über einen abgetrennten DOM-Baum, nicht mit einem Ausdruck über
+`<[^>]*>` — ein Ausdruck trifft auch ein `<` im Text und wirft den Rest weg.
+
+#### Der Rückfall ist hörbar, der Ausweichweg sichtbar
+
+Fehlt der Serverschlüssel, ist das Konto abgemeldet oder greift der Tagesdeckel,
+spricht `speechSynthesis` des Betriebssystems. Eine Sprachausgabe, die still
+bleibt, ist für den Nutzer von einem Absturz nicht zu unterscheiden.
+
+**Ein 429 wird nicht gemerkt.** Nur *„nicht hinterlegt"* schreibt den Server für
+die Sitzung ab — ein gemerkter vorübergehender Fehler kostete bei einer Minute
+Deckel die ganze Sitzung. Dieselbe Lehre wie beim gemerkten abgelehnten
+Versprechen im Stripe-Lader.
+
+**Die Tonfall-Anweisung ist dokumentiert, nicht gemessen.**
+`gpt-4o-mini-tts` nimmt neben dem Text eine Anweisung zur Sprechweise an; von hier
+aus ist das nicht prüfbar (kein Schlüssel, `api.openai.com` nicht erreichbar).
+Deshalb ist der Ausfall **eingebaut statt vorausgesetzt**: lehnt die Gegenstelle mit
+400 ab, läuft die Anfrage **ein** zweites Mal ohne Anweisung, und die Antwort trägt
+`ohne_anweisung: true`. Ein unbekanntes Feld kann den Assistenten damit nicht
+verstummen lassen. **Jeder andere Code und jeder zweite Versuch sind endgültig** —
+eine Schleife, die alles wiederholt, verdreifacht die Last und schleift echte
+Fehler weg.
+
+**Wie die Stimme klingt, steht hier nicht.** `nova` ist bei OpenAI als warm und
+natürlich beschrieben; hören kann das aus dieser Umgebung niemand. Die Wahl steht an
+**einer** Zeile (`EB_STIMME_STIMME`) und ist eine Entscheidung des Inhabers. Eine
+Behauptung über den Klang stünde ohne Deckung da.
+
+#### Was der Ton nie wird: eine Datei
+
+Die Aufnahme existiert nur für die Dauer des Aufrufs — kein `file_put_contents`,
+kein `tmpnam`, kein Upload. Ein gespeicherter Mitschnitt wäre ein
+personenbezogenes Datum mit unklarer Löschfrist. Was gesprochen wurde, landet als
+**Text** im Gesprächsverlauf, also unter denselben Bedingungen wie das Getippte.
+`eb_assistent_stimme_v1` hält ausschliesslich `'1'` oder `'0'` — in
+`Cookie-Liste.md` als funktional geführt.
+
+**base64 wird `strict` dekodiert, und die Länge VOR dem Dekodieren geprüft.** Ohne
+`strict` schluckt PHP Müll und liefert Bytes, die kein Ton sind — die Gegenstelle
+bekäme sie und rechnete dafür ab. Die Vorprüfung ist an der Antwort **nicht**
+beobachtbar (die zweite Längenprüfung liefert dasselbe 413), und die Mutation
+„Vorprüfung entfernt" hat den ersten Test prompt überlebt. Sie hat ihr Subjekt
+jetzt in der Stellung im Code — dieselbe Lehre wie bei `ebAuftragSchluessel()`.
+
+**Whisper erfindet bei Stille Text**, und das filtert jetzt der **Server**: jeder
+Whisper-Aufruf geht durch `eb_sprachdienst_hoeren()`, HQ und Assistent gemeinsam.
+Ein Filter, an den jeder neue Aufrufer denken muss, wird beim zweiten vergessen.
+`istPhantom()` im HQ-Browser ist dazu **keine Kopie, sondern ein anderes Subjekt**:
+es bewacht den Rückfall auf `SpeechRecognition`, der den Server nie anfasst.
+
+**Normiert wird vor dem Kleinschreiben.** `strtolower()` arbeitet byteweise — „Ü"
+sind zwei UTF-8-Bytes, keines ein ASCII-Grossbuchstabe. Ein Muster mit Umlaut
+träfe nie, und der Filter wäre still wirkungslos: genau der Fehler, an dem
+`eb_handle_vorschlag()` jeden führenden Umlaut gefressen hat. `mb_strtolower` wäre
+der kürzere Weg und der unsicherere, weil mbstring keine garantierte Voraussetzung
+ist. Die Liste bleibt **eng** — „Brauchen wir Untertitel für den Livestream?" ist
+bei einem Event-Marktplatz eine naheliegende Frage.
+
+**Der Fehlertext der Gegenstelle wird nicht durchgereicht.** Er nennt
+Organisationsnamen und Kontodetails.
+
+Zwanzig Mutationen, jede macht die Suite rot: Sprachroute ohne Anmeldung · Eimer
+wieder an der IP · Tagesdeckel entfernt · base64 nicht `strict` · Grösse erst nach
+dem Dekodieren · Phantom nicht verworfen · Umlaut-Normierung entfernt · jeder
+Fehlercode wird wiederholt (2) · Fehlertext durchgereicht · Zeichenschnitt
+byteweise · fehlender Deckel gilt als unbegrenzt · der Ton landet auf der Platte ·
+die Antwort wird nicht vorgelesen · Schalterzustand nur aus `localStorage` (2) ·
+Icons und Knöpfe im Vorlesetext · Satzgrenzen von aussen nach innen · Mikrofon
+nicht freigegeben · Zeitlimit entfernt · abgemeldet tut das Mikrofon nichts ·
+Rückfall auf die Systemstimme entfernt.
+
+```bash
+npx playwright test tests/e2e/assistent-stimme.spec.js   # 31 Tests, 20 Mutationen
+```
+
 ### Der Dienstleister sah, WAS er liefern muss — nicht, WANN
 
 Am 14.09.2026 im echten Browser gemessen. `/auftraege` ist die Tagesseite
@@ -4781,7 +5112,7 @@ npm run test:smoke      # nur Routen-Smoke-Tests
 npm run test:css        # CSS-Minify-Regression (Verlaufsschrift)
 ```
 
-1278 Tests in 88 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
+1325 Tests in 90 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
 Sätze), Gebühren (centgenau, JS↔PHP-Parität), Wissensbasis (Antworten +
 Leckage-Schutz), Zufluss (Quarantäne-Tor + Demo-Feed-Ehrlichkeit),
 Verbindungen (HQ-Zugang + Connector-Katalog), Auftragsstrom (Herkunft +
@@ -4872,6 +5203,23 @@ vorgefiltert, und die angelegte Karte landet wirklich AM Baustein — im echten
 Browser geklickt, im Projekt nachgesehen; der gewöhnliche Weg verknüpft nichts,
 eine abgebrochene Auswahl hinterlässt keine Notiz, und die Herkunft gilt nur
 für ihr eigenes Vorhaben),
+**Assistent-Kategorie** (eine Zuordnung statt vier: die Chips der Suche sind
+genau das, was ein Anbieter im Formular wählen kann, Knöpfe und Erkenner sind
+daraus ABGELEITET und nicht abgeschrieben; 45 getippte Sätze treffen ihre
+Kategorie und 12 harmlose Fragen keine; „pyrotechnik" ist Pyrotechnik, nicht
+Technik; und der Weg hinein wird geklickt — `navigateTo('browse','dj')`
+filtert wirklich, ein unbekannter Wert lässt keinen Chip markiert
+zurückstehen, und der Knopf nennt die GANZE Zahl, nicht die drei gezeigten),
+**Assistent-Stimme** (Sprachausgabe und Spracherkennung im echten PHP
+ausgeführt, nicht gelesen: eine offene Sprachroute gibt es nicht, der Deckel
+hängt am Konto und greift je Minute UND je Tag, zwei Konten teilen ihn nicht,
+base64 wird `strict` dekodiert und die Länge VOR dem Dekodieren geprüft, der
+Ton wird nie zur Datei, ein Whisper-Phantom wird verworfen — auch mit
+grossgeschriebenem Umlaut —, und der Fehlertext der Gegenstelle bleibt drin;
+im Browser: beide Knöpfe sind da und bedienbar, die Ausgabe ist AUS bis
+jemand sie einschaltet, der Schalter schaltet auch ohne Cookie-Einwilligung
+ohne dabei etwas zu speichern, der Vorlesetext ist Prosa statt
+Knopfbeschriftung, und es gibt genau EINEN Weg vom Mikrofon in die Antwort),
 **Dienstleister-Termine** (das Auftragsboard beantwortet auch das WANN: der
 nächste Auftrag steht oben, bei gleichem Tag die frühere Uhrzeit zuerst, und
 die Zeit kommt aus `card.times` statt aus dem Spiegel — zwei Einsätze sind
@@ -5065,7 +5413,7 @@ WordPress-Mediathek ist der richtige, weil die Bilder dort dieselbe Behandlung
 bekommen wie ein Nutzer-Upload. **Das Skript nicht mehr benutzen.**
 
 **Die Icon-Schrift ist zugeschnitten.** Material Icons Round trug 2200 Symbole
-und 170 KB; benutzt werden 399. Die ausgelieferte Datei ist **33 KB**, die
+und 170 KB; benutzt werden 402. Die ausgelieferte Datei ist **34 KB**, die
 Quelle liegt unter `scripts/lib/` und wird nie ausgeliefert (`^scripts/` ist im
 Deploy ausgeschlossen).
 
@@ -5192,12 +5540,12 @@ Push auf `main` → GitHub Actions (`.github/workflows/ionos-deploy.yml`) → SF
 | Datei | Inhalt |
 |-------|--------|
 | `app.js` | **Generiert** aus `js/modules/**` via `./build-app-js.sh` — nie von Hand editieren |
-| `js/modules/` | Quelle des Frontends: 31 Module in `core/`, `search/`, `chat/`, `payments/`, `board/`, `ai/`, `ui/`, `social/` (Reihenfolge: `modules.list`) |
+| `js/modules/` | Quelle des Frontends: 32 Module in `core/`, `search/`, `chat/`, `payments/`, `board/`, `ai/`, `ui/`, `social/` (Reihenfolge: `modules.list`) |
 | `styles.css` | ~17 900 Zeilen CSS, mobile-first |
 | `app-shell.html` | **Einzige Quelle des SPA-Bodys** (PHP-frei). Body-Markup NUR hier editieren. |
 | `index.php` | WordPress-Template: PHP-Head (Per-Page-Meta) + `readfile(app-shell.html)` + `wp_footer()`. Body NICHT direkt editieren. |
 | `index.html` | Lokale Dev-Shell, **generiert** via `./build-index-html.sh` (= `index.local-head.html` + `app-shell.html` + `index.local-foot.html`). Nicht von Hand editieren. |
-| `functions.php` | WordPress-Theme: REST API (135 Routen), Asset-Registrierung — 22 davon in `includes/social/` (Freunde, Gruppen, gemeinsamer Plan) |
+| `functions.php` | WordPress-Theme: REST API (137 Routen), Asset-Registrierung — 22 davon in `includes/social/` (Freunde, Gruppen, gemeinsamer Plan), 2 in `includes/stimme/` (Sprachausgabe und -erkennung des Assistenten) |
 | `webauthn.php` | Passkey/WebAuthn ohne Composer-Dependencies |
 
 **JS-Workflow (seit 2026-08, kein Drift):** Frontend-Änderungen NUR in `js/modules/**`,
@@ -5218,7 +5566,7 @@ Alle Navigation läuft über `navigateTo(page, data, skipHistory)`. Seiten-Token
 
 Base: `/wp-json/eventboerse/v1/`. Aufgebaut per `_apiUrl(endpoint)` (fällt auf relativen Pfad zurück wenn `eventboerseApi.restUrl` nicht gesetzt). Authentifizierung per WordPress-Nonce → `X-WP-Nonce` Header via `_apiHeaders()`.
 
-135 Route-Registrierungen (`register_rest_route`), grob gruppiert nach: Auth, Nutzer, WebAuthn, 2FA, Listings, Messaging, Reviews, Payments, Favoriten, Admin, Rechtsablage, **Freunde & Gruppen** (`includes/social/routen.php`), **gemeinsamer Plan** (`includes/social/plan-routen.php`), **PStTG-Angaben** (`includes/steuer/psttg-routen.php`), Utilities.
+137 Route-Registrierungen (`register_rest_route`), grob gruppiert nach: Auth, Nutzer, WebAuthn, 2FA, Listings, Messaging, Reviews, Payments, Favoriten, Admin, Rechtsablage, **Freunde & Gruppen** (`includes/social/routen.php`), **gemeinsamer Plan** (`includes/social/plan-routen.php`), **PStTG-Angaben** (`includes/steuer/psttg-routen.php`), **Sprache des Assistenten** (`includes/stimme/routen.php`), Utilities.
 
 **Gezählt wird über alle PHP-Dateien, nicht nur `functions.php`.** Bis zum 09.09.2026 las `kontext.mjs` nur die eine Datei — und meldete „106 behauptet, 106 gemessen" für eine Anwendung mit 124 Routen, sobald die ersten ausgelagert waren. Ein Prüfer, der sein Subjekt nur zur Hälfte kennt, gibt eine Entwarnung, die er nicht decken kann.
 

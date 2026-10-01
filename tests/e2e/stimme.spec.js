@@ -38,6 +38,25 @@ async function circleAuf(page) {
 const ROOT = path.join(__dirname, '..', '..');
 const HQ = fs.readFileSync(path.join(ROOT, 'hq.html'), 'utf8');
 const FUNCTIONS = fs.readFileSync(path.join(ROOT, 'functions.php'), 'utf8');
+// Seit dem 01.10.2026 liegt die Mechanik beider Richtungen in EINER Datei
+// und wird mit dem Assistenten der Website geteilt (`assistent-stimme.spec.js`
+// fuehrt sie im echten PHP aus). Die Eigenschaften, die hier geprueft werden,
+// sind unveraendert — nur ihr Ort hat sich geaendert.
+//
+// DIE TESTS MUSSTEN MITWANDERN, SONST HAETTEN SIE IHR SUBJEKT VERLOREN:
+// `eb_hq_stimme()` ist jetzt vier Zeilen, und jede Pruefung auf „kein
+// `file_put_contents` im Rumpf" waere daran trivial gruen geworden — eine
+// Entwarnung ueber Code, in den sie nie gesehen hat. Genau die Klasse, die
+// diese Datei sonst bekaempft.
+const DIENST = fs.readFileSync(path.join(ROOT, 'includes/stimme/sprachdienst.php'), 'utf8');
+/** Rumpf einer Funktion des gemeinsamen Dienstes, ohne Kommentare. */
+function dienstRumpf(name) {
+  const i = DIENST.indexOf('function ' + name);
+  expect(i, `${name} muss im Sprachdienst stehen`).toBeGreaterThan(-1);
+  const ab = DIENST.slice(i);
+  const rumpf = ab.slice(0, ab.indexOf('\n}\n') + 3);
+  return rumpf.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/[^\n]*/g, '$1');
+}
 
 async function hqAuf(page) {
   await page.route('https://api.github.com/**', (r) => r.abort());
@@ -123,13 +142,15 @@ test.describe('Sprachausgabe', () => {
 test.describe('Die Sprach-Route', () => {
   test('der Schlüssel erreicht den Browser nie', async () => {
     expect(HQ, 'ein Schlüsselname im ausgelieferten HTML').not.toMatch(/EB_OPENAI_API_KEY/);
-    const fn = FUNCTIONS.slice(FUNCTIONS.indexOf('function eb_hq_stimme'));
-    const rumpf = fn.slice(0, fn.indexOf('\n}\n') + 3);
+    const rumpf = dienstRumpf('eb_sprachdienst_ausgeben');
     expect(rumpf, 'die Route gibt Audio zurück, keinen Schlüssel').not.toMatch(/'schluessel'|'key'/);
     expect(rumpf).toMatch(/base64_encode/);
     // Der Text der Gegenstelle darf nicht durchgereicht werden — er nennt
     // Organisation und Kontodetails.
     expect(rumpf, 'Fremdtext im Fehlerfall durchgereicht').not.toMatch(/retrieve_body\([^)]*\)[^;]*grund/);
+    // Und das HQ reicht wirklich nur seinen Rahmen durch, statt eine zweite
+    // Fassung zu halten.
+    expect(FUNCTIONS).toMatch(/function eb_hq_stimme[\s\S]{0,400}eb_sprachdienst_ausgeben\(/);
   });
 
   test('sie hängt an derselben Rechteprüfung wie das übrige HQ', async () => {
@@ -139,24 +160,36 @@ test.describe('Die Sprach-Route', () => {
   });
 
   test('ohne Schlüssel antwortet sie ehrlich statt zu scheitern', async () => {
-    const fn = FUNCTIONS.slice(FUNCTIONS.indexOf('function eb_hq_stimme'));
-    expect(fn.slice(0, 600)).toMatch(/defined\(\s*'EB_OPENAI_API_KEY'\s*\)[\s\S]{0,300}'verfuegbar'\s*=>\s*false/);
+    // Die Wache steht an der ERSTEN Stelle des Dienstes — vor jedem Deckel
+    // und vor jedem Aufruf. `assistent-stimme.spec.js` fuehrt denselben Fall
+    // im echten PHP aus und misst dabei, dass kein Byte hinausgeht.
+    expect(dienstRumpf('eb_sprachdienst_ausgeben').slice(0, 400))
+      .toMatch(/defined\(\s*'EB_OPENAI_API_KEY'\s*\)[\s\S]{0,200}eb_sprachdienst_nein/);
   });
 
   test('Länge und Häufigkeit sind begrenzt — sonst ist es eine offene Rechnung', async () => {
-    const fn = FUNCTIONS.slice(FUNCTIONS.indexOf('function eb_hq_stimme'));
-    const rumpf = fn.slice(0, fn.indexOf('\n}\n') + 3);
     // Im CODE gemessen, nicht im Kommentar. Der erste Entwurf dieser Zeile
     // suchte bloß nach „1200" — und fand den Satz „1200 Zeichen sind rund
     // zwei Minuten". Eine Mutation, die das Limit ersatzlos strich, blieb
     // dadurch grün. Genau derselbe Fehler wie bei den Aufnahmekriterien des
     // Autopilot-Rahmens, nur eine Ebene tiefer.
-    const nurCode = rumpf.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/[^\n]*/g, '$1');
-    expect(nurCode, 'kein wirksames Längenlimit').toMatch(/(mb_)?substr\([^)]*1200\s*\)/);
-    expect(nurCode, 'kein Rate-Limit').toMatch(/eventboerse_check_rate_limit\(\s*'hq_stimme'/);
+    const fnCode = FUNCTIONS.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/[^\n]*/g, '$1');
+    // Das HQ nennt seine Zahlen, der Dienst wendet sie an. Beide Hälften
+    // werden geprüft — eine Konstante ohne Anwendung ist eine Behauptung.
+    expect(fnCode, 'kein Längenlimit im HQ-Rahmen').toMatch(/const\s+EB_HQ_STIMME_ZEICHEN\s*=\s*1200\s*;/);
+    expect(fnCode, 'der Rahmen trägt es nicht weiter').toMatch(/'maxZeichen'\s*=>\s*EB_HQ_STIMME_ZEICHEN/);
+    const rumpf = dienstRumpf('eb_sprachdienst_ausgeben');
     // mb_substr: ein Schnitt mitten durch ein Mehrbyte-Zeichen erzeugt
     // ungültiges UTF-8, und die Gegenstelle antwortet mit 400.
-    expect(rumpf, 'Umlaute am Schnitt zerbrechen').toMatch(/mb_substr/);
+    expect(rumpf, 'kein wirksamer Schnitt').toMatch(/mb_substr\(\s*\$text,\s*0,\s*\$r\['maxZeichen'\]/);
+    expect(rumpf, 'kein Deckel').toMatch(/eb_sprachdienst_deckel\(\s*\$r\s*\)/);
+    // Und der Deckel zählt BEIDE Fenster. Ein Minutendeckel allein ist kein
+    // Kostenschutz: 30 pro Minute sind 43 200 am Tag. Bis zum 01.10.2026
+    // stand hier nur der Minutendeckel.
+    const deckel = dienstRumpf('eb_sprachdienst_deckel');
+    expect(deckel).toMatch(/MINUTE_IN_SECONDS/);
+    expect(deckel).toMatch(/DAY_IN_SECONDS/);
+    expect(fnCode, 'kein Tagesdeckel im HQ-Rahmen').toMatch(/'proTag'\s*=>\s*EB_HQ_STIMME_PRO_TAG/);
   });
 });
 
@@ -391,11 +424,11 @@ test.describe('Spracheingabe', () => {
 
 test.describe('Die Whisper-Route', () => {
   test('der Schlüssel erreicht den Browser nie', () => {
-    const fn = FUNCTIONS.slice(FUNCTIONS.indexOf('function eb_hq_gehoer'));
-    const rumpf = fn.slice(0, fn.indexOf('\n}\n') + 3);
+    const rumpf = dienstRumpf('eb_sprachdienst_hoeren');
     expect(rumpf).toMatch(/EB_OPENAI_API_KEY/);
     expect(HQ, 'Schlüsselname im ausgelieferten HTML').not.toMatch(/EB_OPENAI_API_KEY/);
     expect(rumpf, 'Fremdtext im Fehlerfall durchgereicht').not.toMatch(/retrieve_body\([^)]*\)[^;]*grund/);
+    expect(FUNCTIONS).toMatch(/function eb_hq_gehoer[\s\S]{0,400}eb_sprachdienst_hoeren\(/);
   });
 
   test('sie hängt an derselben Rechteprüfung wie das übrige HQ', () => {
@@ -405,40 +438,44 @@ test.describe('Die Whisper-Route', () => {
   });
 
   test('ohne Schlüssel antwortet sie ehrlich statt zu scheitern', () => {
-    const fn = FUNCTIONS.slice(FUNCTIONS.indexOf('function eb_hq_gehoer'));
-    expect(fn.slice(0, 500)).toMatch(/defined\(\s*'EB_OPENAI_API_KEY'\s*\)[\s\S]{0,300}'verfuegbar'\s*=>\s*false/);
+    expect(dienstRumpf('eb_sprachdienst_hoeren').slice(0, 400))
+      .toMatch(/defined\(\s*'EB_OPENAI_API_KEY'\s*\)[\s\S]{0,200}eb_sprachdienst_nein/);
   });
 
   test('Größe und Häufigkeit sind begrenzt, und base64 wird streng gelesen', () => {
-    const fn = FUNCTIONS.slice(FUNCTIONS.indexOf('function eb_hq_gehoer'));
-    const rumpf = fn.slice(0, fn.indexOf('\n}\n') + 3);
-    const nurCode = rumpf.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/[^\n]*/g, '$1');
+    const nurCode = dienstRumpf('eb_sprachdienst_hoeren');
     // Vor dem Dekodieren messen: base64 ist ein Drittel größer, und erst
     // decodieren hieße, den Speicher schon belegt zu haben.
     expect(nurCode, 'die Länge wird erst nach dem Dekodieren geprüft')
-      .toMatch(/strlen\(\s*\$roh\s*\)[\s\S]{0,200}EB_HQ_GEHOER_MAX/);
-    expect(nurCode, 'kein Limit nach dem Dekodieren').toMatch(/strlen\(\s*\$audio\s*\)\s*>\s*EB_HQ_GEHOER_MAX/);
-    expect(nurCode, 'kein Rate-Limit').toMatch(/eventboerse_check_rate_limit\(\s*'hq_gehoer'/);
+      .toMatch(/strlen\(\s*\$roh\s*\)[\s\S]{0,200}maxBytes/);
+    expect(nurCode, 'kein Limit nach dem Dekodieren').toMatch(/strlen\(\s*\$audio\s*\)\s*>\s*\$r\['maxBytes'\]/);
+    expect(nurCode, 'kein Deckel').toMatch(/eb_sprachdienst_deckel\(\s*\$r\s*\)/);
     // strict: sonst schluckt PHP Müll und liefert Bytes, die kein Ton sind.
     expect(nurCode, 'base64 wird nicht streng gelesen').toMatch(/base64_decode\([^)]*,\s*true\s*\)/);
+    // Und das HQ gibt sein Mass wirklich weiter.
+    const fnCode = FUNCTIONS.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/[^\n]*/g, '$1');
+    expect(fnCode).toMatch(/'maxBytes'\s*=>\s*EB_HQ_GEHOER_MAX/);
   });
 
   test('der Ton wird nicht auf die Platte geschrieben', () => {
     // Eine Sprachaufnahme, die als Datei liegen bleibt, ist ein
     // personenbezogenes Datum mit unklarer Löschfrist.
-    const fn = FUNCTIONS.slice(FUNCTIONS.indexOf('function eb_hq_gehoer'));
-    const rumpf = fn.slice(0, fn.indexOf('\n}\n') + 3);
-    const nurCode = rumpf.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/[^\n]*/g, '$1');
-    expect(nurCode).not.toMatch(/file_put_contents|tmpfile|wp_upload_dir|fopen\(/);
+    // GEMESSEN AM DIENST, nicht am vier Zeilen langen HQ-Rumpf: dort waere
+    // diese Zusicherung trivial gruen und saegte damit ihren eigenen Ast ab.
+    expect(dienstRumpf('eb_sprachdienst_hoeren')).not.toMatch(/file_put_contents|tmpfile|wp_upload_dir|fopen\(/);
   });
 
   test('leer erkannt ist kein Fehler, sondern eine Aussage', () => {
-    const fn = FUNCTIONS.slice(FUNCTIONS.indexOf('function eb_hq_gehoer'));
-    const rumpf = fn.slice(0, fn.indexOf('\n}\n') + 3);
     // Kein Text gesagt -> verfuegbar bleibt true, der Text ist leer. Sonst
     // faellt der Browser auf die schlechtere Erkennung zurueck, nur weil
     // gerade niemand gesprochen hat.
-    expect(rumpf).toMatch(/'verfuegbar'\s*=>\s*true[\s\S]{0,300}'text'\s*=>\s*\$text/);
+    //
+    // Seit dem 01.10.2026 steht dort `$phantom ? '' : $text`: Whisper
+    // erfindet bei Stille den Abspann einer Untertiteldatei, und der ging
+    // im HQ am 23.08.2026 als angebliche Frage des Inhabers durch. Der
+    // Filter sitzt jetzt im Dienst, also fuer BEIDE Aufrufer.
+    expect(dienstRumpf('eb_sprachdienst_hoeren'))
+      .toMatch(/'verfuegbar'\s*=>\s*true[\s\S]{0,400}'text'\s*=>\s*\$phantom\s*\?\s*''\s*:\s*\$text/);
   });
 
   test('auch Firefox und Safari gelten jetzt als hörfähig', () => {

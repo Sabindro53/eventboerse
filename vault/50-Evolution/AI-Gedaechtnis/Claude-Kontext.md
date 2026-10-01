@@ -9,6 +9,72 @@ tags: [layer/L5, domain/evolution, share/internal]
 
 > Diese Datei ist die **erste Quelle** die Claude Code liest. Sie enthält alles Wichtige über Projekt, Präferenzen und offene Aufgaben.
 
+## Stand 2026-10-01 — der Assistent war an vier Stellen eine Attrappe
+
+Zwei Aufträge, und beide haben beim **Messen** mehr ergeben als in der
+Meldung stand. Das ist hier die Regel, nicht die Ausnahme: *wer nicht misst,
+repariert die Hälfte.*
+
+### Die Kategorie kam nie an
+
+Gemeldet war „DJ suchen, über die Verlinkung zur Suche, dann sollen DJs
+erscheinen". Gemessen war die Kette an **zwei** Stellen offen — der Knopf
+gab nichts mit, und der Router hätte nichts annehmen können. Beide Hälften
+sahen für sich richtig aus; genau deshalb ist es nie aufgefallen.
+
+Und dahinter lagen **fünf** Fassungen derselben Zuordnung, eine davon toter
+Code mit einer erfundenen Kategorie (`wellness`). Die Vereinheitlichung hat
+die Erkennung von 32/45 und 35/45 auf **45/45** gehoben — ohne dass dafür ein
+einziger neuer Ausdruck geschrieben wurde. Es fehlte nur die Vereinigung.
+
+**Die Lehre, die sich wiederholt:** die autoritative Quelle ist nicht die
+längste Liste, sondern die Stelle, an der der Nutzer die Wahl trifft. Hier
+war das `#createCategory` mit seinen zehn Werten. Nach dieser Frage ergibt
+sich der Rest von selbst.
+
+**Und der `typeof`-Schutz ist eine Falle, keine Vorsicht.** `typeof` auf ein
+`const` in der TDZ **wirft**, es liefert nicht `'undefined'`. Jeder solche
+Schutz in einer Verkettung täuscht einen vor, den es nicht gibt. In diesem
+Projekt gilt: bricht die Ladereihenfolge, soll `app.js` LAUT scheitern.
+
+### Die Sprache gab es längst — am anderen Ende des Hauses
+
+Das HQ sprach seit August über OpenAI TTS und Whisper, serverseitig, mit
+allen Sicherungen. Die Website hatte davon nichts. Der Reflex wäre gewesen,
+die 160 Zeilen zu kopieren; in diesem Projekt ist das der **sichere Weg in
+die Drift** — fünf solche Kopien sind hier schon auseinandergelaufen, und
+eine Grenzwertliste driftet zuverlässig in die falsche Richtung.
+
+Die Mechanik liegt jetzt einmal da (`includes/stimme/sprachdienst.php`), und
+HQ und Assistent geben nur noch **Zahlen** mit. Beim Teilen fiel auf, dass
+das HQ nur einen **Minutendeckel** hatte — 30/min sind 43 200/Tag. Für zwei
+Administratoren kein Risiko, aber auch keine Grenze; und sie wäre beim
+Teilen mitgewandert. **Ein Deckel, der erst beim zweiten Nutzer gebraucht
+wird, gehört beim ersten eingebaut.**
+
+### Zwei Funde, die erst beim Bauen entstanden
+
+1. Der Vorlesetext las **Knopfbeschriftungen** vor („Ansehen + Board") und
+   Icon-Ligaturen („search"). Eine Stimme kann nicht klicken. Dieselbe
+   Falle wie die vier Icon-Spans in der Barrierefreiheit — und sie
+   entsteht jedes Mal neu, wenn jemand HTML in Text verwandelt.
+2. Der Sprachausgabe-Schalter **schaltete nicht**, und zwar nur für Nutzer
+   **ohne** Cookie-Einwilligung: `ebStimmeAn()` las allein `localStorage`,
+   wo `ebSpeichern()` zu Recht nichts ablegt. „Keine Speicherung" heisst
+   nicht „keine Funktion" — eine Einstellung darf die Sitzung tragen und
+   nur das Neuladen nicht überleben.
+
+### Was offen beim Inhaber liegt
+
+- `EB_OPENAI_API_KEY` muss über den Deploy in `wp-config.php` landen (der
+  Schritt „Inject AI keys" tut das; ohne Schlüssel spricht die
+  Systemstimme — hörbar, kein Defekt).
+- Die Stimme `nova` ist **nicht gehört**, nur dokumentiert. Sie steht an
+  einer Zeile und ist umzustellen, wenn sie nicht gefällt.
+- Alles aus dem 23./26.09. bleibt unverändert offen: Connect-Onboarding,
+  Impressum-Werte, `EB_STEUERNUMMER`/`EB_UST_ID`, Stripe-Konto auf die UG,
+  AGB-Klausel zur Rückholung, Datenschutz § 10a.
+
 ## Stand 2026-09-26 — die Anleitung fand den Weg, den es nicht gab
 
 Der Inhaber hat über den Browser erledigt, was nur dort ging: **zehn

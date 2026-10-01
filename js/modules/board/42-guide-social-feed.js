@@ -5,18 +5,18 @@
 // die bestehende freie Checkliste bleibt unverändert darunter.
 
 // Step-Text → Browse-Kategorie (Keys wie in AI_CATEGORIES / browseCategory).
-var _GUIDE_CAT_RULES = [
-  [/location|venue|gel[äa]nde|meetingraum|schloss|saal/i, 'location'],
-  [/fotograf|videograf|foto/i, 'foto'],
-  [/\bdj\b|band|musik|line-up|playlist/i, 'dj'],
-  [/catering|kuchen|torte|men[üu]|getr[äa]nke/i, 'catering'],
-  [/florist|blumen|brautstrau/i, 'florist'],
-  [/deko/i, 'deko'],
-  [/technik|licht|\bav\b|strom|b[üu]hne|livestream/i, 'licht'],
-  [/moderation|sprecher/i, 'moderation'],
-  [/koordinator|planer|komplettplanung/i, 'planung'],
-  [/feuerwerk|pyro/i, 'pyro'],
-];
+// ABGELEITET aus der einen Tabelle in `search/11-suche-ki.js` (laedt davor).
+// Hier stand bis zum 01.10.2026 eine zweite, eigene Liste von zehn
+// Ausdruecken. Am Korpus gemessen erkannte sie Dinge, die der Assistent
+// verfehlte, und verfehlte Dinge, die er erkannte — zwei gepflegte Fassungen
+// derselben Zuordnung, in beide Richtungen auseinandergelaufen.
+// KEIN `typeof`-Schutz: `AI_CATEGORIES` ist `const`, und `typeof` auf eine
+// Variable in der TDZ WIRFT, statt 'undefined' zu liefern — ein Schutz, der
+// im Ernstfall nicht greift, ist schlimmer als keiner. Bricht die Reihenfolge
+// in `modules.list`, soll app.js laut beim Laden scheitern (der Smoke-Test
+// fährt jede Route auf 0 Page-Errors), statt still eine leere Liste zu führen
+// und keine Kategorie mehr zu erkennen.
+var _GUIDE_CAT_RULES = AI_CATEGORIES.map(function(c) { return [c.muster, c.key]; });
 function _guideCategoryFor(text) {
   for (var i = 0; i < _GUIDE_CAT_RULES.length; i++) {
     if (_GUIDE_CAT_RULES[i][0].test(text || '')) return _GUIDE_CAT_RULES[i][1];
@@ -2341,20 +2341,23 @@ var _navSelectedCategory = '';
 var _navAiCatSelection = new Set();
 
 // ── Helpers ──
+// ABGELEITET, nicht gewählt. Hier stand ein `_getNavAiCategories()` mit
+// `typeof AI_CATEGORIES !== 'undefined'` und einer ELF Einträge langen
+// Ersatzliste dahinter. Beides war falsch:
+//
+//   · Der Schutz greift nie. `AI_CATEGORIES` ist `const` im selben Skript;
+//     ist es noch nicht initialisiert, WIRFT `typeof` (TDZ), statt
+//     'undefined' zu liefern. Der Ersatzzweig war unerreichbar.
+//   · Und er war schon auseinandergelaufen: Floristik trug 🌸 statt 💐,
+//     und `wellness` stand drin — eine Kategorie, die KEIN Inserat tragen
+//     kann, weil `#createCategory` genau zehn Werte anbietet. Wäre der
+//     Zweig je gelaufen, hätte die Leistensuche einen Filter angeboten, der
+//     garantiert nichts findet.
+//
+// Dieselbe Klasse wie die drei Konfetti-Popper hinter `display: none`:
+// etwas ist da, sieht aus als täte es etwas, und tut nichts.
 function _getNavAiCategories() {
-  return (typeof AI_CATEGORIES !== 'undefined') ? AI_CATEGORIES : [
-    { key: 'dj', label: 'DJ & Musik', emoji: '🎧' },
-    { key: 'catering', label: 'Catering', emoji: '🍽️' },
-    { key: 'foto', label: 'Fotografie', emoji: '📷' },
-    { key: 'florist', label: 'Floristik', emoji: '🌸' },
-    { key: 'deko', label: 'Dekoration', emoji: '🎈' },
-    { key: 'licht', label: 'Licht & Technik', emoji: '💡' },
-    { key: 'planung', label: 'Planung', emoji: '📋' },
-    { key: 'moderation', label: 'Moderation', emoji: '🎤' },
-    { key: 'pyro', label: 'Pyrotechnik', emoji: '🎆' },
-    { key: 'location', label: 'Location', emoji: '🏰' },
-    { key: 'wellness', label: 'Wellness & Spa', emoji: '💆' },
-  ];
+  return AI_CATEGORIES;
 }
 
 var _NAV_AI_POPULAR = [
