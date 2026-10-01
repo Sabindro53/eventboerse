@@ -1677,6 +1677,36 @@ der Geheimnis-Scanner und die CSP-Meldeliste vorbeigeschrammt sind. Verglichen
 wird im Deploy, wo feststeht, was gerade hochgegangen ist. Ein Test hält die
 Grenze: keine Lage-Bedingung des Monitors darf `STAND` lesen.
 
+#### Das Tor hat am echten Server gemessen — Lauf #1108
+
+Hier stand bis zum Merge von #310, das Tor schlage „erstmals beim nächsten
+Deploy" zu. Es hat. Lauf **#1108** (01.10.2026, 19:43 UTC, Commit `f02b18c`),
+Schritt 12, eine Sekunde, **erster Anlauf**:
+
+```
+Erwartet: eb-stand=03d2485c429b
+✅ Live-Stand geprueft — die Seite liefert `03d2485c429b` aus
+```
+
+**Das ist eine Messung und nicht nur ein grüner Haken**, und der Unterschied
+ist genau der, um den es in diesem Abschnitt geht: der Schritt **nennt beide
+Seiten**. Ein Tor, das bloss „ok" sagt, wäre von einem Tor ohne Subjekt nicht
+zu unterscheiden — und an dieser Verwechslung hingen hier der tote
+Gitleaks-Scan und die sechs gepipten Tore.
+
+**Die Erwartung ist von hier aus nachprüfbar, die Messung nicht.**
+`sha256sum app-shell.html | cut -c1-12` ergibt lokal dasselbe
+`03d2485c429b`, also stimmt die Ableitung. Die andere Hälfte — was die Seite
+wirklich ausliefert — ist aus der Agent-Umgebung **nicht** zu prüfen: der
+Proxy lässt `xn--eventbrse-57a.de` nicht durch. Belegt ist sie allein durch
+das Log des Runners, und das gehört so gesagt, statt die Gegenprobe zu
+behaupten.
+
+**Was der grüne Lauf NICHT belegt:** keinen der drei Fehlerfälle. Dass das
+Tor bei abweichendem, fehlendem oder unerreichbarem Marker wirklich rot wird,
+hängt weiter an `live-stand.spec.js` und seinen vierzehn Mutationen — am
+echten Server ist bisher nur der Normalfall vorgekommen.
+
 ```bash
 npx playwright test tests/e2e/live-stand.spec.js   # 19 Tests, 14 Mutationen
 npx playwright test tests/e2e/site-monitor.spec.js # 9 Tests
