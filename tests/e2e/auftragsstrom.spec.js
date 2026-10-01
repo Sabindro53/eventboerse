@@ -281,6 +281,67 @@ test.describe('Auftragsstrom: aus Befunden wird Arbeit', () => {
     }
   });
 
+  test('die Tagesroutine erzeugt den Strom wirklich — und committet ihn', () => {
+    // Am 30.09.2026 gemessen: `eb-arbeit.json` stand auf dem 30.09.,
+    // `eb-auftragsstrom.json` — daraus ERZEUGT — auf dem 24.09. Die Routine
+    // erneuerte die Quelle jede Nacht und nannte den Strom an keiner Stelle.
+    // Es entging keine Arbeit (`auftraege` war beidemal leer), es entging die
+    // GRENZE: drei Befunde außerhalb des Rahmens fehlten im HQ.
+    //
+    // Das Vorbild ist `aktivitaeten.spec.js` — ohne diesen Nachweis wäre es
+    // wieder ein Skript, das niemand startet.
+    //
+    // Gemessen wird die AUFRUFSTELLE, nicht das Wort: die Datei nennt
+    // `auftragsstrom` in ihren erklärenden Absätzen mehrfach, und ein
+    // Ausdruck über den rohen Text bliebe grün, sobald jemand den Schritt
+    // entfernt und den Kommentar stehen lässt. Genau das ist die
+    // wahrscheinlichste Gestalt dieses Unfalls.
+    const { ohneYamlKommentare } = require('./lib/yaml-code.js');
+    const roh = fs.readFileSync(path.join(ROOT, '.github', 'workflows', 'tagesroutine.yml'), 'utf8');
+    const code = ohneYamlKommentare(roh);
+
+    // Gegenprobe zuerst: ohne sie prüfte der Rest womöglich einen Text, aus
+    // dem der Kommentarabzug gar nichts entfernt hat.
+    const zaehle = (t) => (t.match(/auftragsstrom/gi) || []).length;
+    expect(zaehle(roh), 'die Datei nennt den Strom nicht im Kommentar — die Falle ist weg, der Test damit blind')
+      .toBeGreaterThan(zaehle(code));
+    expect(code, 'der Kommentarabzug frisst Code mit').toMatch(/node scripts\/agent\.mjs --check/);
+
+    expect(code, 'die Tagesroutine erzeugt den Auftragsstrom nicht')
+      .toMatch(/node scripts\/auftragsstrom\.mjs/);
+
+    // Die erzeugte Datei muss in die Commit-Liste. Ohne sie wäre der Schritt
+    // oben genau die stille Lücke: gemessen, geschrieben, nie committet.
+    const ergebnisse = (code.match(/^\s*ERGEBNISSE="([^"]*)"/m) || [])[1];
+    expect(ergebnisse, 'die Commit-Liste ist nicht auffindbar').toBeTruthy();
+    expect(ergebnisse.split(/\s+/), 'der erzeugte Strom wird nicht mitcommittet')
+      .toContain('assets/eb-auftragsstrom.json');
+
+    // Reihenfolge: der Strom liest das Journal. Vor den Schichten gebaut
+    // trüge er den Stand von gestern — wieder ein Artefakt, das seiner
+    // eigenen Quelle widerspricht, nur einen Tag knapper.
+    const letzteSchicht = code.lastIndexOf('scripts/agent.mjs --rolle');
+    const bauen = code.indexOf('node scripts/auftragsstrom.mjs');
+    const committen = code.indexOf('git add $ERGEBNISSE');
+    expect(letzteSchicht, 'keine Schicht in der Routine gefunden').toBeGreaterThan(-1);
+    expect(committen, 'kein Commit-Schritt gefunden').toBeGreaterThan(-1);
+    expect(bauen, 'der Strom wird gebaut, bevor die Schichten ins Journal schreiben')
+      .toBeGreaterThan(letzteSchicht);
+    expect(bauen, 'der Strom wird erst nach dem Commit gebaut').toBeLessThan(committen);
+  });
+
+  test('blockiert wird im PR-Check, nicht nachts', () => {
+    // Die Routine fährt den Strom bewusst OHNE `--check`: sie soll den
+    // Zustand festhalten, nicht nachts rot werden — und der Commit kommt erst
+    // danach, ein Tor hier nähme Feed, Selbstcheck und Rechtslage mit.
+    // Diese Entscheidung trägt nur, solange das Tor woanders wirklich läuft.
+    const { ohneYamlKommentare } = require('./lib/yaml-code.js');
+    const pr = ohneYamlKommentare(
+      fs.readFileSync(path.join(ROOT, '.github', 'workflows', 'pr-check.yml'), 'utf8'));
+    expect(pr, 'das Tor läuft nirgends mehr — dann ist der Strom ungeprüft')
+      .toMatch(/node scripts\/auftragsstrom\.mjs --check/);
+  });
+
   test('Prüfung läuft sauber durch', () => {
     const { execFileSync } = require('node:child_process');
     execFileSync('node', ['scripts/auftragsstrom.mjs'], { cwd: ROOT });
