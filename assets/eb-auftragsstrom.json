@@ -1,11 +1,25 @@
 {
   "version": 1,
-  "erzeugt": "2026-10-01T09:31:08.195Z",
+  "erzeugt": "2026-10-01T09:48:24.301Z",
   "hinweis": "Erzeugt von scripts/auftragsstrom.mjs aus assets/eb-arbeit.json. Nicht von Hand bearbeiten.",
-  "journalStand": "2026-09-30T03:40:19.091Z",
+  "journalStand": "2026-10-01T03:44:27.088Z",
   "lage": "Kein Befund im freigegebenen Rahmen — der Scout wählt selbst.",
   "auftraege": [],
   "ausserhalb": [
+    {
+      "herkunft": {
+        "rolle": "mistral-ops",
+        "person": "Nils Falk",
+        "rollenname": "Reliability-Wächter",
+        "bereich": "betrieb",
+        "zeit": "2026-10-01T03:44:27.087Z",
+        "aufgabe": "Releaseweg auf den nächsten vermeidbaren Engpass prüfen."
+      },
+      "dateien": [
+        ".github/workflows/pr-check.yml"
+      ],
+      "grund": "nennt .github/workflows/pr-check.yml — außerhalb des freigegebenen Rahmens"
+    },
     {
       "herkunft": {
         "rolle": "mistral-ops",

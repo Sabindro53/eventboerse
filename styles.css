@@ -186,6 +186,10 @@ html.dark-early body {
      Definitionen aendern also nichts am Bild, sie geben den Namen nur
      endlich einen Wert, den der Dunkelmodus ueberschreiben KANN. */
   --danger: #d33;
+  /* Der Schein des Mikrofon-Pulses. Eigenes Token, weil `box-shadow` aus
+     `--danger` keinen Alphawert ableiten kann — ein Literal dort folgte dem
+     Farbmodus nicht, und genau das war am 15.09.2026 der `--white`-Fund. */
+  --danger-glow: rgba(221, 51, 51, .45);
   --primary-ultralight: rgba(255,56,92,.05);
   --bg-soft: rgba(0,0,0,.04);
   /* Konfetti-Runden. Der Kommentar bei .ai-popper sagte seit dem 13.09.2026,
@@ -9842,6 +9846,7 @@ body.dark-mode {
   --warn-text: #F0A93B;
   --danger-text: #FF6B6B;
   --danger: #FF6B6B;
+  --danger-glow: rgba(255, 107, 107, .45);
   /* Auf #121212 trägt das originale Gold 10,5:1 — im Dunkelmodus bleibt es. */
   --star-text: #FFB400;
   --border: #333333;
@@ -16961,20 +16966,20 @@ body.dark-mode .bai-dl.od { color: #f87171; }
 /* Eingeschaltet: deutlich anders, nicht nur eine Nuance — ein Zustand, den
    man nicht sieht, ist keiner. */
 .bai-voice.an { background: var(--primary); border-color: var(--primary); color: #fff; }
-.bai-mic.hoert { background: var(--danger, #e5484d); border-color: var(--danger, #e5484d); color: #fff; }
+.bai-mic.hoert { background: var(--danger); border-color: var(--danger); color: #fff; }
 /* Der Puls sagt „ich höre JETZT zu". Er läuft ausschliesslich während der
    Aufnahme — eine Dauer-Animation auf einem Knopf, der nichts tut, war in
    diesem Projekt schon einmal 287 ms Hauptthread je vier Sekunden. */
 .bai-mic.hoert { animation: baiMicPuls 1.1s ease-in-out infinite; }
 @keyframes baiMicPuls {
-  0%, 100% { box-shadow: 0 0 0 0 rgba(229, 72, 77, 0.45); }
-  50%      { box-shadow: 0 0 0 7px rgba(229, 72, 77, 0); }
+  0%, 100% { box-shadow: 0 0 0 0 var(--danger-glow); }
+  50%      { box-shadow: 0 0 0 7px transparent; }
 }
 @media (prefers-reduced-motion: reduce) {
   /* Gezielt, nicht über den globalen Dauer-Block: der setzt nur die Dauer
      auf ~0, und eine Endlosanimation steht damit nicht still, sie flimmert.
      Gemessen am 10.09.2026. */
-  .bai-mic.hoert { animation: none; box-shadow: 0 0 0 3px rgba(229, 72, 77, 0.35); }
+  .bai-mic.hoert { animation: none; box-shadow: 0 0 0 3px var(--danger-glow); }
 }
 
 /* Mobile: Sidebar oben (horizontal scrollbar), Chat darunter */
