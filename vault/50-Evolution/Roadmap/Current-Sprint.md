@@ -18,6 +18,10 @@ einen alten Abschnitt gelesen und nicht diesen.
 
 - **Playwright-Suite: 1567 Tests in 105 Suiten**, blockierendes Gate in `pr-check.yml`.
   Läuft seit dem Self-Hosting auch ohne Netzzugang vollständig durch
+- **Live-Stand-Tor: am echten Server bewährt** (Lauf #1108, 01.10.2026,
+  Commit `f02b18c`). Erster Anlauf, eine Sekunde, erwartet und gemessen
+  `03d2485c429b`. Bisher ist nur der Normalfall vorgekommen — die drei
+  Fehlerlagen hängen weiter an `live-stand.spec.js`.
 
 ## Gemeinsame Plattformbasis (21.10.2026)
 
