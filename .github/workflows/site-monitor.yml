@@ -53,7 +53,24 @@ jobs:
           JS_CODE=$(curl -s -o /dev/null -w "%{http_code}" --max-time 20 \
             -L "https://xn--eventbrse-57a.de/wp-content/themes/eventboerse/app.js" 2>/dev/null) || true
 
-          echo "HTTP $HTTP_CODE · Rumpf ${GROESSE} Bytes · Shell-Marker $HAT_SHELL · app.js HTTP $JS_CODE"
+          # ── Welcher Stand gerade live ist ─────────────────────────────
+          # Eine ANGABE, kein Urteil. Am 01.10.2026 war nach einem gruenen
+          # Deploy nicht feststellbar, ob die neue Hero-Parole wirklich
+          # ausgeliefert wird: der Shell-Marker oben traegt JEDE Fassung,
+          # und `$asset_ver` in index.php steht seit Monaten auf 2.5.1.
+          # Der Fingerabdruck steht seither im Kopf (eb_shell_stand()).
+          #
+          # Hier wird er nur GENANNT. Ihn gegen `main` zu vergleichen waere
+          # verlockend und falsch: zwischen Push und fertigem Deploy liegen
+          # zwei Minuten, in denen die beiden zu Recht auseinandergehen —
+          # ein Alarm daraus wuerde bei jedem Push losgehen und waere in
+          # zwei Wochen abgeschaltet. Verglichen wird im Deploy selbst, wo
+          # feststeht, was gerade hochgegangen ist.
+          STAND=$(grep -o 'name="eb-stand" content="[0-9a-f]\{12\}"' "$RUMPF" 2>/dev/null \
+            | head -n1 | grep -o '[0-9a-f]\{12\}' || true)
+          [ -n "$STAND" ] || STAND="keiner"
+
+          echo "HTTP $HTTP_CODE · Rumpf ${GROESSE} Bytes · Shell-Marker $HAT_SHELL · app.js HTTP $JS_CODE · Stand $STAND"
           echo "groesse=$GROESSE" >> "$GITHUB_OUTPUT"
           echo "jscode=$JS_CODE" >> "$GITHUB_OUTPUT"
           rm -f "$RUMPF"

@@ -1571,6 +1571,117 @@ fehlendes csso (**Exit 0**, Rückfall gemeldet, `app.js` trotzdem minifiziert),
 dieselbe Lage mit dem alten Tor (**Exit 1** — der Fehler), fehlendes terser
 (Exit 1, `app.js` byte-identisch).
 
+### Der Deploy meldete Erfolg für den Upload, nicht für die Seite
+
+Gefunden am 01.10.2026, unmittelbar nach dem Merge von #303. Der Deploy war
+grün, der Site-Monitor grün — und es gab **keinen Weg festzustellen, ob die
+neue Hero-Parole live steht**. Drei Messungen:
+
+| | |
+|---|---|
+| letzter Schritt in `ionos-deploy.yml` | `Inject AI keys` — **keine** Prüfung des Ergebnisses |
+| Beleg des Site-Monitors | `id="page-home"`, im Markup seit `74e7900` (26.08.) |
+| einziger Stand im ausgelieferten Kopf | `$asset_ver = '2.5.1'`, von Hand, nie erhöht |
+
+**Ein Deploy, der gar nichts oder nur die Hälfte hochlädt, blieb damit grün.**
+Der Monitor sucht einen Marker, den **jede** Fassung trägt; er unterscheidet
+„antwortet" von „funktioniert", aber nicht „der neue Stand" von „irgendein
+Stand". Dieselbe Klasse wie der tote Gitleaks-Scan, eine Ebene tiefer: der
+Prüfer läuft, er findet auch etwas — nur nicht das, wofür man ihn hält.
+
+Und dieser Spalt hat das Projekt schon einmal zwei Wochen gekostet: die
+vierzehn Routine-PRs waren fertig und erreichten die Seite nie. Dort lag er
+zwischen PR und `main`, hier zwischen `main` und dem Server.
+
+**Der Marker ist ABGELEITET, nicht gepflegt.** `eb_shell_stand()` bildet
+`sha256` über `app-shell.html` und schreibt zwölf Hex-Zeichen als
+`<meta name="eb-stand">` in den Kopf. Die Alternative stand daneben und ist
+das Gegenbeispiel: `$asset_ver` müsste jemand hochzählen, und seit `2.5.1`
+hat es niemand getan — eine Stand-Angabe, die man pflegen muss, sagt nach
+dem ersten Vergessen das Gegenteil der Wahrheit.
+
+**Vergleichbar ist das nur, weil die Hülle byte-gleich hochgeht.** Der Deploy
+minifiziert `app.js` und `styles.css`; ein Fingerabdruck über die wäre
+zwischen Repository und Server **dauerhaft** verschieden und das Tor
+dauerhaft rot. `app-shell.html` fasst der Deploy nicht an.
+
+**Eine Lesung, eine Wahrheit.** `eb_shell_inhalt()` ist die einzige Stelle,
+die die Hülle liest; Ausgabe und Fingerabdruck teilen sie. Zwei Lesevorgänge
+könnten verschiedene Inhalte sehen, und dann stünde im Kopf der Abdruck eines
+Körpers, der darunter nicht steht. Gemessen wird das, indem der Prüfstand die
+Datei **unter dem laufenden Prozess austauscht**: ausgeliefert werden muss die
+gelesene Hülle, nicht die neue.
+
+**Der Schritt steht ZULETZT, und das ist kein Zufall.** Ein roter Prüfer
+bricht den Job ab, und alles danach wird übersprungen. Vor den
+`wp-config`-Schritten hätte ein kurzer Netzfehler die Übertragung von SMTP-,
+Stripe-, Apple-, Steuer- und KI-Zugangsdaten verhindert. Der Upload ist zu
+diesem Zeitpunkt ohnehin gelaufen — **ein rotes Tor hält nichts auf, es
+berichtet nur.**
+
+**Drei Lagen, drei Diagnosen.** *Kein Marker* heißt: dort liegt eine ältere
+`index.php` oder `functions.php`. *Anderer Marker* heißt: die Hülle blieb beim
+Upload zurück, oder etwas dazwischen gibt einen alten Stand heraus. *Nicht
+erreichbar* heißt: geprüft ist nichts. Ein gemeinsamer Text verwischt sie, und
+dann sucht jemand am falschen Ende.
+
+**Kein Cache-Umgeher an der Adresse.** Liefert etwas dazwischen einen alten
+Stand aus, ist das genau der Fall, den dieses Tor sehen soll; ein
+`?nocache=`-Parameter machte es blind. Gemessen wird dieselbe Adresse, die ein
+Besucher aufruft.
+
+**`set -eo pipefail` trägt einen eigenen Fall.** Dieser Job hat kein
+`defaults: run: shell: bash`, GitHub fährt also `bash -e {0}`. Ohne `pipefail`
+wäre der Rückgabewert von `sha256sum … | cut` der von `cut`, und `cut` gelingt
+immer: bei fehlender `app-shell.html` liefe der Schritt mit **leerer**
+Erwartung weiter und meldete eine Stand-Abweichung — rot aus dem falschen
+Grund. Ein eigener Test hält das; die Mutation „pipefail entfernt" macht ihn
+rot.
+
+**Die erste Pause war zehn Sekunden, nicht fünf** — `VERSUCH * 5` statt
+`(VERSUCH - 1) * 5`, weil die Pause **vor** dem zweiten Anlauf steht.
+Aufgefallen ist das dem Test, nicht dem Lesen. Die `sleep`-Attrappe schreibt
+mit statt zu warten; sonst stünde die Suite 50 Sekunden je Fehlerfall, und die
+Pausenfolge wäre trotzdem nicht gemessen.
+
+**Der Refactor hat prompt eine echte Prüfung rot gemacht**, und das gehört
+hierher: `csp-nonce.php` schneidet `eb_shell_ausgeben()` aus `functions.php`
+heraus und kannte `eb_shell_inhalt()` nicht — **16 Tests rot, sofort**. Genau
+dafür schneidet dieser Prüfstand den echten Code heraus, statt ihn
+nachzubilden.
+
+Vierzehn Mutationen, jede macht die Suite rot: der ganze Torschritt entfernt
+(**11 rot**) · der Vergleich umgedreht (4) · `exit 0` im Fehlerfall (6) · nur
+ein Anlauf (2) · der Marker irgendwo im Rumpf gesucht · `pipefail` entfernt ·
+der Torschritt vor den `wp-config`-Schritten · `eb_shell_ausgeben()` liest
+selbst noch einmal · der Fingerabdruck hängt nicht am Inhalt (3) · ein
+Lesefehler ergibt trotzdem einen Stand (2) · `index.php` schreibt den Marker
+nicht (2) · der Marker landet im Body (2) · eine tote
+`function_exists`-Wache kehrt zurück · `csp-nonce.php` schneidet
+`eb_shell_inhalt()` nicht mehr ein (**16 rot**).
+
+**Was dieses Tor NICHT prüft:** `app.js` und `styles.css` (minifiziert, also
+nicht vergleichbar — der Site-Monitor prüft `app.js` auf HTTP 200) und die
+`wp-config`-Schritte, die ihre eigenen Meldungen schreiben.
+
+**Der Site-Monitor NENNT den Stand jetzt, ohne darüber zu urteilen.** Er lädt
+den Rumpf ohnehin herunter; seine Statuszeile trägt `· Stand <marker>`. Damit
+ist „welcher Stand ist live" zu jeder Zeit beantwortbar — genau die Frage, die
+am 01.10.2026 nach einem grünen Deploy nicht zu beantworten war.
+
+**Ihn dort gegen `main` zu vergleichen wäre verlockend und falsch.** Zwischen
+Push und fertigem Deploy liegen zwei Minuten, in denen die beiden zu Recht
+auseinandergehen: ein Alarm daraus ginge bei **jedem** Push los und wäre in
+zwei Wochen abgeschaltet — der Fehlalarm-Tod, an dem in diesem Projekt schon
+der Geheimnis-Scanner und die CSP-Meldeliste vorbeigeschrammt sind. Verglichen
+wird im Deploy, wo feststeht, was gerade hochgegangen ist. Ein Test hält die
+Grenze: keine Lage-Bedingung des Monitors darf `STAND` lesen.
+
+```bash
+npx playwright test tests/e2e/live-stand.spec.js   # 19 Tests, 14 Mutationen
+npx playwright test tests/e2e/site-monitor.spec.js # 9 Tests
+```
+
 ### Lighthouse war neunmal rot — und hat neunmal gemessen
 
 Vom 09.07. bis 01.09.2026 scheiterte jeder Lauf. Nicht an der Messung, die lag
@@ -5165,7 +5276,7 @@ npm run test:smoke      # nur Routen-Smoke-Tests
 npm run test:css        # CSS-Minify-Regression (Verlaufsschrift)
 ```
 
-1333 Tests in 91 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
+1353 Tests in 92 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
 Sätze), Gebühren (centgenau, JS↔PHP-Parität), Wissensbasis (Antworten +
 Leckage-Schutz), Zufluss (Quarantäne-Tor + Demo-Feed-Ehrlichkeit),
 Verbindungen (HQ-Zugang + Connector-Katalog), Auftragsstrom (Herkunft +
@@ -5201,7 +5312,16 @@ kommt zur Ruhe, wenn niemand etwas tut; **Bewegungsreduktion kostet nie mehr
 als der Normalfall** — der Marquee steht dann still, hält keine eigene Ebene
 mehr und läuft nach der Rücknahme ohne Neuladen wieder an, und wer die Seite
 mit der Einstellung LÄDT, bekommt keine Dauerschleife),
-**Site-Monitor** (der Monitor unterscheidet „antwortet“ von „funktioniert“),
+**Site-Monitor** (der Monitor unterscheidet „antwortet“ von „funktioniert“ —
+und nennt seit dem 01.10.2026 den ausgelieferten Stand, ohne daraus ein Urteil
+zu machen: ein Vergleich gegen `main` ginge bei jedem Push los),
+**Live-Stand** (der Deploy prueft, ob die Seite den hochgeladenen Stand
+wirklich ausliefert — der Schritt wird aus dem Workflow geschnitten und mit
+`bash -eo pipefail` gefahren: ein abweichender Marker nennt beide Staende, ein
+fehlender bekommt eine eigene Diagnose, zwoelf Hex-Zeichen irgendwo im Rumpf
+sind keiner, nach fuenf Anlaeufen ist Schluss, und bei fehlender
+`app-shell.html` wird KEINE Stand-Abweichung behauptet; der Fingerabdruck ist
+`sha256` ueber die Huelle und kommt aus derselben Lesung, die sie ausliefert),
 **WebP** (an echten Bilddateien: ein Foto wird kleiner, Transparenz überlebt
 auch bei einem Paletten-PNG, ein größeres WebP wird gelöscht und vermerkt,
 Apache liefert nur bei passendem `Accept` und vorhandener Datei um),

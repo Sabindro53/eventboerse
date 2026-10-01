@@ -96,6 +96,33 @@ test.describe('Der Alarm sagt, welche Sorte Ausfall es ist', () => {
     }
   });
 
+  test('der Bericht nennt den ausgelieferten Stand — und urteilt nicht darüber', () => {
+    // Seit dem 01.10.2026 steht der Fingerabdruck der Hülle im Kopf der
+    // Seite. Der Monitor NENNT ihn, damit „welcher Stand ist live" ohne
+    // einen Deploy beantwortbar ist — genau diese Frage war an dem Tag
+    // nach einem grünen Deploy nicht zu beantworten.
+    const pruefschritt = WF.slice(WF.indexOf('Check HTTP response'),
+      WF.indexOf('Create issue if site is down'));
+    expect(pruefschritt, 'der Stand wird nicht aus dem Rumpf gelesen')
+      .toMatch(/name="eb-stand"/);
+    expect(pruefschritt, 'der Stand steht nicht im Bericht')
+      .toMatch(/Stand \$STAND/);
+
+    // Und er darf KEIN Urteil tragen. Ihn gegen `main` zu vergleichen
+    // wäre verlockend und falsch: zwischen Push und fertigem Deploy gehen
+    // die beiden zu Recht auseinander, der Alarm ginge bei jedem Push los
+    // und wäre in zwei Wochen abgeschaltet. Verglichen wird im Deploy.
+    const zweige = [...pruefschritt.matchAll(/^\s*(?:if|elif) (\[ .*?)(?:; then)$/gm)]
+      .map((m) => m[1]);
+    expect(zweige.length).toBeGreaterThanOrEqual(3);
+    for (const z of zweige) {
+      expect(z, 'der Stand entscheidet über die Lage — das ist der Fehlalarm-Tod')
+        .not.toMatch(/STAND/);
+    }
+    expect(pruefschritt, 'der Stand wird als Lage übergeben')
+      .not.toMatch(/stand=\$STAND\s*">>/);
+  });
+
   test('der Rumpf wird nicht mehr weggeworfen', () => {
     // Die Ursache in einer Zeile: `-o /dev/null` verwirft genau das,
     // woran man einen kaputten Deploy erkennen würde.

@@ -16,8 +16,57 @@ Zahlen ihrer Zeit — die sind Historie, kein Ist-Stand. Der Ensemble-Kontext
 liest diese Datei von oben; ein Modell, das „68 Tests" als aktuell meldet, hat
 einen alten Abschnitt gelesen und nicht diesen.
 
-- **Playwright-Suite: 1333 Tests in 91 Suiten**, blockierendes Gate in `pr-check.yml`.
+- **Playwright-Suite: 1353 Tests in 92 Suiten**, blockierendes Gate in `pr-check.yml`.
   Läuft seit dem Self-Hosting auch ohne Netzzugang vollständig durch
+
+## Der Deploy prüft jetzt, ob die Seite ankommt (2026-10-01)
+
+Gefunden beim Nachsehen, ob die gerade gemergte Hero-Parole live steht — und
+genau das war **nicht feststellbar**. Drei Messungen:
+
+| | |
+|---|---|
+| letzter Schritt in `ionos-deploy.yml` | `Inject AI keys` — keine Prüfung des Ergebnisses |
+| Beleg des Site-Monitors | `id="page-home"`, im Markup seit dem 26.08.2026 |
+| einziger Stand im ausgelieferten Kopf | `$asset_ver = '2.5.1'`, von Hand, nie erhöht |
+
+Ein Deploy, der gar nichts oder nur die Hälfte hochlädt, blieb damit grün.
+Dieselbe Klasse wie der tote Gitleaks-Scan, eine Ebene tiefer — und derselbe
+Spalt, der die vierzehn Routine-PRs zwei Wochen gekostet hat, nur zwischen
+`main` und dem Server statt zwischen PR und `main`.
+
+`eb_shell_stand()` bildet `sha256` über `app-shell.html` und schreibt zwölf
+Hex-Zeichen als `<meta name="eb-stand">` in den Kopf; der neue letzte
+Deploy-Schritt holt die Live-Seite und vergleicht. **Abgeleitet, nicht
+gepflegt** — `$asset_ver` steht daneben als Gegenbeispiel.
+
+Fünf Entscheidungen tragen die Richtigkeit: die Hülle geht byte-gleich hoch
+(minifiziert werden nur `app.js` und `styles.css`, ein Abdruck über die wäre
+dauerhaft verschieden) · Ausgabe und Abdruck kommen aus **einer** Lesung ·
+der Schritt steht **zuletzt**, damit ein roter Prüfer nie die
+Schritte überspringt, die Zugangsdaten auf den Server schreiben · drei
+Lagen, drei Diagnosen · kein
+Cache-Umgeher, denn ein alter Stand aus einem Zwischenspeicher ist genau der
+Fall, den das Tor sehen soll.
+
+19 Tests, 14 Mutationen, alle rot. Der Refactor hat dabei prompt
+`csp-nonce.php` rot gemacht (16 Tests) — der Prüfstand schneidet den echten
+Code heraus, statt ihn nachzubilden, und hat das sofort gemeldet.
+
+**Dabei hat ein Sicherheitstor den eigenen Text beanstandet**, und das
+gehört hierher: `models.mjs --check` verbietet Infrastruktur-Begriffe in den
+ersten 3000 Zeichen dieser Datei — genau der Ausschnitt, der als Kontext an
+einen externen Anbieter geht. Mein Absatz nannte die Server-Konfigurationsdatei
+beim Namen, dreimal. Das Muster bleibt, der Text ist gewichen: ein Prüfer, der
+Prosa nicht von einem Austritt unterscheiden kann, hat trotzdem recht, dass das
+Wort dort steht — dieselbe Entscheidung wie beim erfundenen `@` im HQ-Journal
+und beim Schlüssel-Präfix im erklärenden Kommentar.
+
+**Merksatz für den Kopf dieser Datei:** Infrastruktur-Begriffe gehören nicht in
+die obersten 3000 Zeichen, sonst stirbt nachts eine Autopilot-Schicht.
+
+Vollständig: der Abschnitt „Der Deploy meldete Erfolg für den Upload, nicht
+für die Seite" in `CLAUDE.md`.
 
 ## Assistent ausgebaut (2026-10-01) — Kategorie und Sprache
 

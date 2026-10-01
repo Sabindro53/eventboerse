@@ -512,3 +512,136 @@ jobs:
           "
           rm -f /tmp/wp-config.php
           echo "✅ AI keys written to wp-config.php" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Verify the live site serves this build
+        # ── Warum dieser Schritt existiert (01.10.2026) ──────────────────
+        # Bis heute meldete dieser Workflow Erfolg, sobald der SFTP-Upload
+        # gelang. Ob die Seite den neuen Stand danach WIRKLICH ausliefert,
+        # pruefte nichts. Und der Site-Monitor belegte es auch nicht: er
+        # sucht `id="page-home"` — einen Marker, den jede Fassung seit dem
+        # 26.08.2026 traegt. Ein Deploy, der die Haelfte der Dateien nicht
+        # hochlaedt, blieb damit gruen, und beide Pruefer sahen zufrieden
+        # aus.
+        #
+        # Dieselbe Klasse wie der tote Gitleaks-Scan, eine Ebene tiefer:
+        # der Pruefer laeuft, er findet auch etwas — nur nicht das, wofuer
+        # man ihn haelt. Und genau dieser Spalt hat dieses Projekt schon
+        # einmal zwei Wochen gekostet: die vierzehn Routine-PRs waren
+        # fertig und erreichten die Seite nie.
+        #
+        # GEMESSEN WIRD EIN ABGELEITETER FINGERABDRUCK. Die Alternative
+        # waere `$asset_ver` in index.php — eine Handzahl, die seit
+        # Monaten auf 2.5.1 steht. Eine Stand-Angabe, die jemand
+        # hochzaehlen muss, sagt nach dem ersten Vergessen das Gegenteil
+        # der Wahrheit.
+        #
+        # DER SCHRITT STEHT ZULETZT, und das ist kein Zufall: ein roter
+        # Pruefer bricht den Job ab, und alles danach wird uebersprungen.
+        # Stuende er vor den wp-config-Schritten, wuerde ein kurzer
+        # Netzfehler die Uebertragung von SMTP-, Stripe-, Apple-, Steuer-
+        # und KI-Zugangsdaten verhindern. Der Upload selbst ist zu diesem
+        # Zeitpunkt ohnehin gelaufen — ein rotes Tor haelt nichts auf, es
+        # berichtet nur.
+        #
+        # KEIN Cache-Umgeher an der Adresse. Liefert irgendetwas dazwischen
+        # einen alten Stand aus, dann ist das genau der Fall, den dieses
+        # Tor sehen soll — ein `?nocache=`-Parameter wuerde es dagegen
+        # blind machen. Gemessen wird dieselbe Adresse, die ein Besucher
+        # aufruft.
+        timeout-minutes: 6
+        run: |
+          # `set -eo pipefail`: dieser Job hat KEIN `defaults: run: shell: bash`,
+          # GitHub faehrt also `bash -e {0}` ohne pipefail. Der Befund steht
+          # weiter unten in `tee` — ohne pipefail waere der Rueckgabewert der
+          # von `tee`, und `tee` gelingt immer. Genau daran waren am 09.09.2026
+          # sechs Tore in pr-check.yml still entwaffnet.
+          set -eo pipefail
+
+          ZIEL="https://xn--eventbrse-57a.de"
+          # Der Fingerabdruck der Datei, die gerade hochgegangen ist. Dieselbe
+          # Rechnung wie `eb_shell_stand()` in functions.php: sha256 ueber den
+          # Inhalt, zwoelf Hex-Zeichen. app-shell.html wird vom Deploy NICHT
+          # angefasst (minifiziert werden nur app.js und styles.css), geht also
+          # byte-gleich hoch — nur deshalb sind beide Seiten vergleichbar.
+          ERWARTET=$(sha256sum app-shell.html | cut -c1-12)
+          echo "Erwartet: eb-stand=$ERWARTET"
+
+          GELIEFERT=""
+          GRUND="nicht erreichbar"
+          for VERSUCH in 1 2 3 4 5; do
+            if [ "$VERSUCH" -gt 1 ]; then
+              # Wachsende Pause. Ein SFTP-Deploy macht den Opcode-Zwischen-
+              # speicher fuer alle ungueltig; die erste Anfrage danach
+              # uebersetzt functions.php neu (am 04.09.2026 gemessen: 4140 ms
+              # statt 150 ms). Sofort wieder anzuklopfen misst den Deploy,
+              # nicht die Seite.
+              #
+              # `VERSUCH - 1`, nicht `VERSUCH`: die Pause steht VOR dem
+              # zweiten Anlauf, die Folge ist also 5 · 10 · 15 · 20 und
+              # nicht 10 · 15 · 20 · 25. Gemessen hat das der Test, nicht
+              # das Lesen — die erste Fassung wartete beim ersten
+              # Wiederholen schon zehn Sekunden.
+              sleep $(( ( VERSUCH - 1 ) * 5 ))
+            fi
+
+            RUMPF=$(mktemp)
+            CODE=$(curl -s -o "$RUMPF" -w "%{http_code}" --max-time 30 -L "$ZIEL" 2>/dev/null) || true
+            if [ "$CODE" != "200" ]; then
+              GRUND="HTTP $CODE"
+              rm -f "$RUMPF"
+              echo "Versuch $VERSUCH: $GRUND"
+              continue
+            fi
+
+            # Nur die eine Form, die index.php schreibt. Ein weiter gefasster
+            # Ausdruck faende auch ein `eb-stand` im Fliesstext und meldete
+            # dann Erfolg fuer eine Seite, die den Marker nicht traegt.
+            GELIEFERT=$(grep -o 'name="eb-stand" content="[0-9a-f]\{12\}"' "$RUMPF" \
+              | head -n1 | grep -o '[0-9a-f]\{12\}"$' | tr -d '"') || true
+            rm -f "$RUMPF"
+
+            if [ -z "$GELIEFERT" ]; then
+              GRUND="kein eb-stand im Kopf"
+            elif [ "$GELIEFERT" = "$ERWARTET" ]; then
+              GRUND="gleich"
+              break
+            else
+              GRUND="eb-stand=$GELIEFERT"
+            fi
+            echo "Versuch $VERSUCH: $GRUND"
+          done
+
+          if [ "$GRUND" = "gleich" ]; then
+            echo "✅ Live-Stand geprueft — die Seite liefert \`$ERWARTET\` aus" \
+              | tee -a "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
+          # Drei verschiedene Diagnosen, drei verschiedene Handgriffe. Ein
+          # gemeinsamer Text verwischt sie, und dann sucht jemand am falschen
+          # Ende — dieselbe Lehre wie beim lftp-Abruf der Laufzeitspur.
+          {
+            echo "### ❌ Der Live-Stand stimmt nicht mit dem Upload ueberein"
+            echo ""
+            echo "| | |"
+            echo "|---|---|"
+            echo "| erwartet (app-shell.html dieses Commits) | \`$ERWARTET\` |"
+            echo "| gemessen an $ZIEL | $GRUND |"
+            echo ""
+            case "$GRUND" in
+              "kein eb-stand im Kopf")
+                echo "Die Seite antwortet, traegt den Marker aber nicht."
+                echo "Dann liegt dort eine aeltere \`index.php\` oder"
+                echo "\`functions.php\` — der Upload hat sie nicht ersetzt." ;;
+              "nicht erreichbar"|HTTP*)
+                echo "Die Seite war in fuenf Anlaeufen nicht mit 200 zu"
+                echo "erreichen. Der Upload ist gelaufen; geprueft ist nichts." ;;
+              *)
+                echo "Die Seite liefert eine ANDERE Huelle aus als die"
+                echo "hochgeladene. Entweder blieb \`app-shell.html\` beim"
+                echo "Upload zurueck, oder etwas dazwischen gibt einen alten"
+                echo "Stand heraus." ;;
+            esac
+          } | tee -a "$GITHUB_STEP_SUMMARY"
+          echo "::error::Live-Stand weicht ab: erwartet $ERWARTET, gemessen $GRUND"
+          exit 1
