@@ -16,7 +16,7 @@ Zahlen ihrer Zeit — die sind Historie, kein Ist-Stand. Der Ensemble-Kontext
 liest diese Datei von oben; ein Modell, das „68 Tests" als aktuell meldet, hat
 einen alten Abschnitt gelesen und nicht diesen.
 
-- **Playwright-Suite: 1374 Tests in 93 Suiten**, blockierendes Gate in `pr-check.yml`.
+- **Playwright-Suite: 1384 Tests in 93 Suiten**, blockierendes Gate in `pr-check.yml`.
   Läuft seit dem Self-Hosting auch ohne Netzzugang vollständig durch
 
 ## Der QA-Bot gibt die Kategorie weiter (2026-10-01)
@@ -96,6 +96,47 @@ als Grund für ein „keine" — ein Verweis auf etwas, das es nicht gibt. Die
 **Offen und ausdrücklich nicht angefasst:** die Merkmalsliste der Inserate
 führt weiter `🧖 Wellness-Bereich`. Das ist eine Eigenschaft einer Location,
 keine Kategorie — richtig so.
+
+### Fünf Trending-Links liefen an der Reparatur vorbei (2026-10-01)
+
+Beim Durchgehen der Feed-Seitenleiste gefunden, am selben Abend. Alle fünf
+Links standen als `navigateTo('browse'); setTimeout(()=>{browseCategory.value
+='dj';filterListings();},100)` da — ein **100-ms-Rennen** gegen
+`loadDbListings()`, während `navigateTo('browse', key)` es seit dem Vormittag
+richtig tut.
+
+**Und `#Hochzeit` filterte auf nichts.** Es setzte
+`browseCategory.value='hochzeit'`; die Option gibt es dort nicht, „Hochzeit"
+ist ein **Anlass** und steht in `#browseEventType`. Ein `<select>` nimmt
+einen unbekannten Wert stillschweigend nicht an. Gemessen: **alle 15
+Inserate**, also kein Filter. Nachher 13 und Chip „💍 Hochzeit".
+
+**Der schwerere Fund lag daneben: zwei Kategoriefilter, mit UND verknüpft.**
+`filterListings()` liest `#browseCategory` **und** `selectedCategories`;
+`ebSucheKategorieSetzen()` räumte nur die Chips. Stand im Feld noch `dj` und
+kam der Assistent mit `location`, sagte die Seite *„0 Services gefunden —
+für (DJ & Musik) konnten wir leider keine passenden Services finden"*,
+während der Chip „Location" markiert war. Genau der Fall, vor dem der
+Kommentar dieser Funktion warnt, plus eine selbstbewusst falsche Begründung.
+
+Dazu die **zehnte Fassung** als Beschriftungsfrage (*Locations/Location*,
+*Licht & Tech/Licht & Technik*, *Eventplanung/Planung* — der Inhaber hat in
+seiner Meldung beide Wörter benutzt), der **404** auf
+`assets/showcase/dj-hero.jpg` (eine Datei, die es nie gegeben hat, hinter
+`onerror="this.remove()"`) und der einzige `javascript:`-href von 69, der
+beim CSP-Schritt 2 bei jedem Klick eine Verstoßmeldung erzeugen würde.
+
+**Zwei Messfehler von mir gehören ins Protokoll:** ich habe erst versteckte
+Karten gezählt (bei 0 Treffern wird `#browseGrid` ausgeblendet und behält
+seine alten Knoten) und daraus auf einen Produktfehler geschlossen, den es
+nicht gibt; und danach den Zustand synchron nach `navigateTo()` gelesen, das
+erst im `.then` rendert. Beides war meine Messung, nicht der Code.
+
+17 Mutationen, alle rot. Drei überlebten zuerst: zwei waren Lücken im Test
+(der Link wurde nicht geklickt, der Alt-Filter ohne `change` gesetzt), die
+dritte hat **überflüssige Zeremonie in meinem Code** gefunden — eine
+Schleife über alle Optionen, die exakt das tat, was `sel.value = x` ohnehin
+tut. Sie ist weg, nicht der Test dazugekommen.
 
 ## Der Deploy prüft jetzt, ob die Seite ankommt (2026-10-01)
 

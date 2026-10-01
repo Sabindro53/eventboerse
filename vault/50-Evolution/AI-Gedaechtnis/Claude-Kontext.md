@@ -44,6 +44,26 @@ behoben hatte** (`pyrotechnik` → licht, unverankertes `/r[äa]um/`). Eine
 Fundstelle zu beheben verhindert die nächste nicht; es verschiebt nur, wo
 sie auftaucht.
 
+**Dasselbe noch einmal an der Oberfläche:** fünf Trending-Links im Feed
+liefen weiter mit `setTimeout(…, 100)` an der gebauten Weitergabe vorbei,
+und einer davon (`#Hochzeit`) schrieb einen Wert in das falsche
+Auswahlfeld und filterte damit auf **nichts**. Eine Reparatur ist erst
+fertig, wenn ihre **Aufrufer** sie benutzen — nicht, wenn der Weg existiert.
+
+**Der teuerste Fund des Abends war eine Begründung.** Zwei Kategoriefilter
+mit UND verknüpft, und nur einer wurde geräumt: die Seite sagte „keine
+Treffer für DJ & Musik", während der Chip „Location" markiert war. Eine
+leere Liste mit einer **falschen** Erklärung ist schlimmer als eine leere
+Liste — sie schickt den Nutzer in die falsche Richtung.
+
+**Zwei meiner Messungen waren falsch, nicht das Produkt.** Ich habe
+versteckte Karten gezählt (bei 0 Treffern wird der Grid ausgeblendet und
+behält seine Knoten) und einmal synchron nach `navigateTo()` gelesen, das
+erst im `.then` rendert. Lehre: **vor jedem Befund prüfen, ob das Messgerät
+sein Subjekt überhaupt trifft** — zweimal an einem Abend hätte ich sonst
+einen Fehler gemeldet, den es nicht gibt, und an der falschen Stelle
+umgebaut.
+
 **Die Lehre, die sich wiederholt:** die autoritative Quelle ist nicht die
 längste Liste, sondern die Stelle, an der der Nutzer die Wahl trifft. Hier
 war das `#createCategory` mit seinen zehn Werten. Nach dieser Frage ergibt

@@ -2855,7 +2855,7 @@ Frühabweisung zurück · Assistent gibt die Kategorie nicht mit (2) · Weisslis
 entfernt · erst abschneiden, dann zählen · tote Ersatzliste mit `wellness` zurück.
 
 ```bash
-npx playwright test tests/e2e/assistent-kategorie.spec.js   # 23 Tests, 30 Mutationen
+npx playwright test tests/e2e/assistent-kategorie.spec.js   # 30 Tests, 47 Mutationen
 ```
 
 #### Es waren NEUN Fassungen, nicht vier — zwei standen in derselben Datei
@@ -2961,6 +2961,131 @@ nicht gibt. Die **Antwort** ändert sich nicht.
 ```bash
 npx playwright test tests/e2e/such-icons.spec.js   # 9 Tests
 ```
+
+#### Fünf Trending-Links, die an der Reparatur vorbeiliefen
+
+Am Abend des 01.10.2026 beim Durchgehen der Leiste gefunden. Die
+Feed-Seitenleiste führt fünf Links, und alle fünf standen so da:
+
+```html
+<a onclick="navigateTo('browse');
+   setTimeout(()=>{browseCategory.value='dj';filterListings();},100)">
+```
+
+**Zwei Fehler in einer Zeile.** Das `setTimeout(…, 100)` ist ein Rennen gegen
+`loadDbListings()` — dieselbe Falle wie bei `feedTabAktivieren()` am
+31.08.2026, und `navigateTo('browse', key)` tut es seit demselben Tag richtig
+und in der richtigen Reihenfolge.
+
+**Und `#Hochzeit` filterte auf nichts.** Es setzte
+`browseCategory.value = 'hochzeit'`; diese Option gibt es dort nicht —
+„Hochzeit" ist ein **Anlass**, kein Gewerk, und steht in
+`#browseEventType`. Ein `<select>` nimmt einen unbekannten Wert
+stillschweigend nicht an: `value` bleibt leer, `selectedIndex` wird −1.
+Gemessen zeigte der Link danach **alle 15 Inserate**. Lautlos.
+
+Der Router nimmt jetzt beides: Kategorie zuerst, dann Event-Typ
+(`if (data && !ebSucheKategorieSetzen(data)) ebSucheEventTypSetzen(data)`).
+Die Keys kollidieren nicht — Gewerke sind klein, Anlässe gross geschrieben.
+Nachher: **13 Services**, Chip „💍 Hochzeit".
+
+#### Und zwei Kategoriefilter schlossen sich aus
+
+Beim Bauen dazu gemessen, und es ist der schwerere Fund.
+`filterListings()` liest **zwei** Kategoriefilter und verknüpft sie mit UND:
+die Chips (`selectedCategories`) und das Auswahlfeld `#browseCategory`.
+`ebSucheKategorieSetzen()` räumte nur die Chips. Stand im Feld noch `dj` und
+kam der Assistent mit `location`, sagte die Seite:
+
+```
+0 Services gefunden
+„Für (DJ & Musik) konnten wir leider keine passenden Services finden"
+„Ähnliche Angebote in der Kategorie DJ & Musik"
+```
+
+**während der markierte Chip „Location" sagte.** Der Text nennt also die
+falsche Kategorie — genau der Fall, vor dem der Kommentar dieser Funktion
+seit dem Vormittag warnt (*„Bliebe ein alter Filter stehen, stünde am Ende
+eine leere Liste da — und die sähe aus wie ‚es gibt keine DJs'"*), nur mit
+einer selbstbewusst falschen Begründung obendrauf.
+
+`ebSucheAltfilterLeeren()` räumt beide Nicht-Chip-Filter und zieht die
+**Chip-Beschriftung** mit nach: sie hängt am `change`-Ereignis, und eine
+Zuweisung per Skript löst keines aus. Ohne den Aufruf stünde am Chip weiter
+„DJ & Musik" über einer Liste, die etwas anderes zeigt.
+
+**Zwei Messfehler von mir gehören hierher.** Beim ersten Versuch zählte ich
+Karten mit `querySelectorAll` — bei null Treffern wird `#browseGrid` aber auf
+`display: none` gesetzt und behält seine alten Karten im DOM. Ich habe also
+versteckte Knoten gezählt und daraus geschlossen, das Produkt zeige das alte
+Ergebnis weiter. Es zeigt richtig das „keine Treffer"-Panel. Der Zähler der
+Suite misst jetzt **sichtbare** Karten. Und beim zweiten Versuch las ich den
+Zustand synchron nach `navigateTo()` — das rendert erst im `.then` von
+`loadDbListings()`, also war zweimal „nicht gesetzt" meine Messung und nicht
+der Code.
+
+**Die zehnte Fassung war eine Beschriftungsfrage.** `#browseCategory` und
+`#createCategory` führen ihre Labels von Hand: die Keys stimmten, die Wörter
+nicht — *Locations* gegen *Location*, *Licht & Tech* gegen *Licht & Technik*,
+*Eventplanung* gegen *Planung*. Der Inhaber hat in seiner eigenen Meldung
+**beide** Wörter benutzt (*„wenn ich nach Locations suche soll dann auch im
+Filter Location finden lassen"*). Angeglichen, und ein Test verlangt, dass
+jedes Auswahlfeld die Kategorie so nennt wie die Tabelle.
+
+#### Die Hülle zeigte auf ein Foto, das es nie gegeben hat
+
+`app-shell.html` trug genau **zwei** lokale Verweise, und einer war kaputt:
+
+```html
+<img src="assets/showcase/dj-hero.jpg" … onerror="this.remove()">
+```
+
+Die Datei hat es nie gegeben. Der Gradient darunter war als „Fallback"
+beschriftet und **ist** die Gestaltung. Jeder Besucher, der so weit scrollte,
+löste eine 404 aus, und im Markup sah es aus wie ein Foto-Hintergrund —
+dieselbe Klasse wie die drei Konfetti-Popper hinter `display: none`. Das
+`onerror` war nebenbei einer der 459 Inline-Handler, die beim CSP-Schritt 2
+im Weg stehen: einer weniger, ohne Gegenleistung.
+
+**Und ein `javascript:`-href von 69.** Die anderen 68 `<a onclick>` tragen
+`href="#"`. Das ist nicht nur Stil: ein `javascript:`-URL fällt unter
+`script-src`, **nicht** unter `script-src-attr`. Mit dem Nonce aus Schritt 2
+wird er blockiert — die Aktion im `onclick` läuft weiter, aber **jeder Klick**
+erzeugt eine Verstoßmeldung, und der Sammler deckelt bei 25 verschiedenen.
+Eine laute wiederkehrende verdrängt die eine, auf die es ankommt.
+
+Gemessen wird die **Bedingung**: jede lokale Datei, auf die die Hülle zeigt,
+existiert — nach Abzug der HTML-Kommentare, denn die Erklärung an der alten
+Stelle nennt den toten Pfad wörtlich.
+
+#### Drei Mutationen überlebten, und eine entlarvte eigene Zeremonie
+
+- **„der Hochzeit-Link schreibt wieder klein"** überlebte, weil der Test
+  `navigateTo('browse','Hochzeit')` **selbst rief** statt den Link zu
+  klicken. Das Argument des Links war nie Subjekt — ein Prüfer, der die
+  Kette hinter dem Knopf misst und den Knopf überspringt, deckt genau den
+  gemeldeten Fehler nicht. Jetzt wird geklickt.
+- **„die Chip-Beschriftung wird nicht nachgezogen"** überlebte, weil der
+  Test den Alt-Filter per `.value` setzte, ohne `change` — die Beschriftung
+  sagte also nie „DJ & Musik", und es gab nichts nachzuziehen. Jetzt
+  entsteht der Filter wie im Betrieb, mit einer Gegenprobe auf die
+  Beschriftung **vorher**.
+- **„der Event-Typ-Setzer prüft die Option nicht"** überlebte zu Recht: er
+  hatte eine Schleife über alle Optionen, und die tat exakt das, was
+  `sel.value = x` ohnehin tut. **Die Mutation hat meine eigene Zeremonie
+  gefunden** — die Schleife ist weg, nicht der Test dazugekommen. Der
+  Rückgabewert hat sein Subjekt jetzt in der Ausgabe des Helfers, wie bei
+  `ebKategorieEintrag()`.
+
+Siebzehn Mutationen, **alle** machen ihre Suite rot: Trending-Links wieder
+mit `setTimeout` · der Hochzeit-Link klein geschrieben · der Hochzeit-Link
+gibt nichts mit · der Router versucht den Event-Typ nicht · der Event-Typ
+vor dem Grundaufbau · der Alt-Filter wird nicht geräumt (3 rot) · nur die
+Kategorie geräumt, der Anlass bleibt · die Chip-Beschriftung nicht
+nachgezogen (beim Räumen und beim Setzen) · der Setzer filtert nicht · der
+Setzer meldet immer Erfolg · zwei Labels driften wieder · der tote
+Foto-Verweis zurück (2 rot) · der `javascript:`-href zurück · die Fläche
+unter der Stage verschwindet (Gegenprobe).
 
 #### Und der ZWEITE Assistent hatte dieselbe Lücke
 
@@ -5484,7 +5609,7 @@ npm run test:smoke      # nur Routen-Smoke-Tests
 npm run test:css        # CSS-Minify-Regression (Verlaufsschrift)
 ```
 
-1374 Tests in 93 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
+1384 Tests in 93 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
 Sätze), Gebühren (centgenau, JS↔PHP-Parität), Wissensbasis (Antworten +
 Leckage-Schutz), Zufluss (Quarantäne-Tor + Demo-Feed-Ehrlichkeit),
 Verbindungen (HQ-Zugang + Connector-Katalog), Auftragsstrom (Herkunft +

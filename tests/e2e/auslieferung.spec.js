@@ -319,3 +319,79 @@ test.describe('Fremde Stilvorlagen ohne Wirkung werden abbestellt', () => {
     expect(Number(zeile[1]), 'die Priorität ist zu früh').toBeGreaterThanOrEqual(20);
   });
 });
+
+/* ══════════════════════════════════════════════════════════════════════
+   Die Hülle zeigt auf nichts, was es nicht gibt
+
+   Am 01.10.2026 gemessen: `app-shell.html` hatte genau ZWEI lokale
+   Verweise, und einer davon war kaputt —
+   `<img src="assets/showcase/dj-hero.jpg" … onerror="this.remove()">`.
+   Die Datei hat es NIE gegeben; der Gradient darunter war als „Fallback"
+   beschriftet und ist in Wahrheit die Gestaltung. Jeder Besucher, der so
+   weit scrollte, löste eine 404 aus, und im Markup sah es aus wie ein
+   Foto-Hintergrund. Dieselbe Klasse wie die drei Konfetti-Popper hinter
+   `display: none`: etwas ist da, sieht aus wie Funktion, und tut nichts.
+
+   Gemessen wird die BEDINGUNG, nicht der Einzelfall — und nach Abzug der
+   HTML-Kommentare, denn die Erklärung an der alten Stelle nennt den toten
+   Pfad wörtlich. Genau daran sind in diesem Projekt schon mehrere
+   Prüfungen gescheitert.
+   ══════════════════════════════════════════════════════════════════════ */
+test.describe('Die Hülle zeigt auf nichts, was es nicht gibt', () => {
+  const SHELL = fs.readFileSync(path.join(ROOT, 'app-shell.html'), 'utf8');
+  const BEREICHE = kommentarBereiche(SHELL);
+
+  /** Jeder lokale Verweis der Hülle, ohne die in Kommentaren. */
+  function lokaleVerweise() {
+    const out = [];
+    const re = /(?:src|href|poster)="((?!https?:|data:|mailto:|tel:|javascript:|#|\/wp-)[^"]+)"/g;
+    for (const m of SHELL.matchAll(re)) {
+      if (imKommentar(BEREICHE, m.index)) continue;
+      const pfad = m[1].split('?')[0].split('#')[0].replace(/^\.?\//, '');
+      if (!pfad) continue;
+      out.push({ roh: m[1], pfad });
+    }
+    return out;
+  }
+
+  test('jede lokale Datei, auf die die Hülle zeigt, existiert wirklich', () => {
+    const fehlt = lokaleVerweise().filter((v) => !fs.existsSync(path.join(ROOT, v.pfad)));
+    expect(fehlt.map((v) => v.roh), 'die Hülle verweist auf Dateien, die es nicht gibt')
+      .toEqual([]);
+  });
+
+  test('der tote Foto-Verweis ist weg — und sein onerror mit ihm', () => {
+    // `onerror="this.remove()"` war zugleich einer der 459 Inline-Handler,
+    // die beim CSP-Schritt 2 im Weg stehen. Einer weniger, ohne
+    // Gegenleistung — deshalb steht er hier mit im Subjekt.
+    for (const m of SHELL.matchAll(/assets\/showcase\/[^"']+/g)) {
+      expect(imKommentar(BEREICHE, m.index),
+        `${m[0]} steht wieder im Markup, nicht nur im Kommentar`).toBe(true);
+    }
+    // Gegenprobe: die Regel, die den Gradienten trägt, ist noch da — sonst
+    // wäre „Bild weg" auch dadurch erfüllt, dass die Fläche verschwindet.
+    const css = fs.readFileSync(path.join(ROOT, 'styles.css'), 'utf8');
+    expect(css, '.ebsc-stage-bg ist verschwunden — dann ist die Stage leer')
+      .toMatch(/\.ebsc-stage-bg\s*\{/);
+    expect(css, 'die Regel für das gelöschte <img> ist zurück')
+      .not.toMatch(/\.ebsc-stage-bg img\s*\{/);
+  });
+
+  test('kein javascript:-href — 69 Links, 69 mal href="#"', () => {
+    // Einer von 69 trug `href="javascript:void(0)"`, die anderen 68
+    // `href="#"`. Das ist nicht nur Stil: ein `javascript:`-URL fällt unter
+    // `script-src`, nicht unter `script-src-attr`. Mit dem Nonce aus
+    // CSP-Schritt 2 wird er blockiert — die Aktion im `onclick` läuft
+    // weiter, aber JEDER Klick erzeugt eine Verstoßmeldung. Der Sammler
+    // deckelt bei 25 verschiedenen Verstößen; eine laute wiederkehrende
+    // verdrängt die eine, auf die es ankommt.
+    const treffer = [];
+    for (const m of SHELL.matchAll(/href="javascript:[^"]*"/g)) {
+      if (!imKommentar(BEREICHE, m.index)) treffer.push(m[0]);
+    }
+    expect(treffer, 'ein javascript:-href ist zurück').toEqual([]);
+    // Gegenprobe: es gibt überhaupt Links mit onclick, sonst prüft das nichts.
+    expect((SHELL.match(/<a [^>]*onclick=/g) || []).length,
+      'keine Links mit onclick — der Test hat kein Subjekt').toBeGreaterThan(20);
+  });
+});

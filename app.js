@@ -1997,7 +1997,16 @@ function navigateTo(page, data, skipHistory) {
         // Dieselbe Falle wie bei feedTabAktivieren() am 31.08.2026.
         // Ein unbekannter Wert filtert NICHT und bricht nichts — `/browse/xyz`
         // zeigt die ganze Liste, statt eine Fehlerseite zu erzeugen.
-        if (data) ebSucheKategorieSetzen(data);
+        //
+        // ZWEITER VERSUCH ALS EVENT-TYP, falls es keine Kategorie ist. Die
+        // Trending-Leiste des Feeds bietet „#Hochzeit" neben „#DJMusic" an —
+        // der eine ist ein Anlass, der andere ein Gewerk. Bis zum 01.10.2026
+        // schrieb dieser Link `browseCategory.value = 'hochzeit'` per
+        // `setTimeout(…, 100)`; die Option gibt es dort nicht, also filterte
+        // er auf NICHTS und zeigte alle 15 Inserate. Lautlos.
+        // Reihenfolge: Kategorie zuerst, denn deren Keys sind kleingeschrieben
+        // und kollidieren nicht mit den Event-Typen („Hochzeit", „Messe …").
+        if (data && !ebSucheKategorieSetzen(data)) ebSucheEventTypSetzen(data);
         try { renderHeroMarquees(); } catch (err) { console.error('Fehler renderHeroMarquees in navigateTo(browse)', err); }
         _initCategoryScrollHint();
       });
@@ -3747,6 +3756,19 @@ function ebSucheKategorieSetzen(key) {
   // lautlos. Ein unbekannter Wert bedeutet jetzt „keine Kategorie", und das
   // sieht man: kein Chip markiert, alle Inserate da.
   selectedCategories.clear();
+  // DER ALTE FILTER MUSS MIT. `filterListings()` liest ZWEI Kategoriefilter
+  // und verknuepft sie mit UND: die Chips (`selectedCategories`) und das
+  // Auswahlfeld `#browseCategory`. Am 01.10.2026 nachgemessen: steht dort
+  // noch `dj` und kommt der Assistent mit `location`, dann zeigt die Seite
+  //
+  //   0 Services gefunden
+  //   „Fuer (DJ & Musik) konnten wir leider keine passenden Services finden"
+  //   „Aehnliche Angebote in der Kategorie DJ & Musik"
+  //
+  // waehrend der markierte Chip „Location" sagt. Der Text nennt also die
+  // FALSCHE Kategorie — genau der Fall, vor dem der Absatz darueber warnt,
+  // nur mit einer selbstbewussten Falschaussage obendrauf.
+  ebSucheAltfilterLeeren();
   if (ebKategorieBekannt(key)) selectedCategories.add(key);
   // KEIN try/catch. Hier stand eines, „defensiv" begruendet — es haette den
   // einen Fall verschluckt, auf den es ankommt: scheitert `filterListings()`,
@@ -3759,6 +3781,57 @@ function ebSucheKategorieSetzen(key) {
   renderSelectedTags();
   filterListings();
   return selectedCategories.size > 0;
+}
+
+/**
+ * Einen Event-Typ von aussen in die Suche übergeben.
+ *
+ * Das Gegenstück zu `ebSucheKategorieSetzen()`, nach derselben Regel:
+ * ZUERST leeren, DANN prüfen. „Hochzeit" ist kein Gewerk, sondern ein
+ * Anlass — die Trending-Leiste des Feeds bietet beides nebeneinander an.
+ *
+ * KEINE eigene Prüfliste, und auch keine Schleife über die Optionen. Das
+ * `<select>` prüft selbst: eine Zuweisung, zu der es keine Option gibt,
+ * setzt `value` auf '' und `selectedIndex` auf −1. Genau daran filterte der
+ * `#Hochzeit`-Link auf nichts — nicht weil die Prüfung fehlte, sondern weil
+ * niemand den Rückgabewert ansah.
+ *
+ * Hier stand erst eine Schleife, die jede Option mit dem Wunsch verglich.
+ * Die Mutationsprobe hat sie als wirkungslos entlarvt: sie tat exakt das,
+ * was die Zuweisung ohnehin tut. Eine Prüfung, die ihr Subjekt nicht
+ * ändert, ist Zeremonie — und `#browseEventType` wird zur Laufzeit aus
+ * `EB_EVENT_UNIVERSE` gefüllt, eine zweite Aufzählung hier wäre die
+ * nächste Fassung, die driftet.
+ */
+function ebSucheEventTypSetzen(typ) {
+  var sel = document.getElementById('browseEventType');
+  if (!sel) return false;
+  sel.value = String(typ || '');
+  // Die Beschriftung des Chips haengt am `change`-Ereignis, und eine
+  // Zuweisung per Skript loest keines aus. Ohne diesen Aufruf stuende am
+  // Chip weiter „Event-Typ", waehrend gefiltert wird — Markierung und
+  // Inhalt wieder auseinander.
+  updateChipLabel(sel);
+  filterListings();
+  return !!sel.value;
+}
+
+/**
+ * Die Filter leeren, die NICHT an den Chips hängen.
+ *
+ * `filterListings()` liest `#browseCategory` und `#browseEventType` zusätzlich
+ * zu `selectedCategories` und verknüpft alles mit UND. Wer von aussen eine
+ * frische Absicht hereinbringt, muss sie deshalb alle räumen; sonst
+ * schliessen sich zwei Filter aus, und die Seite begründet die leere Liste
+ * mit dem falschen von beiden.
+ */
+function ebSucheAltfilterLeeren() {
+  ['browseCategory', 'browseEventType'].forEach(function(id) {
+    var sel = document.getElementById(id);
+    if (!sel || !sel.value) return;
+    sel.value = '';
+    updateChipLabel(sel);
+  });
 }
 
 let aiDebounce = null;

@@ -491,6 +491,269 @@ test.describe('Der Weg in die gefilterte Suche', () => {
   });
 });
 
+/* ══════════════════════════════════════════════════════════════════════
+   Die Trending-Leiste und der Filter, der stehenblieb
+
+   Am Abend des 01.10.2026 gemessen. Die Feed-Seitenleiste führt fünf
+   Links — und alle fünf liefen an der gerade gebauten Weitergabe vorbei:
+
+     <a onclick="navigateTo('browse');
+        setTimeout(()=>{browseCategory.value='dj';filterListings();},100)">
+
+   Zwei Fehler in einer Zeile. Das `setTimeout(…, 100)` ist ein Rennen
+   gegen `loadDbListings()` — dieselbe Falle wie bei `feedTabAktivieren()`
+   am 31.08.2026, und `navigateTo('browse', key)` tut es seit demselben Tag
+   richtig und in der richtigen Reihenfolge.
+
+   Und `#Hochzeit` setzte `browseCategory.value = 'hochzeit'`. Diese Option
+   gibt es in diesem Auswahlfeld nicht — „Hochzeit" ist ein ANLASS, kein
+   Gewerk. Ein `<select>` nimmt einen unbekannten Wert stillschweigend
+   nicht an: `value` bleibt leer, `selectedIndex` wird −1. Gemessen zeigte
+   der Link danach alle 15 Inserate, also filterte er auf NICHTS.
+
+   Dazu der dritte Fund, derselbe Abend: `filterListings()` liest ZWEI
+   Kategoriefilter und verknüpft sie mit UND. `ebSucheKategorieSetzen()`
+   räumte nur die Chips. Stand im Auswahlfeld noch `dj` und kam der
+   Assistent mit `location`, dann sagte die Seite
+
+     0 Services gefunden
+     „Für (DJ & Musik) konnten wir leider keine passenden Services finden"
+
+   während der markierte Chip „Location" sagte. Genau der Fall, vor dem der
+   Kommentar dieser Funktion selbst warnt — mit einer selbstbewusst
+   falschen Begründung obendrauf.
+   ══════════════════════════════════════════════════════════════════════ */
+test.describe('Die Trending-Leiste und der Filter, der stehenblieb', () => {
+  /**
+   * SICHTBARE Karten.
+   *
+   * Bei null Treffern wird `#browseGrid` auf `display: none` gesetzt und
+   * ein „keine Treffer"-Panel eingeblendet — der Grid behält dabei seine
+   * alten Karten im DOM. Ein Zähler, der nur `querySelectorAll` nimmt,
+   * meldet dann die Karten des VORHERIGEN Filters. Genau daran ist die
+   * erste Messung dieses Befundes hängengeblieben.
+   */
+  async function sichtbareKarten(page) {
+    return page.evaluate(() => {
+      const grid = document.getElementById('browseGrid');
+      if (!grid || getComputedStyle(grid).display === 'none') return 0;
+      return grid.querySelectorAll('.listing-card, [data-listing-id]').length;
+    });
+  }
+
+  test('kein Trending-Link rennt mehr gegen den Grundaufbau an', () => {
+    // Gemessen wird die BEDINGUNG: kein `onclick` in der Leiste darf einen
+    // Zeitgeber starten oder ein Auswahlfeld von Hand beschreiben. Ein Test
+    // auf „steht da navigateTo" wäre beim nächsten Nachbau wieder blind.
+    const shell = fs.readFileSync(path.join(__dirname, '..', '..', 'app-shell.html'), 'utf8');
+    const i = shell.indexOf('id="sidebarTrending"');
+    expect(i, 'die Trending-Leiste ist verschwunden').toBeGreaterThan(-1);
+    const block = shell.slice(i, shell.indexOf('</div>', i));
+    const links = [...block.matchAll(/onclick="([^"]*)"/g)].map((m) => m[1]);
+    expect(links.length, 'keine Links in der Leiste — der Test prüft nichts')
+      .toBeGreaterThan(3);
+    for (const l of links) {
+      expect(l, `Zeitgeber im Trending-Link: ${l}`).not.toMatch(/setTimeout|setInterval/);
+      expect(l, `Auswahlfeld von Hand beschrieben: ${l}`).not.toMatch(/\.value\s*=/);
+      expect(l, `führt nicht über den Router: ${l}`).toMatch(/navigateTo\('browse',\s*'[^']+'\)/);
+    }
+  });
+
+  test('„#Hochzeit" filtert wirklich — GEKLICKT, nicht aufgerufen', async ({ page }) => {
+    await openApp(page);
+    await warteAufAppBereit(page);
+    const alle = await sichtbareKarten(page);
+    expect(alle, 'die Landeseite muss Inserate zeigen').toBeGreaterThan(2);
+
+    // GEKLICKT wird der echte Link. Der erste Entwurf rief
+    // `navigateTo('browse','Hochzeit')` selbst auf — damit überlebte die
+    // Mutation „der Link schreibt wieder 'hochzeit' klein", denn das
+    // ARGUMENT des Links war nie Subjekt. Ein Prüfer, der die Kette hinter
+    // dem Knopf misst und den Knopf überspringt, deckt genau den Fehler
+    // nicht, der gemeldet war.
+    await page.evaluate(() => {
+      const leiste = document.getElementById('sidebarTrending');
+      const link = Array.from(leiste.querySelectorAll('a'))
+        .find((a) => a.textContent.trim() === '#Hochzeit');
+      if (!link) throw new Error('#Hochzeit gibt es in der Leiste nicht');
+      link.click();
+    });
+    await page.waitForFunction(
+      () => document.getElementById('browseEventType').value === 'Hochzeit',
+      null, { timeout: 15000 });
+    const r = await page.evaluate(() => ({
+      et: document.getElementById('browseEventType').value,
+      kat: document.getElementById('browseCategory').value,
+      chips: document.querySelectorAll('.ai-cat-chip.selected').length,
+      chipLabel: (document.getElementById('browseEventType')
+        .parentElement.querySelector('.chip-label') || {}).textContent,
+    }));
+    expect(r.et, 'der Anlass landet nicht im Event-Typ-Filter').toBe('Hochzeit');
+    // Ein Anlass ist kein Gewerk: der Kategorie-Filter bleibt leer.
+    expect(r.kat, 'der Anlass landet im Kategoriefilder').toBe('');
+    expect(r.chips, 'ein Anlass darf keinen Kategorie-Chip markieren').toBe(0);
+    // Die Beschriftung hängt am `change`-Ereignis, das eine Zuweisung per
+    // Skript NICHT auslöst. Ohne den Aufruf stünde dort weiter „Event-Typ",
+    // während gefiltert wird — Markierung und Inhalt wieder auseinander.
+    expect(r.chipLabel, 'der Chip nennt den Anlass nicht').toMatch(/Hochzeit/);
+    // Und es wird wirklich gefiltert, nicht nur markiert.
+    expect(await sichtbareKarten(page), 'nichts gefiltert — genau der alte Zustand')
+      .toBeLessThan(alle);
+  });
+
+  test('eine neue Absicht räumt den alten Filter mit', async ({ page }) => {
+    await openApp(page);
+    await warteAufAppBereit(page);
+    // Der alte Filter entsteht WIE IM BETRIEB: der Nutzer wählt im
+    // sichtbaren Auswahlfeld, und das feuert `change`. Der erste Entwurf
+    // setzte nur `.value` — damit war die Chip-Beschriftung nie auf
+    // „DJ & Musik" gesetzt, und die Mutation „die Beschriftung wird beim
+    // Räumen nicht nachgezogen" überlebte, weil es nichts nachzuziehen gab.
+    await page.evaluate(() => {
+      const sel = document.getElementById('browseCategory');
+      sel.value = 'dj';
+      sel.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+    const beschriftungVorher = await page.evaluate(() =>
+      (document.getElementById('browseCategory')
+        .parentElement.querySelector('.chip-label') || {}).textContent);
+    expect(beschriftungVorher, 'der Chip nennt den alten Filter nicht — kein Subjekt')
+      .toBe('DJ & Musik');
+    const nurDj = await sichtbareKarten(page);
+    expect(nurDj, 'der alte Filter greift nicht — der Test hat kein Subjekt')
+      .toBeGreaterThan(0);
+
+    await page.evaluate(() => ebSucheKategorieSetzen('location'));
+    const r = await page.evaluate(() => ({
+      kat: document.getElementById('browseCategory').value,
+      et: document.getElementById('browseEventType').value,
+      beschriftung: (document.getElementById('browseCategory')
+        .parentElement.querySelector('.chip-label') || {}).textContent,
+      chips: Array.from(document.querySelectorAll('.ai-cat-chip.selected .ai-cat-label'))
+        .map((c) => c.textContent.trim()),
+      nores: getComputedStyle(document.getElementById('noResultsContainer')).display,
+      text: document.getElementById('noResultsContainer').innerText,
+    }));
+    expect(r.kat, 'der alte Kategoriefilter steht noch').toBe('');
+    expect(r.beschriftung, 'der Chip nennt weiter den geräumten Filter')
+      .toBe('Kategorie');
+    expect(r.chips, 'die neue Absicht ist nicht markiert').toEqual(['Location']);
+    // Der eigentliche Schaden war die BEGRÜNDUNG: „keine Treffer für
+    // DJ & Musik" über einem Chip, der Location sagt.
+    expect(r.nores, 'die neue Absicht endet in der leeren Liste').toBe('none');
+    expect(r.text, 'die alte Kategorie wird weiter genannt').not.toMatch(/DJ & Musik/);
+    expect(await sichtbareKarten(page), 'es wird nichts gezeigt').toBeGreaterThan(0);
+  });
+
+  test('auch der Anlass wird geräumt, wenn ein Gewerk kommt', async ({ page }) => {
+    await openApp(page);
+    await warteAufAppBereit(page);
+    await page.evaluate(() => window.navigateTo('browse', 'Hochzeit'));
+    await page.waitForFunction(
+      () => document.getElementById('browseEventType').value === 'Hochzeit',
+      null, { timeout: 15000 });
+    await page.evaluate(() => window.navigateTo('browse', 'dj'));
+    await page.waitForFunction(
+      () => document.querySelectorAll('.ai-cat-chip.selected').length === 1,
+      null, { timeout: 15000 });
+    const r = await page.evaluate(() => ({
+      et: document.getElementById('browseEventType').value,
+      kat: document.getElementById('browseCategory').value,
+      chips: Array.from(document.querySelectorAll('.ai-cat-chip.selected .ai-cat-label'))
+        .map((c) => c.textContent.trim()),
+    }));
+    // „DJ für die Hochzeit" wäre eine andere, legitime Absicht — aber die
+    // kommt dann über zwei Klicks, nicht dadurch, dass ein alter Filter
+    // liegenbleibt und die Liste unerklärt leert.
+    expect(r.et, 'der Anlass bleibt stehen und schneidet mit').toBe('');
+    expect(r.chips).toEqual(['DJ & Musik']);
+    expect(r.kat).toBe('');
+  });
+
+  test('ein unbekannter Wert räumt BEIDE Filter', async ({ page }) => {
+    await openApp(page);
+    await warteAufAppBereit(page);
+    await page.evaluate(() => {
+      document.getElementById('browseCategory').value = 'dj';
+      document.getElementById('browseEventType').value = 'Hochzeit';
+      filterListings();
+    });
+    await page.evaluate(() => window.navigateTo('browse', 'quatsch'));
+    await page.waitForFunction(
+      () => document.getElementById('browseCategory').value === '' &&
+            document.getElementById('browseEventType').value === '',
+      null, { timeout: 15000 });
+    const r = await page.evaluate(() => ({
+      chips: document.querySelectorAll('.ai-cat-chip.selected').length,
+      chipLabels: Array.from(document.querySelectorAll('#page-browse .chip-label'))
+        .map((e) => e.textContent.trim()),
+    }));
+    expect(r.chips, 'kein Chip darf markiert bleiben').toBe(0);
+    // Die Beschriftungen müssen mit: ein Chip, der „DJ & Musik" sagt, über
+    // einer ungefilterten Liste ist derselbe Widerspruch wie vorher.
+    expect(r.chipLabels, 'eine Beschriftung nennt noch den alten Filter')
+      .not.toContain('DJ & Musik');
+  });
+
+  test('der Setzer sagt, ob der Anlass angekommen ist', async ({ page }) => {
+    await openApp(page);
+    await warteAufAppBereit(page);
+    // Gemessen wird die AUSGABE des Helfers. An der Oberfläche hat sie heute
+    // kein Subjekt: der Router ruft ihn als Rückfall und sieht das Ergebnis
+    // nicht an. Genau deshalb überlebte die Mutation „gibt immer true
+    // zurück" — dieselbe Lehre wie bei `ebKategorieEintrag()` und bei
+    // `ebAuftragSchluessel()` hinter seiner Gruppierung. Wer den Helfer
+    // später verkettet, verlässt sich auf diese Antwort.
+    const r = await page.evaluate(() => ({
+      echt: ebSucheEventTypSetzen('Hochzeit'),
+      klein: ebSucheEventTypSetzen('hochzeit'),
+      quatsch: ebSucheEventTypSetzen('gibt-es-nicht'),
+      leer: ebSucheEventTypSetzen(''),
+      nachQuatsch: document.getElementById('browseEventType').value,
+    }));
+    expect(r.echt, 'ein echter Anlass wird nicht als angekommen gemeldet').toBe(true);
+    // Die Kleinschreibung ist der gemeldete Fall: `#browseEventType` führt
+    // „Hochzeit", nicht „hochzeit". Ein `<select>` nimmt das nicht an.
+    expect(r.klein, 'die Kleinschreibung gilt als angekommen').toBe(false);
+    expect(r.quatsch).toBe(false);
+    expect(r.leer).toBe(false);
+    expect(r.nachQuatsch, 'ein unbekannter Wert bleibt im Feld stehen').toBe('');
+  });
+
+  test('beide Auswahlfelder nennen die Kategorien so, wie die Tabelle sie nennt', async ({ page }) => {
+    await openApp(page);
+    await warteAufAppBereit(page);
+    // Die ZEHNTE Fassung: `#browseCategory` und `#createCategory` führen
+    // ihre Labels von Hand. Die Keys stimmten, die Wörter nicht —
+    // „Locations" gegen „Location", „Licht & Tech" gegen „Licht & Technik",
+    // „Eventplanung" gegen „Planung". Der Inhaber hat in seiner eigenen
+    // Meldung BEIDE Wörter benutzt („wenn ich nach Locations suche soll
+    // dann auch im Filter Location finden lassen"). Wer einen Chip sucht,
+    // den es unter diesem Namen nicht gibt, sucht vergeblich.
+    const r = await page.evaluate(() => {
+      const tab = {};
+      AI_CATEGORIES.forEach((c) => { tab[c.key] = c.label; });
+      const out = {};
+      ['browseCategory', 'createCategory'].forEach((id) => {
+        const sel = document.getElementById(id);
+        if (!sel) { out[id] = null; return; }
+        out[id] = Array.from(sel.options).filter((o) => o.value)
+          .map((o) => [o.value, o.textContent.trim(), tab[o.value] || null]);
+      });
+      return out;
+    });
+    for (const id of ['browseCategory', 'createCategory']) {
+      expect(r[id], `#${id} gibt es nicht mehr`).toBeTruthy();
+      expect(r[id].length, `#${id} hat keine Kategorien`).toBe(10);
+      for (const [key, gezeigt, erwartet] of r[id]) {
+        expect(erwartet, `#${id}: „${key}" steht nicht in AI_CATEGORIES`).toBeTruthy();
+        expect(gezeigt, `#${id}: „${key}" heisst hier anders als in der Tabelle`)
+          .toBe(erwartet);
+      }
+    }
+  });
+});
+
 test.describe('Der Assistent gibt die Kategorie mit', () => {
   test('mit Treffern führt die Antwort in die gefilterte Suche', async ({ page }) => {
     await openApp(page);

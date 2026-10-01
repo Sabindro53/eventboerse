@@ -16628,9 +16628,17 @@ body.dark-mode .availability-help { background: rgba(255, 56, 92, 0.10); }
 .binding-actions .btn-primary { flex: 2; display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
 
 /* ==================== Showcase-Upgrade: Blur-Hero, Journey, CSS-Art ==================== */
-/* Geblurrter Foto-Hintergrund der Demo-Stage. Fallback: Nachtlicht-Gradient
-   in der Stimmung des Live-Fotos (lila/magenta Pavillon-Licht). Legt man
-   assets/showcase/dj-hero.jpg ins Repo, erscheint automatisch das echte Foto. */
+/* Nachtlicht-Gradient der Demo-Stage (lila/magenta Pavillon-Licht).
+   Hier stand ein `<img>` auf eine Foto-Datei, die es NIE gegeben hat, mit
+   `onerror="this.remove()"` daneben und diesem Gradienten als „Fallback" —
+   also eine 404 bei jedem Besucher, der so weit scrollt, und ein Markup, das
+   aussah, als täte es etwas. Dieselbe Klasse wie die drei Konfetti-Popper
+   hinter `display: none`: etwas ist da, sieht aus wie Funktion, und tut
+   nichts. Der Gradient IST die Gestaltung.
+   Nebenbei war das `onerror` einer der 459 Inline-Handler, die beim
+   CSP-Schritt 2 im Weg stehen — einer weniger, ohne Gegenleistung.
+   Soll ein echtes Foto dahinter: `<img>` samt eigener Regel anlegen, nicht
+   eine versteckte Leiche entsperren. Das ist eine Zeile. */
 .ebsc-stage-bg {
   position: absolute; inset: 0; z-index: 0;
   background:
@@ -16639,12 +16647,6 @@ body.dark-mode .availability-help { background: rgba(255, 56, 92, 0.10); }
     radial-gradient(50% 45% at 85% 85%, rgba(94,120,255,0.3) 0%, transparent 60%),
     linear-gradient(175deg, #241b33 0%, #170f22 55%, #0e0a16 100%);
   overflow: hidden;
-}
-.ebsc-stage-bg img {
-  width: 100%; height: 100%;
-  object-fit: cover;
-  filter: blur(14px) brightness(0.55) saturate(1.15);
-  transform: scale(1.12); /* Blur-Ränder verstecken */
 }
 .ebsc-stage-bg::after {
   content: '';
