@@ -2747,6 +2747,59 @@ entfernt · erst abschneiden, dann zählen · tote Ersatzliste mit `wellness` zu
 npx playwright test tests/e2e/assistent-kategorie.spec.js   # 16 Tests, 13 Mutationen
 ```
 
+### Die Parole wurde länger, und `nowrap` stand noch da
+
+Am 01.10.2026 auf Wunsch des Inhabers: aus *„EVENTBÖRSE, finde dein Event ©"*
+wurde **„EVENTBÖRSE, PLANE DEIN PERFEKTES EVENT."**
+
+**Das war nicht nur ein Austausch von Text.** `.ai-hero-line2` trug
+`white-space: nowrap` — gesetzt, damit das frühere `©` nicht von seinem Wort
+abbricht. Die neue Zeile ist **27 Zeichen in Grossbuchstaben statt 16
+gemischt**: bei 390 px und `font-size: 2rem` passt sie nicht in eine Zeile.
+Mit `nowrap` wäre sie aus dem Bild gelaufen und hätte **die ganze Landeseite
+querscrollbar** gemacht — jede Wischgeste auf dem Telefon unsauber, und zwar
+ohne Fehlermeldung.
+
+Das ist die vertraute Klasse an einer neuen Stelle: eine CSS-Eigenschaft, die
+für den alten Inhalt richtig war und für den neuen falsch ist. Wer nur den Text
+tauscht, ändert die Bedingung, unter der die Regel galt.
+
+**`inline-block` bleibt, `nowrap` geht.** Der Kasten hält den Verlauf über
+beide Zeilen zusammen; umbrechen darf er trotzdem.
+
+**Das `©` ist mit seiner Parole gegangen**, und `.ai-hero-cr` mit ihm. Eine
+CSS-Regel ohne Subjekt überlebt jeden Umbau — dieselbe Klasse wie die drei
+Konfetti-Popper hinter `display: none`. Soll die Marke auf die neue Zeile,
+kommt sie samt Regel zurück; das ist eine Entscheidung des Inhabers, keine
+Aufräumarbeit.
+
+**Gemessen wird die Wirkung an drei Breiten** (390 / 768 / 1280), nicht das
+Markup: ein Test auf „der Text steht da" wäre bei einer abgeschnittenen Zeile
+grün. Geprüft werden `scrollWidth > clientWidth` an der Zeile, ihr rechter Rand
+gegen das Fenster **und** `document.documentElement` — ein einziges zu breites
+Element macht die ganze Seite querscrollbar.
+
+**Die Gegenprobe gehört dazu:** „kein Überlauf" wäre auch erfüllt, wenn jemand
+die Überschrift auf 10 px schrumpfte. Ein zweiter Test verlangt deshalb volle
+Schriftgrösse **und** mehr als eine Zeile bei 390 px.
+
+**Und die Mutationsprobe war zuerst aus dem falschen Grund grün.** Die Mutation
+„Schrift kleingerechnet" setzte `clamp(2rem, 5.5vw, 3.6rem)` auf
+`clamp(0.7rem, …)` — und überlebte. Bei 390 px bindet die untere Schranke
+nämlich gar nicht: dort gilt die Mobil-Regel `.ai-hero-h1 { font-size: 2rem }`.
+Mutiert wurde also eine Deklaration, die am Messpunkt nichts entscheidet. *Ein
+Messgerät, das sein Subjekt nicht trifft, meldet Entwarnung* — dieselbe Lehre
+wie bei der Mutation, die `planningSaveFragment()` statt der gemeinten Funktion
+traf.
+
+Fünf Mutationen, jede macht die Suite rot: `nowrap` zurück (**4 rot**) · alte
+Parole zurück · Schrift kleingerechnet · der `background-clip: text` entfernt ·
+`index.html` nicht neu gebaut (**3 rot**).
+
+```bash
+npx playwright test tests/e2e/hero-headline.spec.js   # 8 Tests, 5 Mutationen
+```
+
 ### Der Assistent spricht — mit einer Fassung, nicht zwei
 
 Gefordert am 01.10.2026: *„unserer Assistent braucht ein Spracheingabe und Ausgabe
@@ -5112,7 +5165,7 @@ npm run test:smoke      # nur Routen-Smoke-Tests
 npm run test:css        # CSS-Minify-Regression (Verlaufsschrift)
 ```
 
-1325 Tests in 90 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
+1333 Tests in 91 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
 Sätze), Gebühren (centgenau, JS↔PHP-Parität), Wissensbasis (Antworten +
 Leckage-Schutz), Zufluss (Quarantäne-Tor + Demo-Feed-Ehrlichkeit),
 Verbindungen (HQ-Zugang + Connector-Katalog), Auftragsstrom (Herkunft +

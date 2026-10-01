@@ -1709,7 +1709,7 @@ body.dark-mode .ai-spark { filter: blur(0.2px) brightness(1.1); }
   background-clip: text;
   -webkit-text-fill-color: transparent;
 }
-/* Markenzeile „EVENTBÖRSE, finde dein Event ©"
+/* Markenzeile „EVENTBÖRSE, PLANE DEIN PERFEKTES EVENT."
    WICHTIG: `background-image` statt der `background`-Kurzform verwenden.
    Die Kurzform setzt `background-clip` zurück — schiebt ein Minifier sie
    hinter die clip-Zeile, wird aus der Verlaufsschrift ein Farbblock.
@@ -1731,17 +1731,18 @@ body:not(.dark-mode) .ai-hero-brand {
   color: var(--primary);
   -webkit-text-fill-color: var(--primary);
 }
-.ai-hero-line2 { display: inline-block; white-space: nowrap; }
-.ai-hero-cr {
-  font-size: 0.28em;
-  font-weight: 700;
-  vertical-align: super;
-  margin-left: 2px;
-  opacity: 0.7;
-  color: var(--text-light);
-  -webkit-text-fill-color: currentColor;
-  background-image: none;
-}
+/* KEIN `white-space: nowrap` mehr. Es hielt das fruehere `©` an seinem Wort
+   („finde dein Event©", 16 Zeichen). Die Zeile heisst seit dem 01.10.2026
+   „PLANE DEIN PERFEKTES EVENT." — 27 Zeichen in Grossbuchstaben, und die
+   passen bei 390 px nicht in eine Zeile. Mit nowrap waere das ein Querscroll
+   auf der Landeseite: `inline-block` haelt den Verlauf ueber beide Zeilen
+   zusammen, das Umbrechen darf er trotzdem. Gemessen an drei Breiten
+   (`hero-headline.spec.js`), nicht angenommen. */
+.ai-hero-line2 { display: inline-block; }
+/* `.ai-hero-cr` ist entfallen: das `©` hing an der alten Parole und ist mit
+   ihr gegangen. Eine CSS-Regel ohne Subjekt ueberlebt jeden Umbau — dieselbe
+   Klasse wie die drei Konfetti-Popper hinter `display: none`. Soll die Marke
+   auf die neue Zeile, kommt sie samt Regel zurueck. */
 
 /* ── KI-Bildmontage im Hero ───────────────────────────────────────── */
 .ai-hero-shots { position: absolute; inset: 0; overflow: hidden; }
