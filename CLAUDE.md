@@ -2858,6 +2858,108 @@ entfernt · erst abschneiden, dann zählen · tote Ersatzliste mit `wellness` zu
 npx playwright test tests/e2e/assistent-kategorie.spec.js   # 16 Tests, 13 Mutationen
 ```
 
+#### Und der ZWEITE Assistent hatte dieselbe Lücke
+
+Am 01.10.2026 vom Inhaber gemeldet, mit Bild: *„Wenn ich dem Assistenten die
+Aufgabe gebe ‚Suche alle DJs', dann soll, wenn er danach die Suche vorschlägt,
+auch die DJs anzeigen — und nicht nur die Suche leer lassen und auf der
+Startseite spawnen."*
+
+**Repariert war am Vormittag der falsche Assistent.** Die Kategorie-Weitergabe
+oben betraf `ai/50-planungs-assistent.js` — den Chat im Board. Das Overlay auf
+der Landeseite ist `ui/31-modals-toast-qabot.js`, ein eigenes Modul mit eigenen
+Antworten und eigenen Knöpfen. Eine Fundstelle zu beheben verhindert die
+nächste nicht.
+
+Im echten Browser gemessen, vor der Behebung:
+
+| | |
+|---|---|
+| `_guideCategoryFor('Zeige alle DJ auf')` | **`dj`** — der Erkenner wusste es |
+| Knopf „Suche öffnen" | `target: browse`, `data` **leer** |
+| nach dem Klick | **15 Inserate**, kein Chip, Pfad `/` |
+
+`browse` **ist** die Landeseite — der Fragende stand danach genau dort, wo er
+vorher war. Und die ganze Kette war fertig: `runQaAction` reicht `daten` seit
+dem 15.09. an `navigateTo` weiter (für den Radar), und `navigateTo('browse',
+'dj')` filtert seit dem Vormittag wirklich. **Es fehlte allein die
+Verbindung** — dieselbe Klasse wie die Hochzeit-Bausteine, der
+Aktivitäten-Bestand neben der erfundenen Terminliste und der Storno ohne Knopf.
+
+Nachher, geklickt statt behauptet: **15 → 2 Inserate**, `selectedCategories:
+['dj']`, Pfad `/browse/dj`.
+
+**Fünf Entscheidungen, jede mutationsgeprüft:**
+
+- **Nur `browse`.** `aktuelles` nimmt einen Kanal, `board` ein Projekt — eine
+  Kategorie dorthin zu reichen wäre ein Knopf, der woandershin führt, als er
+  verspricht.
+- **Nur ohne eigenes `data`.** „Radar öffnen" trägt seinen Unterkanal schon.
+- **Eine Kopie, nie das Original.** `topic.actions` sind modulweite
+  Konstanten, die JEDE spätere Antwort wiederverwendet; wer sie beschreibt,
+  hängt den DJ-Filter an die nächste Frage nach dem Impressum.
+- **Beschriftung und Ziel wandern zusammen** — der Knopf heißt „DJ & Musik
+  suchen", und das Wort kommt aus `AI_CATEGORIES`, nicht aus einer zweiten
+  Liste.
+- **An EINER Stelle angewandt**, nicht an jedem der vier Antwortwege. Dieselbe
+  Begründung wie `defaults: run: shell: bash` am Job statt je Schritt.
+
+**Zwei Mutationen überlebten zuerst — und beide zeigten einen Fehler im
+TEST.** „Jedes Ziel bekommt die Kategorie" macht aus allen drei Knöpfen einen
+`browse`-Knopf; die Schleife, die non-browse-Knöpfe prüft, lief danach
+**nullmal** durch und war grün, ohne etwas zu belegen. Ein Prüfer ohne Subjekt,
+diesmal als leere Schleife. Und die Wache gegen das Überschreiben eines
+eigenen `data` hat an der Oberfläche **heute kein Subjekt** (kein Thema trägt
+einen `browse`-Knopf mit `data`) — sie misst jetzt die **Ausgabe des Helfers**,
+wie `ebAuftragSchluessel()` hinter seiner Gruppierung.
+
+**Und die erste Klick-Messung verfehlte ihr Subjekt.** `#qaMessages
+.eb-qa-action` *first* traf den **Anmelden**-Knopf der Begrüssung ganz oben,
+nicht die Antwort — gemessen „15 Inserate, nicht gefiltert", während die Kette
+längst trug. *Ein Messgerät, das sein Subjekt nicht trifft, meldet Entwarnung*
+— dieselbe Lehre wie bei der `clamp()`-Mutation, nur andersherum.
+
+#### Die siebte Fassung derselben Zuordnung stand in der Wissensbasis
+
+Die gemeldete Antwort kam **nicht aus Code**, sondern aus
+`vault/10-Produkt/Wissen/Suchen-und-Finden.md` — und sie nannte zehn
+Kategorien, von denen eine falsch war:
+
+| | |
+|---|---|
+| `#createCategory` (was ein Anbieter wählen kann) | 10 Werte |
+| die Notiz nannte | **Wellness** — nicht wählbar, nie findbar |
+| die Notiz verschwieg | **Pyrotechnik** |
+| ausserdem | „Eventplanung" statt des echten Labels „Planung" |
+
+Wer nach Wellness suchte, fand garantiert nichts; wer Pyrotechnik suchte,
+erfuhr nicht, dass es sie gibt. **Dieselbe Drift wie bei den vier
+Code-Fassungen, nur in Prosa** — und diese stand vor jedem Besucher.
+
+Daneben liegt eine **achte**: `_EB_CAT_GRAMMAR` in `11-suche-ki.js` führt
+elf Einträge mit eigenen Ausdrücken, `wellness` darunter. Sie bedient die
+Satz-Vervollständigung, nicht den Filter, und ist deshalb **nicht** in diesem
+PR angefasst: ein Umbau der Vorschlagsgrammatik ist eine eigene Messung, keine
+Beifracht. Als Befund steht sie in `Current-Sprint.md`.
+
+**Die Notiz bekommt ihr Subjekt.** Ein Test leitet die Labels aus
+`#createCategory` **und** `AI_CATEGORIES` ab und verlangt, dass der Abschnitt
+jedes nennt und keines erfindet. Dazu die Gegenprobe, dass
+`assets/eb-knowledge.json` denselben Stand trägt — wer die Notiz ändert und
+`build-knowledge.mjs` vergisst, repariert einen Text, den der Bot nie sagt.
+
+Elf Mutationen, jede macht die Suite rot: Kategorie gar nicht angewandt
+(**5 rot**) · der Erkenner wird nicht gefragt (5) · das Original beschrieben
+statt kopiert (2) · jedes Ziel bekommt die Kategorie (2) · ein eigener
+Unterkanal wird überschrieben · die Weissliste fällt weg · die Beschriftung
+bleibt generisch · eine tote `typeof`-Wache kehrt zurück · die Kategorie wird
+je Antwortweg wiederholt · die Notiz nennt wieder Wellness (2) · die Notiz
+verschweigt Pyrotechnik.
+
+```bash
+npx playwright test tests/e2e/qabot-kategorie.spec.js   # 13 Tests, 11 Mutationen
+```
+
 ### Die Parole wurde länger, und `nowrap` stand noch da
 
 Am 01.10.2026 auf Wunsch des Inhabers: aus *„EVENTBÖRSE, finde dein Event ©"*
@@ -5276,7 +5378,7 @@ npm run test:smoke      # nur Routen-Smoke-Tests
 npm run test:css        # CSS-Minify-Regression (Verlaufsschrift)
 ```
 
-1353 Tests in 92 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
+1366 Tests in 93 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
 Sätze), Gebühren (centgenau, JS↔PHP-Parität), Wissensbasis (Antworten +
 Leckage-Schutz), Zufluss (Quarantäne-Tor + Demo-Feed-Ehrlichkeit),
 Verbindungen (HQ-Zugang + Connector-Katalog), Auftragsstrom (Herkunft +
@@ -5383,6 +5485,12 @@ Kategorie und 12 harmlose Fragen keine; „pyrotechnik" ist Pyrotechnik, nicht
 Technik; und der Weg hinein wird geklickt — `navigateTo('browse','dj')`
 filtert wirklich, ein unbekannter Wert lässt keinen Chip markiert
 zurückstehen, und der Knopf nennt die GANZE Zahl, nicht die drei gezeigten),
+**QA-Bot-Kategorie** (der Assistent auf der Landeseite gibt die gefragte
+Kategorie an die Suche weiter — geklickt wird der echte Knopf der echten
+Antwort und im gefilterten Raster nachgesehen, nicht im Markup: nur `browse`
+bekommt sie, ein eigener Unterkanal wird nicht überschrieben, die geteilte
+Vorlage wird nicht vergiftet, und die Wissensnotiz nennt genau die Kategorien,
+die ein Inserat wirklich tragen kann),
 **Assistent-Stimme** (Sprachausgabe und Spracherkennung im echten PHP
 ausgeführt, nicht gelesen: eine offene Sprachroute gibt es nicht, der Deckel
 hängt am Konto und greift je Minute UND je Tag, zwei Konten teilen ihn nicht,

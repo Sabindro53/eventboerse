@@ -13,9 +13,8 @@ frei formulieren, etwa „DJ für Hochzeit in Köln". Die Treffer lassen sich na
 Ort und Preis eingrenzen.
 
 ## Welche Kategorien gibt es?
-Unter anderem DJ & Musik, Catering, Fotografie, Location, Licht & Technik, Floristik,
-Dekoration, Moderation, Eventplanung und Wellness. Über „Entdecken" siehst du alle Angebote
-als Bilderraster.
+Zehn: DJ & Musik, Catering, Fotografie, Floristik, Location, Licht & Technik, Pyrotechnik,
+Dekoration, Planung und Moderation. Über „Entdecken" siehst du alle Angebote als Bilderraster.
 
 ## Was bedeutet „In deiner Nähe"?
 Im Feed kannst du den Standort-Button aktivieren. Dann fragt dein Browser einmalig nach deinem

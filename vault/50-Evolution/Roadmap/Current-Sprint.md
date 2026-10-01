@@ -16,8 +16,43 @@ Zahlen ihrer Zeit — die sind Historie, kein Ist-Stand. Der Ensemble-Kontext
 liest diese Datei von oben; ein Modell, das „68 Tests" als aktuell meldet, hat
 einen alten Abschnitt gelesen und nicht diesen.
 
-- **Playwright-Suite: 1353 Tests in 92 Suiten**, blockierendes Gate in `pr-check.yml`.
+- **Playwright-Suite: 1366 Tests in 93 Suiten**, blockierendes Gate in `pr-check.yml`.
   Läuft seit dem Self-Hosting auch ohne Netzzugang vollständig durch
+
+## Der QA-Bot gibt die Kategorie weiter (2026-10-01)
+
+Gemeldet vom Inhaber: *„Suche alle DJs"* → der Bot schlug die Suche vor, und
+der Knopf landete **ungefiltert auf der Landeseite**. Im echten Browser
+gemessen: der Erkenner lieferte `dj`, der Knopf trug `data` leer, nach dem
+Klick standen 15 Inserate ohne Chip da.
+
+**Es war der zweite Assistent.** Am Vormittag war `ai/50-planungs-assistent.js`
+repariert worden (Board-Chat); gemeldet war `ui/31-modals-toast-qabot.js` — das
+Overlay der Landeseite, eigenes Modul, eigene Knöpfe. Die Kette war fertig, es
+fehlte die Verbindung. Nachher: **15 → 2 Inserate**, Pfad `/browse/dj`.
+
+Dabei fiel die **siebte** gepflegte Fassung der Kategorienliste auf — diesmal
+in Prosa, in `vault/10-Produkt/Wissen/Suchen-und-Finden.md`: sie nannte
+*Wellness* (im Formular nicht wählbar) und verschwieg *Pyrotechnik*. Korrigiert
+und mit einem Test versehen, der die Labels aus dem Formular ableitet.
+
+13 Tests, 11 Mutationen, alle rot. Zwei davon überlebten zuerst und zeigten
+beide einen Fehler im **Test**: eine Schleife ohne Subjekt und eine Wache, die
+an der Oberfläche nicht beobachtbar ist. Vollständig: der Abschnitt „Und der
+ZWEITE Assistent hatte dieselbe Lücke" in `CLAUDE.md`.
+
+### Befund, nicht behoben: die achte Fassung
+
+`_EB_CAT_GRAMMAR` in `js/modules/search/11-suche-ki.js` führt **elf** Einträge
+mit eigenen Ausdrücken, Labels und Icons — zehn davon doppeln `AI_CATEGORIES`,
+der elfte ist `wellness`. Sie bedient die Satz-Vervollständigung der Suche,
+nicht den Filter.
+
+Bewusst **nicht** in diesem Durchgang angefasst: ein Umbau der
+Vorschlagsgrammatik braucht eine eigene Messung am Korpus (welche Vorschläge
+ändern sich?), und Beifracht in einem gemeldeten Fehler ist genau die Sorte
+Änderung, die man hinterher nicht mehr zuordnen kann. Wer sie angeht, misst
+vorher, welche Vervollständigungen heute entstehen.
 
 ## Der Deploy prüft jetzt, ob die Seite ankommt (2026-10-01)
 

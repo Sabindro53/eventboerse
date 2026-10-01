@@ -16530,6 +16530,68 @@ function _qaFindTopic(text) {
   return best || QA_FALLBACK;
 }
 
+/**
+ * Traegt die gefragte Kategorie in den Such-Knopf — oder laesst alles, wie es ist.
+ *
+ * ── Der Befund (01.10.2026, vom Inhaber gemeldet) ─────────────────────
+ * „Zeige alle DJ auf" beantwortete der Bot richtig und bot darunter
+ * „Suche öffnen" an. Im echten Browser gemessen trug dieser Knopf
+ * `data-data=""`, lief also auf `navigateTo('browse', null)` — und
+ * `browse` IST die Landeseite. Der Fragende stand danach auf derselben
+ * Seite wie vorher, mit allen 21 Inseraten und ohne markierten Chip.
+ *
+ * Die ganze Kette war dabei fertig: `_guideCategoryFor()` erkennt den
+ * Satz (gemessen: `dj`), `runQaAction` reicht `daten` an `navigateTo`
+ * weiter (seit dem 15.09. fuer den Radar), und `navigateTo('browse','dj')`
+ * filtert seit dem 01.10. wirklich. **Es fehlte allein die Verbindung** —
+ * dieselbe Klasse wie die Hochzeit-Bausteine, der Aktivitaeten-Bestand
+ * neben der erfundenen Terminliste und der Storno-Vorgang ohne Knopf.
+ *
+ * ── Fuenf Entscheidungen ──────────────────────────────────────────────
+ * 1 · NUR `browse`. `aktuelles` nimmt einen Kanal (`radar`), `board` ein
+ *     Projekt — eine Kategorie dorthin zu reichen waere ein Knopf, der
+ *     woandershin fuehrt, als er verspricht.
+ * 2 · NUR ohne eigenes `data`. „Radar öffnen" traegt seinen Unterkanal
+ *     schon; ihn zu ueberschreiben nimmt dem Knopf sein Ziel.
+ * 3 · EINE KOPIE, nie das Original. `topic.actions` sind modulweite
+ *     Konstanten, die JEDE spaetere Antwort wiederverwendet. Wer sie
+ *     beschreibt, vergiftet sie dauerhaft: die naechste Frage nach dem
+ *     Impressum bekaeme den DJ-Filter mit.
+ * 4 · BESCHRIFTUNG UND ZIEL WANDERN ZUSAMMEN. Der Knopf heisst dann
+ *     „DJ & Musik suchen", und das Wort kommt aus derselben Tabelle wie
+ *     der Filter — nicht aus einer zweiten Liste in dieser Datei.
+ * 5 · WEISSLISTE. Der Schluessel landet in einem `onclick`-Attribut.
+ *     `_guideCategoryFor` liefert zwar nur Tabellenschluessel, aber eine
+ *     Wache, die auch bei einem erfundenen Argument traegt, ist die
+ *     einzige, die man nicht nachrechnen muss — dieselbe Begruendung wie
+ *     beim `pi_…`-Knopf des Stornos.
+ *
+ * KEIN `typeof`-Schutz auf den Helfern: alle drei sind Funktions- bzw.
+ * `const`-Deklarationen desselben verketteten Skripts. Ein `typeof` auf
+ * eine `const` WIRFT in der TDZ, statt `'undefined'` zu liefern — genau
+ * daran war der Ersatzzweig in `_getNavAiCategories()` toter Code.
+ */
+function _qaAktionenMitKategorie(actions, kategorie) {
+  if (!actions || !actions.length || !kategorie) return actions;
+  if (!ebKategorieBekannt(kategorie)) return actions;
+
+  var eintrag = null;
+  AI_CATEGORIES.forEach(function (c) { if (c.key === kategorie) eintrag = c; });
+  if (!eintrag) return actions;
+
+  return actions.map(function (action) {
+    if (action.kind !== 'page' || action.target !== 'browse' || action.data) return action;
+    // Flache Kopie: das Original bleibt unberuehrt (Entscheidung 3).
+    return {
+      label: eintrag.label + ' suchen',
+      icon: eintrag.icon,
+      kind: 'page',
+      target: 'browse',
+      data: kategorie
+    };
+  });
+}
+
 function _qaRenderActions(actions) {
   if (!actions || !actions.length) return '';
   return '<div class="eb-qa-actions">' + actions.map(function(action) {
@@ -16691,11 +16753,23 @@ function _qaAnswer(text) {
   var topic = _qaFindTopic(text);
   _qaAddMessage('user', text);
 
+  // Die gefragte Kategorie wird EINMAL bestimmt und EINMAL angewandt —
+  // nicht an jedem der vier Antwortwege. Eine Regel, die man an jedem
+  // neuen Zweig wiederholen muss, wird beim naechsten vergessen, und dann
+  // fuehrt genau dieser Knopf wieder ins Leere. Dieselbe Begruendung wie
+  // `defaults: run: shell: bash` am Job statt je Schritt.
+  var kategorie = _guideCategoryFor(text);
+  var senden = function (inhalt, aktionen) {
+    setTimeout(function () {
+      _qaAddMessage('bot', inhalt, _qaAktionenMitKategorie(aktionen, kategorie));
+    }, 180);
+  };
+
   // Eine Nicht-Möglichkeit zuerst: sie ist die genauere Auskunft, und ein
   // Weiterleiten in eine Sackgasse wäre die schlechtere.
   var nein = _qaNichtMoeglich(text);
   if (nein) {
-    setTimeout(function () { _qaAddMessage('bot', nein.antwort, nein.actions); }, 180);
+    senden(nein.antwort, nein.actions);
     return;
   }
 
@@ -16706,7 +16780,7 @@ function _qaAnswer(text) {
     var kbAnswer = hit.text;
     if (kbAnswer.length > 460) kbAnswer = kbAnswer.slice(0, 450).replace(/\s+\S*$/, '') + ' …';
     var acts = (topic.id !== 'fallback' && topic.actions) ? topic.actions : QA_FALLBACK.actions;
-    setTimeout(function() { _qaAddMessage('bot', kbAnswer, acts); }, 180);
+    senden(kbAnswer, acts);
     return;
   }
 
@@ -16717,7 +16791,7 @@ function _qaAnswer(text) {
       var list = 'Ich kann dir zu allem Auskunft geben, was öffentlich ist: ' +
         topics.map(function(t) { return t.title; }).join(' · ') +
         '. Stell einfach deine Frage — z. B. „Wie hoch ist die Provision?".';
-      setTimeout(function() { _qaAddMessage('bot', list, QA_FALLBACK.actions); }, 180);
+      senden(list, QA_FALLBACK.actions);
       return;
     }
   }
@@ -16738,9 +16812,7 @@ function _qaAnswer(text) {
     var sug = _ebKbSuggestions(text, 3);
     if (sug.length) answer += ' Vielleicht hilft dir eine dieser Fragen: „' + sug.join('", „') + '".';
   }
-  setTimeout(function() {
-    _qaAddMessage('bot', answer, topic.actions);
-  }, 180);
+  senden(answer, topic.actions);
 }
 
 function handleQaAsk(e) {
