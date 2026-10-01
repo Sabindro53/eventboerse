@@ -27,6 +27,43 @@ Code mit einer erfundenen Kategorie (`wellness`). Die Vereinheitlichung hat
 die Erkennung von 32/45 und 35/45 auf **45/45** gehoben — ohne dass dafür ein
 einziger neuer Ausdruck geschrieben wurde. Es fehlte nur die Vereinigung.
 
+**Es waren am Ende neun, und ich habe dreimal zu früh „alle" gesagt.** Am
+selben Tag kamen eine siebte (in Prosa, in der öffentlichen Wissensbasis),
+eine achte (`_EB_CAT_GRAMMAR`) und eine neunte (`EB_KATEGORIE_ICON`) dazu —
+die letzten zwei standen in **derselben Datei**, nur weiter oben, und wurden
+deshalb beim Zählen übersehen. Zusammengeführt: **64/64 bei 0 Fehlalarmen**,
+gegen 49/64 und 48/64 vorher.
+
+**Die Lehre dazu ist nicht „besser suchen", sondern: beim Zählen von Kopien
+ist die eigene Zahl eine Schätzung, bis ein Test sie hält.** Was zählt, ist
+die Bedingung — jede Liste ist abgeleitet oder hat einen Test, der ihre
+Herkunft prüft. Erst dann ist „alle" eine Aussage statt einer Hoffnung.
+
+**Und die achte trug beide Fehler, die ich am Vormittag an den anderen
+behoben hatte** (`pyrotechnik` → licht, unverankertes `/r[äa]um/`). Eine
+Fundstelle zu beheben verhindert die nächste nicht; es verschiebt nur, wo
+sie auftaucht.
+
+**Dasselbe noch einmal an der Oberfläche:** fünf Trending-Links im Feed
+liefen weiter mit `setTimeout(…, 100)` an der gebauten Weitergabe vorbei,
+und einer davon (`#Hochzeit`) schrieb einen Wert in das falsche
+Auswahlfeld und filterte damit auf **nichts**. Eine Reparatur ist erst
+fertig, wenn ihre **Aufrufer** sie benutzen — nicht, wenn der Weg existiert.
+
+**Der teuerste Fund des Abends war eine Begründung.** Zwei Kategoriefilter
+mit UND verknüpft, und nur einer wurde geräumt: die Seite sagte „keine
+Treffer für DJ & Musik", während der Chip „Location" markiert war. Eine
+leere Liste mit einer **falschen** Erklärung ist schlimmer als eine leere
+Liste — sie schickt den Nutzer in die falsche Richtung.
+
+**Zwei meiner Messungen waren falsch, nicht das Produkt.** Ich habe
+versteckte Karten gezählt (bei 0 Treffern wird der Grid ausgeblendet und
+behält seine Knoten) und einmal synchron nach `navigateTo()` gelesen, das
+erst im `.then` rendert. Lehre: **vor jedem Befund prüfen, ob das Messgerät
+sein Subjekt überhaupt trifft** — zweimal an einem Abend hätte ich sonst
+einen Fehler gemeldet, den es nicht gibt, und an der falschen Stelle
+umgebaut.
+
 **Die Lehre, die sich wiederholt:** die autoritative Quelle ist nicht die
 längste Liste, sondern die Stelle, an der der Nutzer die Wahl trifft. Hier
 war das `#createCategory` mit seinen zehn Werten. Nach dieser Frage ergibt

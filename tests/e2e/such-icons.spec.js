@@ -16,8 +16,10 @@
 const { test, expect } = require('@playwright/test');
 const fs = require('node:fs');
 const path = require('node:path');
+const { ohneJsKommentare } = require('./lib/js-code');
 
 const ROOT = path.join(__dirname, '..', '..');
+const SUCHE_KI = path.join(ROOT, 'js', 'modules', 'search', '11-suche-ki.js');
 
 /** Piktogramme, Symbole, Dingbats — und die Variantenselektoren dazu. */
 const EMOJI = /[\u{1F300}-\u{1FAFF}\u{1F000}-\u{1F2FF}\u{2600}-\u{27BF}\u{2B00}-\u{2BFF}\u{FE0F}]/u;
@@ -86,21 +88,51 @@ test.describe('Die Kategorie-Auswahl trägt Icons', () => {
 });
 
 test.describe('Eine Zuordnung, nicht drei Listen', () => {
-  test('jede Kategorie des Vokabulars hat ein Icon', async ({ page }) => {
+  test('jede Kategorie trägt Icon UND Akkusativ — in EINER Tabelle', async ({ page }) => {
+    // Bis zum 01.10.2026 standen beide Angaben woanders: das Icon ein
+    // zweites Mal in `EB_KATEGORIE_ICON`, der Akkusativ in
+    // `_EB_CAT_GRAMMAR`. Letztere war der Grund, dass es die zweite Tabelle
+    // überhaupt gab — und sie führte `wellness`, eine Kategorie, die kein
+    // Inserat tragen kann. Der Akkusativ gehört zur Kategorie, nicht in
+    // eine Nebentabelle, die niemand gegen diese hier misst.
     await appOeffnen(page);
     const r = await page.evaluate(() => {
-      if (typeof _EB_CAT_GRAMMAR === 'undefined') return null;
-      return Object.entries(_EB_CAT_GRAMMAR).map(([k, v]) => ({
-        key: k, icon: v.icon, hatEmoji: 'emoji' in v,
-      }));
+      if (typeof AI_CATEGORIES === 'undefined') return null;
+      return AI_CATEGORIES.map((c) => ({ key: c.key, icon: c.icon, akk: c.akk }));
     });
-    expect(r, 'das Suchvokabular ist nicht erreichbar — der Test prüfte nichts')
+    expect(r, 'die Tabelle ist nicht erreichbar — der Test prüfte nichts')
       .toBeTruthy();
-    expect(r.length, 'das Vokabular ist leer').toBeGreaterThan(5);
+    expect(r.length, 'die Tabelle ist leer').toBeGreaterThan(5);
     for (const e of r) {
-      expect(e.hatEmoji, `${e.key} trägt weiterhin ein emoji-Feld`).toBe(false);
       expect(e.icon, `${e.key} hat kein Icon`).toMatch(/^[a-z_]+$/);
+      // Ohne Akkusativ steht in der Vervollständigung „Ich suche undefined".
+      expect(typeof e.akk === 'string' && e.akk.trim().length > 2,
+        `${e.key} hat keinen Akkusativ für die Vervollständigung`).toBe(true);
     }
+  });
+
+  test('die zwei abgeschriebenen Tabellen sind weg und kommen nicht zurück', async ({ page }) => {
+    // Gemessen am geladenen Skript, nicht am Quelltext: beide waren `var`
+    // auf oberster Ebene und damit `window`-Eigenschaften. Wer eine davon
+    // neu anlegt, gewinnt in der Verkettung — `app.js` ist eine blosse
+    // Verkettung, und bei zwei `var` gleichen Namens zählt die spätere.
+    await appOeffnen(page);
+    const r = await page.evaluate(() => ({
+      gram: typeof window._EB_CAT_GRAMMAR,
+      ikon: typeof window.EB_KATEGORIE_ICON,
+      // Gegenprobe: die Ableitung trägt wirklich, sonst wäre „beide weg"
+      // auch erfüllt, wenn das Icon gar nicht mehr gefunden wird.
+      pyro: ebKategorieIcon('pyro'),
+      unbekannt: ebKategorieIcon('wellness'),
+    }));
+    expect(r.gram, '_EB_CAT_GRAMMAR ist zurück').toBe('undefined');
+    expect(r.ikon, 'EB_KATEGORIE_ICON ist zurück').toBe('undefined');
+    expect(r.pyro, 'die Ableitung findet das Icon nicht mehr')
+      .toBe('local_fire_department');
+    // `wellness` ist kein Formularwert. Ein Icon dafür wäre ein Glyph an
+    // einem Schlüssel, der nie ankommt — der Rückfall ist die Wahrheit.
+    expect(r.unbekannt, 'eine Kategorie ohne Formularwert bekommt ein Icon')
+      .toBe('push_pin');
   });
 
   test('CATEGORY_EMOJI existiert nicht mehr', () => {
@@ -114,22 +146,28 @@ test.describe('Eine Zuordnung, nicht drei Listen', () => {
     expect(code, 'CATEGORY_EMOJI ist zurück').not.toMatch(/const CATEGORY_EMOJI\s*=/);
   });
 
-  test('die Zuordnung deckt alle Kategorien der Auswahl ab', async ({ page }) => {
+  test('jede Kategorie der Auswahl bekommt ihr Icon wirklich geliefert', async ({ page }) => {
     await appOeffnen(page);
-    const fehlend = await page.evaluate(() => {
+    const r = await page.evaluate(() => {
       // Bare Bezeichner, NICHT window.*: AI_CATEGORIES ist ein `const` auf
       // oberster Ebene: in einem klassischen Skript legt das keine
       // window-Eigenschaft an. `var` tut es, `const` nicht — und ein Test,
       // der daran scheitert, übersprang sich vorher selbst.
       if (typeof AI_CATEGORIES === 'undefined') return { fehler: 'AI_CATEGORIES fehlt' };
-      if (typeof EB_KATEGORIE_ICON === 'undefined') return { fehler: 'EB_KATEGORIE_ICON fehlt' };
-      return { ohne: AI_CATEGORIES.filter((c) => !EB_KATEGORIE_ICON[c.key]).map((c) => c.key),
+      if (typeof ebKategorieIcon !== 'function') return { fehler: 'ebKategorieIcon fehlt' };
+      // Gemessen wird der AUSGELIEFERTE Wert, nicht das Vorhandensein eines
+      // Schlüssels in einer zweiten Tabelle. Vorher stand hier
+      // `!EB_KATEGORIE_ICON[c.key]` — seit die Zuordnung abgeleitet ist,
+      // wäre das wahr, ohne etwas zu belegen.
+      return { falsch: AI_CATEGORIES
+                 .filter((c) => ebKategorieIcon(c.key) !== c.icon)
+                 .map((c) => c.key),
                anzahl: AI_CATEGORIES.length };
     });
-    expect(fehlend.fehler, `Subjekt nicht gefunden: ${fehlend.fehler}`).toBeUndefined();
-    expect(fehlend.anzahl, 'die Auswahl ist leer — der Test prüfte nichts')
+    expect(r.fehler, `Subjekt nicht gefunden: ${r.fehler}`).toBeUndefined();
+    expect(r.anzahl, 'die Auswahl ist leer — der Test prüfte nichts')
       .toBeGreaterThan(5);
-    expect(fehlend.ohne, `ohne Icon in der Zuordnung: ${fehlend.ohne.join(', ')}`)
+    expect(r.falsch, `falsches Icon geliefert: ${(r.falsch || []).join(', ')}`)
       .toHaveLength(0);
   });
 });
@@ -153,12 +191,19 @@ test.describe('Die benutzten Icons sind auch ausgeliefert', () => {
     // Ein Icon, das im Code steht, aber im Zuschnitt fehlt, erscheint im
     // Betrieb als leerer Kasten — sichtbar für jeden Besucher, unsichtbar
     // für jeden anderen Test.
-    const modul = fs.readFileSync(
-      path.join(ROOT, 'js', 'modules', 'search', '11-suche-ki.js'), 'utf8');
-    const block = modul.match(/var EB_KATEGORIE_ICON = \{([\s\S]*?)\};/);
-    expect(block, 'die Zuordnung ist verschwunden').toBeTruthy();
-    const icons = [...block[1].matchAll(/'([a-z_]+)'/g)].map((m) => m[1]);
-    expect(icons.length, 'die Zuordnung ist leer').toBeGreaterThan(5);
+    // Nach Abzug der Kommentare, über den gemeinsamen Griff. Das ist hier
+    // VORSORGE, nicht ein belegter Befund: die Erklärung über der Ableitung
+    // nennt den gelöschten Eintrag `wellness: 'spa'` wörtlich, aber sie
+    // steht ausserhalb des geschnittenen Blocks — die Mutation „Kommentare
+    // nicht abgezogen" überlebt deshalb, und das steht hier, statt dass der
+    // Abzug eine Wirkung behauptet, die er beim heutigen Schnitt nicht hat.
+    // Er bleibt, weil ein breiterer Schnitt sonst still den Kommentar misst.
+    const modul = ohneJsKommentare(fs.readFileSync(SUCHE_KI, 'utf8'));
+    const i = modul.indexOf('const AI_CATEGORIES = [');
+    expect(i, 'die Tabelle ist verschwunden').toBeGreaterThan(-1);
+    const block = modul.slice(i, modul.indexOf('\n];', i));
+    const icons = [...block.matchAll(/icon:\s*'([a-z_]+)'/g)].map((m) => m[1]);
+    expect(icons.length, 'die Tabelle führt keine Icons mehr').toBeGreaterThan(5);
 
     const benutzt = new Set(fs.readFileSync(
       path.join(ROOT, 'scripts', 'lib', 'material-icons-benutzt.txt'), 'utf8')

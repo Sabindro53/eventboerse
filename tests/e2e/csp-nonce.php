@@ -80,6 +80,12 @@ file_put_contents( $tmp . '/pruefstand.php', "<?php\n"
     . '  function __construct($d=null,$s=200){ $this->data=$d; $this->status=$s; } }'
     . funktion( $src, 'eb_csp_nonce' )
     . funktion( $src, 'eb_inline_nonce_setzen' )
+    // eb_shell_inhalt() ist seit dem 01.10.2026 die einzige Stelle, die die
+    // Huelle liest — eb_shell_ausgeben() und eb_shell_stand() teilen sie.
+    // Fehlt sie hier, scheitert der Pruefstand an einem undefinierten
+    // Aufruf: 16 Tests rot, und zwar sofort. Genau dafuer schneidet dieser
+    // Pruefstand den ECHTEN Code heraus statt ihn nachzubilden.
+    . funktion( $src, 'eb_shell_inhalt' )
     . funktion( $src, 'eb_shell_ausgeben' )
     . funktion( $src, 'eb_csp_quelle_kuerzen' )
     . funktion( $src, 'eb_csp_report_empfangen' )

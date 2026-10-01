@@ -1571,6 +1571,117 @@ fehlendes csso (**Exit 0**, Rückfall gemeldet, `app.js` trotzdem minifiziert),
 dieselbe Lage mit dem alten Tor (**Exit 1** — der Fehler), fehlendes terser
 (Exit 1, `app.js` byte-identisch).
 
+### Der Deploy meldete Erfolg für den Upload, nicht für die Seite
+
+Gefunden am 01.10.2026, unmittelbar nach dem Merge von #303. Der Deploy war
+grün, der Site-Monitor grün — und es gab **keinen Weg festzustellen, ob die
+neue Hero-Parole live steht**. Drei Messungen:
+
+| | |
+|---|---|
+| letzter Schritt in `ionos-deploy.yml` | `Inject AI keys` — **keine** Prüfung des Ergebnisses |
+| Beleg des Site-Monitors | `id="page-home"`, im Markup seit `74e7900` (26.08.) |
+| einziger Stand im ausgelieferten Kopf | `$asset_ver = '2.5.1'`, von Hand, nie erhöht |
+
+**Ein Deploy, der gar nichts oder nur die Hälfte hochlädt, blieb damit grün.**
+Der Monitor sucht einen Marker, den **jede** Fassung trägt; er unterscheidet
+„antwortet" von „funktioniert", aber nicht „der neue Stand" von „irgendein
+Stand". Dieselbe Klasse wie der tote Gitleaks-Scan, eine Ebene tiefer: der
+Prüfer läuft, er findet auch etwas — nur nicht das, wofür man ihn hält.
+
+Und dieser Spalt hat das Projekt schon einmal zwei Wochen gekostet: die
+vierzehn Routine-PRs waren fertig und erreichten die Seite nie. Dort lag er
+zwischen PR und `main`, hier zwischen `main` und dem Server.
+
+**Der Marker ist ABGELEITET, nicht gepflegt.** `eb_shell_stand()` bildet
+`sha256` über `app-shell.html` und schreibt zwölf Hex-Zeichen als
+`<meta name="eb-stand">` in den Kopf. Die Alternative stand daneben und ist
+das Gegenbeispiel: `$asset_ver` müsste jemand hochzählen, und seit `2.5.1`
+hat es niemand getan — eine Stand-Angabe, die man pflegen muss, sagt nach
+dem ersten Vergessen das Gegenteil der Wahrheit.
+
+**Vergleichbar ist das nur, weil die Hülle byte-gleich hochgeht.** Der Deploy
+minifiziert `app.js` und `styles.css`; ein Fingerabdruck über die wäre
+zwischen Repository und Server **dauerhaft** verschieden und das Tor
+dauerhaft rot. `app-shell.html` fasst der Deploy nicht an.
+
+**Eine Lesung, eine Wahrheit.** `eb_shell_inhalt()` ist die einzige Stelle,
+die die Hülle liest; Ausgabe und Fingerabdruck teilen sie. Zwei Lesevorgänge
+könnten verschiedene Inhalte sehen, und dann stünde im Kopf der Abdruck eines
+Körpers, der darunter nicht steht. Gemessen wird das, indem der Prüfstand die
+Datei **unter dem laufenden Prozess austauscht**: ausgeliefert werden muss die
+gelesene Hülle, nicht die neue.
+
+**Der Schritt steht ZULETZT, und das ist kein Zufall.** Ein roter Prüfer
+bricht den Job ab, und alles danach wird übersprungen. Vor den
+`wp-config`-Schritten hätte ein kurzer Netzfehler die Übertragung von SMTP-,
+Stripe-, Apple-, Steuer- und KI-Zugangsdaten verhindert. Der Upload ist zu
+diesem Zeitpunkt ohnehin gelaufen — **ein rotes Tor hält nichts auf, es
+berichtet nur.**
+
+**Drei Lagen, drei Diagnosen.** *Kein Marker* heißt: dort liegt eine ältere
+`index.php` oder `functions.php`. *Anderer Marker* heißt: die Hülle blieb beim
+Upload zurück, oder etwas dazwischen gibt einen alten Stand heraus. *Nicht
+erreichbar* heißt: geprüft ist nichts. Ein gemeinsamer Text verwischt sie, und
+dann sucht jemand am falschen Ende.
+
+**Kein Cache-Umgeher an der Adresse.** Liefert etwas dazwischen einen alten
+Stand aus, ist das genau der Fall, den dieses Tor sehen soll; ein
+`?nocache=`-Parameter machte es blind. Gemessen wird dieselbe Adresse, die ein
+Besucher aufruft.
+
+**`set -eo pipefail` trägt einen eigenen Fall.** Dieser Job hat kein
+`defaults: run: shell: bash`, GitHub fährt also `bash -e {0}`. Ohne `pipefail`
+wäre der Rückgabewert von `sha256sum … | cut` der von `cut`, und `cut` gelingt
+immer: bei fehlender `app-shell.html` liefe der Schritt mit **leerer**
+Erwartung weiter und meldete eine Stand-Abweichung — rot aus dem falschen
+Grund. Ein eigener Test hält das; die Mutation „pipefail entfernt" macht ihn
+rot.
+
+**Die erste Pause war zehn Sekunden, nicht fünf** — `VERSUCH * 5` statt
+`(VERSUCH - 1) * 5`, weil die Pause **vor** dem zweiten Anlauf steht.
+Aufgefallen ist das dem Test, nicht dem Lesen. Die `sleep`-Attrappe schreibt
+mit statt zu warten; sonst stünde die Suite 50 Sekunden je Fehlerfall, und die
+Pausenfolge wäre trotzdem nicht gemessen.
+
+**Der Refactor hat prompt eine echte Prüfung rot gemacht**, und das gehört
+hierher: `csp-nonce.php` schneidet `eb_shell_ausgeben()` aus `functions.php`
+heraus und kannte `eb_shell_inhalt()` nicht — **16 Tests rot, sofort**. Genau
+dafür schneidet dieser Prüfstand den echten Code heraus, statt ihn
+nachzubilden.
+
+Vierzehn Mutationen, jede macht die Suite rot: der ganze Torschritt entfernt
+(**11 rot**) · der Vergleich umgedreht (4) · `exit 0` im Fehlerfall (6) · nur
+ein Anlauf (2) · der Marker irgendwo im Rumpf gesucht · `pipefail` entfernt ·
+der Torschritt vor den `wp-config`-Schritten · `eb_shell_ausgeben()` liest
+selbst noch einmal · der Fingerabdruck hängt nicht am Inhalt (3) · ein
+Lesefehler ergibt trotzdem einen Stand (2) · `index.php` schreibt den Marker
+nicht (2) · der Marker landet im Body (2) · eine tote
+`function_exists`-Wache kehrt zurück · `csp-nonce.php` schneidet
+`eb_shell_inhalt()` nicht mehr ein (**16 rot**).
+
+**Was dieses Tor NICHT prüft:** `app.js` und `styles.css` (minifiziert, also
+nicht vergleichbar — der Site-Monitor prüft `app.js` auf HTTP 200) und die
+`wp-config`-Schritte, die ihre eigenen Meldungen schreiben.
+
+**Der Site-Monitor NENNT den Stand jetzt, ohne darüber zu urteilen.** Er lädt
+den Rumpf ohnehin herunter; seine Statuszeile trägt `· Stand <marker>`. Damit
+ist „welcher Stand ist live" zu jeder Zeit beantwortbar — genau die Frage, die
+am 01.10.2026 nach einem grünen Deploy nicht zu beantworten war.
+
+**Ihn dort gegen `main` zu vergleichen wäre verlockend und falsch.** Zwischen
+Push und fertigem Deploy liegen zwei Minuten, in denen die beiden zu Recht
+auseinandergehen: ein Alarm daraus ginge bei **jedem** Push los und wäre in
+zwei Wochen abgeschaltet — der Fehlalarm-Tod, an dem in diesem Projekt schon
+der Geheimnis-Scanner und die CSP-Meldeliste vorbeigeschrammt sind. Verglichen
+wird im Deploy, wo feststeht, was gerade hochgegangen ist. Ein Test hält die
+Grenze: keine Lage-Bedingung des Monitors darf `STAND` lesen.
+
+```bash
+npx playwright test tests/e2e/live-stand.spec.js   # 19 Tests, 14 Mutationen
+npx playwright test tests/e2e/site-monitor.spec.js # 9 Tests
+```
+
 ### Lighthouse war neunmal rot — und hat neunmal gemessen
 
 Vom 09.07. bis 01.09.2026 scheiterte jeder Lauf. Nicht an der Messung, die lag
@@ -2744,7 +2855,340 @@ Frühabweisung zurück · Assistent gibt die Kategorie nicht mit (2) · Weisslis
 entfernt · erst abschneiden, dann zählen · tote Ersatzliste mit `wellness` zurück.
 
 ```bash
-npx playwright test tests/e2e/assistent-kategorie.spec.js   # 16 Tests, 13 Mutationen
+npx playwright test tests/e2e/assistent-kategorie.spec.js   # 30 Tests, 47 Mutationen
+```
+
+#### Es waren NEUN Fassungen, nicht vier — zwei standen in derselben Datei
+
+Am Abend des 01.10.2026 nachgezählt. Über der autoritativen Tabelle, in
+**derselben** Datei, standen noch zwei:
+
+| Fassung | Einträge | wofür |
+|---|---:|---|
+| `_EB_CAT_GRAMMAR` | **11** | Satz-Vervollständigung: Artikel, Label, Icon, eigenes Muster |
+| `EB_KATEGORIE_ICON` | **11** | nur Icons — reine Kopie der Icon-Spalte |
+
+Beide waren beim ersten Durchgang nicht mitgezählt, weil sie **vor**
+`AI_CATEGORIES` stehen und mit ihr nie verglichen wurden. Am erweiterten
+Korpus gemessen:
+
+| | Treffer (64) | Fehlalarme |
+|---|---:|---:|
+| achte Fassung | 49 | **1** |
+| `AI_CATEGORIES` | 48 | 0 |
+| **zusammengeführt** | **64** | **0** |
+
+**Wieder nicht ineinander enthalten** — und die achte trug **beide** Fehler,
+die am Vormittag desselben Tages an den anderen behoben wurden:
+`pyrotechnik` → **licht** (weil `technik` vor `pyro` stand) und
+`wer hilft beim aufräumen` → **location** (weil `/r[äa]um/` unverankert war).
+*Eine Fundstelle zu beheben verhindert die nächste nicht, solange jede
+Oberfläche ihre eigene Kopie pflegt.*
+
+**Der elfte Eintrag war `wellness` — eine Kategorie, die kein Inserat tragen
+kann.** `#createCategory` bietet sie nicht an. Wer „massage" tippte, bekam
+den fertigen Satz *„Ich suche ein Wellness-Angebot für meine Hochzeit in
+Köln"* vorgeschlagen und danach garantiert null Treffer.
+
+**Und sie blieb.** `_ebTasteBump('cats', …)` schrieb den Schlüssel ins
+Geschmacksprofil im `localStorage`; von dort war er die **Vorgabe für jede
+weitere Vervollständigung**, auch für unverwandte Suchen. Eine Suche
+vergiftete alle folgenden — und das Profil überlebt die Behebung, weshalb
+die Vorschläge jetzt gegen die Tabelle prüfen, statt dem Profil zu glauben.
+
+**`akk` zieht in die Tabelle, nicht in eine Nebentabelle.** Der Akkusativ
+(„einen DJ", „ein Catering") war die einzige **echte** eigene Information
+der achten Fassung — und damit ihre ganze Begründung. Er gehört zur
+Kategorie; eine Nebentabelle dafür bringt neun weitere Spalten mit, die
+niemand gegen das Original misst.
+
+**Abgeleitet wird LAZY, im Funktionsrumpf.** `AI_CATEGORIES` ist ein `const`
+weiter unten in derselben Datei: eine Ableitung an der alten Zeile greift
+beim Laden in die TDZ und zerlegt die Datei. `typeof` hilft dort nicht — es
+wirft selbst. `ebKategorieIcon()` leitet beim ersten Aufruf ab und merkt es.
+
+**Drei Wörter blieben DRAUSSEN, jedes mit gemessenem Grund** — und jedes
+steht als Durchlass-Satz im Korpus, nicht als Absatz:
+
+| Wort | hätte getroffen | Folge |
+|---|---|---|
+| `ausstattung` → deko | „technische Ausstattung" | `deko` steht vor `licht` |
+| `film` → foto | „was ist mit dem Filmabend" | ein Event-Typ, keine Kategorie |
+| bares `hof` → location | „wir treffen uns am Bahnhof" | die echten Orte stehen ausgeschrieben |
+
+Dazu zwei Formfragen: **`funken`, nicht `funke`** (letzteres trifft
+„funkeln", und `pyro` steht vor `licht` — „die Lichter funkeln" wäre ein
+Feuerwerk geworden) und **`\bhost\b`, nicht `host`** (sonst ist eine
+Hostess ein Moderator).
+
+**Zwei Reihenfolge-Bedingungen, nicht eine.** Neben `pyro` vor `licht` trägt
+jetzt `licht` vor `location`: „Beschallung für den Saal" nennt Technik **und**
+Ort, und vor dem 01.10.2026 ergab der Satz in **beiden** Fassungen
+`location` — der Fragende bekam Schlösser für eine Tonanlage. Beide
+Bedingungen haben einen eigenen Test mit einem konkreten Satz, weil sie beim
+nächsten alphabetischen Aufräumen still kaputtgehen.
+
+**Vier Mutationen überlebten den ersten Durchgang, drei waren Lücken in den
+Tests.** `\bhost\b` hatte keinen Durchlass-Satz mit „Hostess"; der
+`null`-Zweig von `ebKategorieEintrag()` hat an der Oberfläche **kein
+Subjekt** (jeder Aufrufer nimmt seinen Key aus der Tabelle oder fragt vorher
+`ebKategorieBekannt()`) und misst jetzt die **Ausgabe** des Helfers, wie
+`ebAuftragSchluessel()` hinter seiner Gruppierung; und den Kategorie-Chip des
+Planungs-Assistenten prüfte niemand.
+
+**Die vierte überlebt weiterhin, und das steht im Test.** Der Kommentarabzug
+im Icon-Test ist dort **Vorsorge ohne Subjekt**: die Erklärung, die
+`wellness: 'spa'` wörtlich nennt, liegt ausserhalb des geschnittenen Blocks.
+Er bleibt, weil ein breiterer Schnitt sonst still den Kommentar misst — aber
+er behauptet keine Wirkung, die er beim heutigen Schnitt nicht hat.
+
+Siebzehn Mutationen, sechzehn machen die Suite rot: achte Fassung zurück
+(**4 rot**) · neunte Fassung zurück (2) · `akk` fällt aus der Tabelle (3) ·
+`ebKategorieIcon` leitet nicht ab (3) · `pyro` nach `licht` (2) · `licht`
+nach `location` (2) · `ebKategorieEintrag` erfindet einen Eintrag (2) ·
+Vokabular weg bei licht (2) · `funken` → `funke` · `host` ohne Wortgrenze ·
+bares `hof` · `ausstattung` in deko · `film` in foto · Vokabular weg bei
+catering · die Wache am Geschmacksprofil weg · der Chip fragt die Tabelle
+nicht.
+
+**Nicht angefasst:** die Merkmalsliste der Inserate führt weiter
+`🧖 Wellness-Bereich` — das ist eine **Eigenschaft einer Location**, keine
+Kategorie, und völlig in Ordnung. Mitgezogen wurde nur die Begründung in
+`vault/40-Governance/Legal/App-Store.md`: sie nannte „die Kategorie
+`wellness`" als Grund für ein „keine" und zeigte damit auf etwas, das es
+nicht gibt. Die **Antwort** ändert sich nicht.
+
+```bash
+npx playwright test tests/e2e/such-icons.spec.js   # 9 Tests
+```
+
+#### Fünf Trending-Links, die an der Reparatur vorbeiliefen
+
+Am Abend des 01.10.2026 beim Durchgehen der Leiste gefunden. Die
+Feed-Seitenleiste führt fünf Links, und alle fünf standen so da:
+
+```html
+<a onclick="navigateTo('browse');
+   setTimeout(()=>{browseCategory.value='dj';filterListings();},100)">
+```
+
+**Zwei Fehler in einer Zeile.** Das `setTimeout(…, 100)` ist ein Rennen gegen
+`loadDbListings()` — dieselbe Falle wie bei `feedTabAktivieren()` am
+31.08.2026, und `navigateTo('browse', key)` tut es seit demselben Tag richtig
+und in der richtigen Reihenfolge.
+
+**Und `#Hochzeit` filterte auf nichts.** Es setzte
+`browseCategory.value = 'hochzeit'`; diese Option gibt es dort nicht —
+„Hochzeit" ist ein **Anlass**, kein Gewerk, und steht in
+`#browseEventType`. Ein `<select>` nimmt einen unbekannten Wert
+stillschweigend nicht an: `value` bleibt leer, `selectedIndex` wird −1.
+Gemessen zeigte der Link danach **alle 15 Inserate**. Lautlos.
+
+Der Router nimmt jetzt beides: Kategorie zuerst, dann Event-Typ
+(`if (data && !ebSucheKategorieSetzen(data)) ebSucheEventTypSetzen(data)`).
+Die Keys kollidieren nicht — Gewerke sind klein, Anlässe gross geschrieben.
+Nachher: **13 Services**, Chip „💍 Hochzeit".
+
+#### Und zwei Kategoriefilter schlossen sich aus
+
+Beim Bauen dazu gemessen, und es ist der schwerere Fund.
+`filterListings()` liest **zwei** Kategoriefilter und verknüpft sie mit UND:
+die Chips (`selectedCategories`) und das Auswahlfeld `#browseCategory`.
+`ebSucheKategorieSetzen()` räumte nur die Chips. Stand im Feld noch `dj` und
+kam der Assistent mit `location`, sagte die Seite:
+
+```
+0 Services gefunden
+„Für (DJ & Musik) konnten wir leider keine passenden Services finden"
+„Ähnliche Angebote in der Kategorie DJ & Musik"
+```
+
+**während der markierte Chip „Location" sagte.** Der Text nennt also die
+falsche Kategorie — genau der Fall, vor dem der Kommentar dieser Funktion
+seit dem Vormittag warnt (*„Bliebe ein alter Filter stehen, stünde am Ende
+eine leere Liste da — und die sähe aus wie ‚es gibt keine DJs'"*), nur mit
+einer selbstbewusst falschen Begründung obendrauf.
+
+`ebSucheAltfilterLeeren()` räumt beide Nicht-Chip-Filter und zieht die
+**Chip-Beschriftung** mit nach: sie hängt am `change`-Ereignis, und eine
+Zuweisung per Skript löst keines aus. Ohne den Aufruf stünde am Chip weiter
+„DJ & Musik" über einer Liste, die etwas anderes zeigt.
+
+**Zwei Messfehler von mir gehören hierher.** Beim ersten Versuch zählte ich
+Karten mit `querySelectorAll` — bei null Treffern wird `#browseGrid` aber auf
+`display: none` gesetzt und behält seine alten Karten im DOM. Ich habe also
+versteckte Knoten gezählt und daraus geschlossen, das Produkt zeige das alte
+Ergebnis weiter. Es zeigt richtig das „keine Treffer"-Panel. Der Zähler der
+Suite misst jetzt **sichtbare** Karten. Und beim zweiten Versuch las ich den
+Zustand synchron nach `navigateTo()` — das rendert erst im `.then` von
+`loadDbListings()`, also war zweimal „nicht gesetzt" meine Messung und nicht
+der Code.
+
+**Die zehnte Fassung war eine Beschriftungsfrage.** `#browseCategory` und
+`#createCategory` führen ihre Labels von Hand: die Keys stimmten, die Wörter
+nicht — *Locations* gegen *Location*, *Licht & Tech* gegen *Licht & Technik*,
+*Eventplanung* gegen *Planung*. Der Inhaber hat in seiner eigenen Meldung
+**beide** Wörter benutzt (*„wenn ich nach Locations suche soll dann auch im
+Filter Location finden lassen"*). Angeglichen, und ein Test verlangt, dass
+jedes Auswahlfeld die Kategorie so nennt wie die Tabelle.
+
+#### Die Hülle zeigte auf ein Foto, das es nie gegeben hat
+
+`app-shell.html` trug genau **zwei** lokale Verweise, und einer war kaputt:
+
+```html
+<img src="assets/showcase/dj-hero.jpg" … onerror="this.remove()">
+```
+
+Die Datei hat es nie gegeben. Der Gradient darunter war als „Fallback"
+beschriftet und **ist** die Gestaltung. Jeder Besucher, der so weit scrollte,
+löste eine 404 aus, und im Markup sah es aus wie ein Foto-Hintergrund —
+dieselbe Klasse wie die drei Konfetti-Popper hinter `display: none`. Das
+`onerror` war nebenbei einer der 459 Inline-Handler, die beim CSP-Schritt 2
+im Weg stehen: einer weniger, ohne Gegenleistung.
+
+**Und ein `javascript:`-href von 69.** Die anderen 68 `<a onclick>` tragen
+`href="#"`. Das ist nicht nur Stil: ein `javascript:`-URL fällt unter
+`script-src`, **nicht** unter `script-src-attr`. Mit dem Nonce aus Schritt 2
+wird er blockiert — die Aktion im `onclick` läuft weiter, aber **jeder Klick**
+erzeugt eine Verstoßmeldung, und der Sammler deckelt bei 25 verschiedenen.
+Eine laute wiederkehrende verdrängt die eine, auf die es ankommt.
+
+Gemessen wird die **Bedingung**: jede lokale Datei, auf die die Hülle zeigt,
+existiert — nach Abzug der HTML-Kommentare, denn die Erklärung an der alten
+Stelle nennt den toten Pfad wörtlich.
+
+#### Drei Mutationen überlebten, und eine entlarvte eigene Zeremonie
+
+- **„der Hochzeit-Link schreibt wieder klein"** überlebte, weil der Test
+  `navigateTo('browse','Hochzeit')` **selbst rief** statt den Link zu
+  klicken. Das Argument des Links war nie Subjekt — ein Prüfer, der die
+  Kette hinter dem Knopf misst und den Knopf überspringt, deckt genau den
+  gemeldeten Fehler nicht. Jetzt wird geklickt.
+- **„die Chip-Beschriftung wird nicht nachgezogen"** überlebte, weil der
+  Test den Alt-Filter per `.value` setzte, ohne `change` — die Beschriftung
+  sagte also nie „DJ & Musik", und es gab nichts nachzuziehen. Jetzt
+  entsteht der Filter wie im Betrieb, mit einer Gegenprobe auf die
+  Beschriftung **vorher**.
+- **„der Event-Typ-Setzer prüft die Option nicht"** überlebte zu Recht: er
+  hatte eine Schleife über alle Optionen, und die tat exakt das, was
+  `sel.value = x` ohnehin tut. **Die Mutation hat meine eigene Zeremonie
+  gefunden** — die Schleife ist weg, nicht der Test dazugekommen. Der
+  Rückgabewert hat sein Subjekt jetzt in der Ausgabe des Helfers, wie bei
+  `ebKategorieEintrag()`.
+
+Siebzehn Mutationen, **alle** machen ihre Suite rot: Trending-Links wieder
+mit `setTimeout` · der Hochzeit-Link klein geschrieben · der Hochzeit-Link
+gibt nichts mit · der Router versucht den Event-Typ nicht · der Event-Typ
+vor dem Grundaufbau · der Alt-Filter wird nicht geräumt (3 rot) · nur die
+Kategorie geräumt, der Anlass bleibt · die Chip-Beschriftung nicht
+nachgezogen (beim Räumen und beim Setzen) · der Setzer filtert nicht · der
+Setzer meldet immer Erfolg · zwei Labels driften wieder · der tote
+Foto-Verweis zurück (2 rot) · der `javascript:`-href zurück · die Fläche
+unter der Stage verschwindet (Gegenprobe).
+
+#### Und der ZWEITE Assistent hatte dieselbe Lücke
+
+Am 01.10.2026 vom Inhaber gemeldet, mit Bild: *„Wenn ich dem Assistenten die
+Aufgabe gebe ‚Suche alle DJs', dann soll, wenn er danach die Suche vorschlägt,
+auch die DJs anzeigen — und nicht nur die Suche leer lassen und auf der
+Startseite spawnen."*
+
+**Repariert war am Vormittag der falsche Assistent.** Die Kategorie-Weitergabe
+oben betraf `ai/50-planungs-assistent.js` — den Chat im Board. Das Overlay auf
+der Landeseite ist `ui/31-modals-toast-qabot.js`, ein eigenes Modul mit eigenen
+Antworten und eigenen Knöpfen. Eine Fundstelle zu beheben verhindert die
+nächste nicht.
+
+Im echten Browser gemessen, vor der Behebung:
+
+| | |
+|---|---|
+| `_guideCategoryFor('Zeige alle DJ auf')` | **`dj`** — der Erkenner wusste es |
+| Knopf „Suche öffnen" | `target: browse`, `data` **leer** |
+| nach dem Klick | **15 Inserate**, kein Chip, Pfad `/` |
+
+`browse` **ist** die Landeseite — der Fragende stand danach genau dort, wo er
+vorher war. Und die ganze Kette war fertig: `runQaAction` reicht `daten` seit
+dem 15.09. an `navigateTo` weiter (für den Radar), und `navigateTo('browse',
+'dj')` filtert seit dem Vormittag wirklich. **Es fehlte allein die
+Verbindung** — dieselbe Klasse wie die Hochzeit-Bausteine, der
+Aktivitäten-Bestand neben der erfundenen Terminliste und der Storno ohne Knopf.
+
+Nachher, geklickt statt behauptet: **15 → 2 Inserate**, `selectedCategories:
+['dj']`, Pfad `/browse/dj`.
+
+**Fünf Entscheidungen, jede mutationsgeprüft:**
+
+- **Nur `browse`.** `aktuelles` nimmt einen Kanal, `board` ein Projekt — eine
+  Kategorie dorthin zu reichen wäre ein Knopf, der woandershin führt, als er
+  verspricht.
+- **Nur ohne eigenes `data`.** „Radar öffnen" trägt seinen Unterkanal schon.
+- **Eine Kopie, nie das Original.** `topic.actions` sind modulweite
+  Konstanten, die JEDE spätere Antwort wiederverwendet; wer sie beschreibt,
+  hängt den DJ-Filter an die nächste Frage nach dem Impressum.
+- **Beschriftung und Ziel wandern zusammen** — der Knopf heißt „DJ & Musik
+  suchen", und das Wort kommt aus `AI_CATEGORIES`, nicht aus einer zweiten
+  Liste.
+- **An EINER Stelle angewandt**, nicht an jedem der vier Antwortwege. Dieselbe
+  Begründung wie `defaults: run: shell: bash` am Job statt je Schritt.
+
+**Zwei Mutationen überlebten zuerst — und beide zeigten einen Fehler im
+TEST.** „Jedes Ziel bekommt die Kategorie" macht aus allen drei Knöpfen einen
+`browse`-Knopf; die Schleife, die non-browse-Knöpfe prüft, lief danach
+**nullmal** durch und war grün, ohne etwas zu belegen. Ein Prüfer ohne Subjekt,
+diesmal als leere Schleife. Und die Wache gegen das Überschreiben eines
+eigenen `data` hat an der Oberfläche **heute kein Subjekt** (kein Thema trägt
+einen `browse`-Knopf mit `data`) — sie misst jetzt die **Ausgabe des Helfers**,
+wie `ebAuftragSchluessel()` hinter seiner Gruppierung.
+
+**Und die erste Klick-Messung verfehlte ihr Subjekt.** `#qaMessages
+.eb-qa-action` *first* traf den **Anmelden**-Knopf der Begrüssung ganz oben,
+nicht die Antwort — gemessen „15 Inserate, nicht gefiltert", während die Kette
+längst trug. *Ein Messgerät, das sein Subjekt nicht trifft, meldet Entwarnung*
+— dieselbe Lehre wie bei der `clamp()`-Mutation, nur andersherum.
+
+#### Die siebte Fassung derselben Zuordnung stand in der Wissensbasis
+
+Die gemeldete Antwort kam **nicht aus Code**, sondern aus
+`vault/10-Produkt/Wissen/Suchen-und-Finden.md` — und sie nannte zehn
+Kategorien, von denen eine falsch war:
+
+| | |
+|---|---|
+| `#createCategory` (was ein Anbieter wählen kann) | 10 Werte |
+| die Notiz nannte | **Wellness** — nicht wählbar, nie findbar |
+| die Notiz verschwieg | **Pyrotechnik** |
+| ausserdem | „Eventplanung" statt des echten Labels „Planung" |
+
+Wer nach Wellness suchte, fand garantiert nichts; wer Pyrotechnik suchte,
+erfuhr nicht, dass es sie gibt. **Dieselbe Drift wie bei den vier
+Code-Fassungen, nur in Prosa** — und diese stand vor jedem Besucher.
+
+Daneben lag eine **achte**: `_EB_CAT_GRAMMAR` in `11-suche-ki.js`, elf
+Einträge mit eigenen Ausdrücken, `wellness` darunter. Sie bediente die
+Satz-Vervollständigung, nicht den Filter — ein Umbau der Vorschlagsgrammatik
+war eine eigene Messung und keine Beifracht, also stand sie zunächst als
+Befund da. **Sie ist am Abend desselben Tages gemessen und zusammengeführt
+worden**, und mit ihr eine neunte (`EB_KATEGORIE_ICON`): siehe den Abschnitt
+„Es waren NEUN Fassungen, nicht vier" weiter oben.
+
+**Die Notiz bekommt ihr Subjekt.** Ein Test leitet die Labels aus
+`#createCategory` **und** `AI_CATEGORIES` ab und verlangt, dass der Abschnitt
+jedes nennt und keines erfindet. Dazu die Gegenprobe, dass
+`assets/eb-knowledge.json` denselben Stand trägt — wer die Notiz ändert und
+`build-knowledge.mjs` vergisst, repariert einen Text, den der Bot nie sagt.
+
+Elf Mutationen, jede macht die Suite rot: Kategorie gar nicht angewandt
+(**5 rot**) · der Erkenner wird nicht gefragt (5) · das Original beschrieben
+statt kopiert (2) · jedes Ziel bekommt die Kategorie (2) · ein eigener
+Unterkanal wird überschrieben · die Weissliste fällt weg · die Beschriftung
+bleibt generisch · eine tote `typeof`-Wache kehrt zurück · die Kategorie wird
+je Antwortweg wiederholt · die Notiz nennt wieder Wellness (2) · die Notiz
+verschweigt Pyrotechnik.
+
+```bash
+npx playwright test tests/e2e/qabot-kategorie.spec.js   # 13 Tests, 11 Mutationen
 ```
 
 ### Die Parole wurde länger, und `nowrap` stand noch da
@@ -5165,7 +5609,7 @@ npm run test:smoke      # nur Routen-Smoke-Tests
 npm run test:css        # CSS-Minify-Regression (Verlaufsschrift)
 ```
 
-1333 Tests in 91 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
+1384 Tests in 93 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
 Sätze), Gebühren (centgenau, JS↔PHP-Parität), Wissensbasis (Antworten +
 Leckage-Schutz), Zufluss (Quarantäne-Tor + Demo-Feed-Ehrlichkeit),
 Verbindungen (HQ-Zugang + Connector-Katalog), Auftragsstrom (Herkunft +
@@ -5201,7 +5645,16 @@ kommt zur Ruhe, wenn niemand etwas tut; **Bewegungsreduktion kostet nie mehr
 als der Normalfall** — der Marquee steht dann still, hält keine eigene Ebene
 mehr und läuft nach der Rücknahme ohne Neuladen wieder an, und wer die Seite
 mit der Einstellung LÄDT, bekommt keine Dauerschleife),
-**Site-Monitor** (der Monitor unterscheidet „antwortet“ von „funktioniert“),
+**Site-Monitor** (der Monitor unterscheidet „antwortet“ von „funktioniert“ —
+und nennt seit dem 01.10.2026 den ausgelieferten Stand, ohne daraus ein Urteil
+zu machen: ein Vergleich gegen `main` ginge bei jedem Push los),
+**Live-Stand** (der Deploy prueft, ob die Seite den hochgeladenen Stand
+wirklich ausliefert — der Schritt wird aus dem Workflow geschnitten und mit
+`bash -eo pipefail` gefahren: ein abweichender Marker nennt beide Staende, ein
+fehlender bekommt eine eigene Diagnose, zwoelf Hex-Zeichen irgendwo im Rumpf
+sind keiner, nach fuenf Anlaeufen ist Schluss, und bei fehlender
+`app-shell.html` wird KEINE Stand-Abweichung behauptet; der Fingerabdruck ist
+`sha256` ueber die Huelle und kommt aus derselben Lesung, die sie ausliefert),
 **WebP** (an echten Bilddateien: ein Foto wird kleiner, Transparenz überlebt
 auch bei einem Paletten-PNG, ein größeres WebP wird gelöscht und vermerkt,
 Apache liefert nur bei passendem `Accept` und vorhandener Datei um),
@@ -5256,13 +5709,27 @@ vorgefiltert, und die angelegte Karte landet wirklich AM Baustein — im echten
 Browser geklickt, im Projekt nachgesehen; der gewöhnliche Weg verknüpft nichts,
 eine abgebrochene Auswahl hinterlässt keine Notiz, und die Herkunft gilt nur
 für ihr eigenes Vorhaben),
-**Assistent-Kategorie** (eine Zuordnung statt vier: die Chips der Suche sind
-genau das, was ein Anbieter im Formular wählen kann, Knöpfe und Erkenner sind
-daraus ABGELEITET und nicht abgeschrieben; 45 getippte Sätze treffen ihre
-Kategorie und 12 harmlose Fragen keine; „pyrotechnik" ist Pyrotechnik, nicht
-Technik; und der Weg hinein wird geklickt — `navigateTo('browse','dj')`
-filtert wirklich, ein unbekannter Wert lässt keinen Chip markiert
-zurückstehen, und der Knopf nennt die GANZE Zahl, nicht die drei gezeigten),
+**Assistent-Kategorie** (eine Zuordnung statt **neun**: die Chips der Suche
+sind genau das, was ein Anbieter im Formular wählen kann, und Knöpfe, Icons,
+Akkusativ und alle drei Erkenner sind daraus ABGELEITET statt abgeschrieben —
+die achte Fassung trug `wellness`, eine Kategorie, die kein Inserat tragen
+kann, und beide Fehler, die am Vormittag an den anderen behoben wurden;
+64 getippte Sätze treffen ihre Kategorie und 17 harmlose Fragen keine, wobei
+jeder Durchlass-Satz begründet, warum ein Wort DRAUSSEN blieb; „pyrotechnik"
+ist Pyrotechnik und nicht Technik, „Beschallung für den Saal" ist Technik und
+nicht der Saal, „die Lichter funkeln" ist kein Feuerwerk und eine Hostess
+kein Moderator; ein unbekannter Key ergibt `null` statt eines erfundenen
+Eintrags, und eine erfundene Kategorie aus dem localStorage-Geschmacksprofil
+erreicht weder Vorschlag noch Chip; und der Weg hinein wird geklickt —
+`navigateTo('browse','dj')` filtert wirklich, ein unbekannter Wert lässt
+keinen Chip markiert zurückstehen, und der Knopf nennt die GANZE Zahl, nicht
+die drei gezeigten),
+**QA-Bot-Kategorie** (der Assistent auf der Landeseite gibt die gefragte
+Kategorie an die Suche weiter — geklickt wird der echte Knopf der echten
+Antwort und im gefilterten Raster nachgesehen, nicht im Markup: nur `browse`
+bekommt sie, ein eigener Unterkanal wird nicht überschrieben, die geteilte
+Vorlage wird nicht vergiftet, und die Wissensnotiz nennt genau die Kategorien,
+die ein Inserat wirklich tragen kann),
 **Assistent-Stimme** (Sprachausgabe und Spracherkennung im echten PHP
 ausgeführt, nicht gelesen: eine offene Sprachroute gibt es nicht, der Deckel
 hängt am Konto und greift je Minute UND je Tag, zwei Konten teilen ihn nicht,

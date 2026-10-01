@@ -434,7 +434,16 @@ function navigateTo(page, data, skipHistory) {
         // Dieselbe Falle wie bei feedTabAktivieren() am 31.08.2026.
         // Ein unbekannter Wert filtert NICHT und bricht nichts — `/browse/xyz`
         // zeigt die ganze Liste, statt eine Fehlerseite zu erzeugen.
-        if (data) ebSucheKategorieSetzen(data);
+        //
+        // ZWEITER VERSUCH ALS EVENT-TYP, falls es keine Kategorie ist. Die
+        // Trending-Leiste des Feeds bietet „#Hochzeit" neben „#DJMusic" an —
+        // der eine ist ein Anlass, der andere ein Gewerk. Bis zum 01.10.2026
+        // schrieb dieser Link `browseCategory.value = 'hochzeit'` per
+        // `setTimeout(…, 100)`; die Option gibt es dort nicht, also filterte
+        // er auf NICHTS und zeigte alle 15 Inserate. Lautlos.
+        // Reihenfolge: Kategorie zuerst, denn deren Keys sind kleingeschrieben
+        // und kollidieren nicht mit den Event-Typen („Hochzeit", „Messe …").
+        if (data && !ebSucheKategorieSetzen(data)) ebSucheEventTypSetzen(data);
         try { renderHeroMarquees(); } catch (err) { console.error('Fehler renderHeroMarquees in navigateTo(browse)', err); }
         _initCategoryScrollHint();
       });

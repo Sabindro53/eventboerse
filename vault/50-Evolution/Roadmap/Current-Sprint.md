@@ -16,8 +16,176 @@ Zahlen ihrer Zeit — die sind Historie, kein Ist-Stand. Der Ensemble-Kontext
 liest diese Datei von oben; ein Modell, das „68 Tests" als aktuell meldet, hat
 einen alten Abschnitt gelesen und nicht diesen.
 
-- **Playwright-Suite: 1333 Tests in 91 Suiten**, blockierendes Gate in `pr-check.yml`.
+- **Playwright-Suite: 1384 Tests in 93 Suiten**, blockierendes Gate in `pr-check.yml`.
   Läuft seit dem Self-Hosting auch ohne Netzzugang vollständig durch
+
+## Der QA-Bot gibt die Kategorie weiter (2026-10-01)
+
+Gemeldet vom Inhaber: *„Suche alle DJs"* → der Bot schlug die Suche vor, und
+der Knopf landete **ungefiltert auf der Landeseite**. Im echten Browser
+gemessen: der Erkenner lieferte `dj`, der Knopf trug `data` leer, nach dem
+Klick standen 15 Inserate ohne Chip da.
+
+**Es war der zweite Assistent.** Am Vormittag war `ai/50-planungs-assistent.js`
+repariert worden (Board-Chat); gemeldet war `ui/31-modals-toast-qabot.js` — das
+Overlay der Landeseite, eigenes Modul, eigene Knöpfe. Die Kette war fertig, es
+fehlte die Verbindung. Nachher: **15 → 2 Inserate**, Pfad `/browse/dj`.
+
+Dabei fiel die **siebte** gepflegte Fassung der Kategorienliste auf — diesmal
+in Prosa, in `vault/10-Produkt/Wissen/Suchen-und-Finden.md`: sie nannte
+*Wellness* (im Formular nicht wählbar) und verschwieg *Pyrotechnik*. Korrigiert
+und mit einem Test versehen, der die Labels aus dem Formular ableitet.
+
+13 Tests, 11 Mutationen, alle rot. Zwei davon überlebten zuerst und zeigten
+beide einen Fehler im **Test**: eine Schleife ohne Subjekt und eine Wache, die
+an der Oberfläche nicht beobachtbar ist. Vollständig: der Abschnitt „Und der
+ZWEITE Assistent hatte dieselbe Lücke" in `CLAUDE.md`.
+
+### Die achte und neunte Fassung — gemessen und zusammengeführt (2026-10-01)
+
+Hier stand *„Befund, nicht behoben"*, mit der Begründung, ein Umbau der
+Vorschlagsgrammatik brauche eine eigene Messung am Korpus. Die Messung ist
+gemacht, und sie hat die Dringlichkeit nach oben korrigiert.
+
+**Es waren zwei Fassungen, nicht eine.** Über der autoritativen Tabelle, in
+derselben Datei: `_EB_CAT_GRAMMAR` (elf Einträge, eigenes Muster je
+Kategorie) und `EB_KATEGORIE_ICON` (elf Einträge, reine Kopie der
+Icon-Spalte). Beide waren beim ersten Zählen nicht mitgekommen, weil sie
+**vor** `AI_CATEGORIES` stehen.
+
+| | Treffer (Korpus 64) | Fehlalarme |
+|---|---:|---:|
+| achte Fassung | 49 | **1** (`aufräumen` → location) |
+| `AI_CATEGORIES` | 48 | 0 |
+| **zusammengeführt** | **64** | **0** |
+
+Wieder nicht ineinander enthalten — und die achte trug **beide** Fehler, die
+am Vormittag an den anderen behoben wurden: `pyrotechnik` → licht und der
+unverankerte `/r[äa]um/`.
+
+**Der elfte Eintrag war schlimmer als eine Doppelung.** `wellness` kann kein
+Inserat tragen; wer „massage" tippte, bekam den fertigen Satz *„Ich suche ein
+Wellness-Angebot für meine Hochzeit in Köln"* und danach null Treffer. Und
+`_ebTasteBump('cats', …)` schrieb den Schlüssel in das Geschmacksprofil im
+`localStorage` — von dort war er die Vorgabe für **jede** weitere
+Vervollständigung. Eine Suche vergiftete alle folgenden, und das Profil
+überlebt die Behebung.
+
+`akk` (der Akkusativ) ist in `AI_CATEGORIES` gezogen: er war die einzige
+echte eigene Information der achten Fassung und damit ihre ganze Begründung.
+Abgeleitet wird **lazy im Funktionsrumpf** — `AI_CATEGORIES` ist ein `const`
+weiter unten, und `typeof` auf eine Variable in der TDZ wirft.
+
+**Drei Wörter blieben draussen, jedes mit Grund als Durchlass-Satz:**
+`ausstattung` (→ „technische Ausstattung" würde `deko` vor `licht` schlagen),
+`film` (→ trifft den Event-Typ „Filmabend"), bares `hof` (→ trifft
+„Bahnhof"). Dazu `funken` statt `funke` und `\bhost\b` statt `host`.
+
+17 Mutationen, 16 rot. Die vier, die zuerst überlebten: drei waren Lücken in
+den Tests (kein Durchlass-Satz für „Hostess", der `null`-Zweig ohne Subjekt
+an der Oberfläche, der Kategorie-Chip des Planungs-Assistenten) und sind
+geschlossen; die vierte ist Kommentarabzug als **Vorsorge ohne Subjekt** und
+steht als solche im Test. Vollständig: der Abschnitt „Es waren NEUN
+Fassungen, nicht vier" in `CLAUDE.md`.
+
+Mitgezogen: die Begründungsspalte in
+`vault/40-Governance/Legal/App-Store.md` nannte „die Kategorie `wellness`"
+als Grund für ein „keine" — ein Verweis auf etwas, das es nicht gibt. Die
+**Antwort** ändert sich nicht.
+
+**Offen und ausdrücklich nicht angefasst:** die Merkmalsliste der Inserate
+führt weiter `🧖 Wellness-Bereich`. Das ist eine Eigenschaft einer Location,
+keine Kategorie — richtig so.
+
+### Fünf Trending-Links liefen an der Reparatur vorbei (2026-10-01)
+
+Beim Durchgehen der Feed-Seitenleiste gefunden, am selben Abend. Alle fünf
+Links standen als `navigateTo('browse'); setTimeout(()=>{browseCategory.value
+='dj';filterListings();},100)` da — ein **100-ms-Rennen** gegen
+`loadDbListings()`, während `navigateTo('browse', key)` es seit dem Vormittag
+richtig tut.
+
+**Und `#Hochzeit` filterte auf nichts.** Es setzte
+`browseCategory.value='hochzeit'`; die Option gibt es dort nicht, „Hochzeit"
+ist ein **Anlass** und steht in `#browseEventType`. Ein `<select>` nimmt
+einen unbekannten Wert stillschweigend nicht an. Gemessen: **alle 15
+Inserate**, also kein Filter. Nachher 13 und Chip „💍 Hochzeit".
+
+**Der schwerere Fund lag daneben: zwei Kategoriefilter, mit UND verknüpft.**
+`filterListings()` liest `#browseCategory` **und** `selectedCategories`;
+`ebSucheKategorieSetzen()` räumte nur die Chips. Stand im Feld noch `dj` und
+kam der Assistent mit `location`, sagte die Seite *„0 Services gefunden —
+für (DJ & Musik) konnten wir leider keine passenden Services finden"*,
+während der Chip „Location" markiert war. Genau der Fall, vor dem der
+Kommentar dieser Funktion warnt, plus eine selbstbewusst falsche Begründung.
+
+Dazu die **zehnte Fassung** als Beschriftungsfrage (*Locations/Location*,
+*Licht & Tech/Licht & Technik*, *Eventplanung/Planung* — der Inhaber hat in
+seiner Meldung beide Wörter benutzt), der **404** auf
+`assets/showcase/dj-hero.jpg` (eine Datei, die es nie gegeben hat, hinter
+`onerror="this.remove()"`) und der einzige `javascript:`-href von 69, der
+beim CSP-Schritt 2 bei jedem Klick eine Verstoßmeldung erzeugen würde.
+
+**Zwei Messfehler von mir gehören ins Protokoll:** ich habe erst versteckte
+Karten gezählt (bei 0 Treffern wird `#browseGrid` ausgeblendet und behält
+seine alten Knoten) und daraus auf einen Produktfehler geschlossen, den es
+nicht gibt; und danach den Zustand synchron nach `navigateTo()` gelesen, das
+erst im `.then` rendert. Beides war meine Messung, nicht der Code.
+
+17 Mutationen, alle rot. Drei überlebten zuerst: zwei waren Lücken im Test
+(der Link wurde nicht geklickt, der Alt-Filter ohne `change` gesetzt), die
+dritte hat **überflüssige Zeremonie in meinem Code** gefunden — eine
+Schleife über alle Optionen, die exakt das tat, was `sel.value = x` ohnehin
+tut. Sie ist weg, nicht der Test dazugekommen.
+
+## Der Deploy prüft jetzt, ob die Seite ankommt (2026-10-01)
+
+Gefunden beim Nachsehen, ob die gerade gemergte Hero-Parole live steht — und
+genau das war **nicht feststellbar**. Drei Messungen:
+
+| | |
+|---|---|
+| letzter Schritt in `ionos-deploy.yml` | `Inject AI keys` — keine Prüfung des Ergebnisses |
+| Beleg des Site-Monitors | `id="page-home"`, im Markup seit dem 26.08.2026 |
+| einziger Stand im ausgelieferten Kopf | `$asset_ver = '2.5.1'`, von Hand, nie erhöht |
+
+Ein Deploy, der gar nichts oder nur die Hälfte hochlädt, blieb damit grün.
+Dieselbe Klasse wie der tote Gitleaks-Scan, eine Ebene tiefer — und derselbe
+Spalt, der die vierzehn Routine-PRs zwei Wochen gekostet hat, nur zwischen
+`main` und dem Server statt zwischen PR und `main`.
+
+`eb_shell_stand()` bildet `sha256` über `app-shell.html` und schreibt zwölf
+Hex-Zeichen als `<meta name="eb-stand">` in den Kopf; der neue letzte
+Deploy-Schritt holt die Live-Seite und vergleicht. **Abgeleitet, nicht
+gepflegt** — `$asset_ver` steht daneben als Gegenbeispiel.
+
+Fünf Entscheidungen tragen die Richtigkeit: die Hülle geht byte-gleich hoch
+(minifiziert werden nur `app.js` und `styles.css`, ein Abdruck über die wäre
+dauerhaft verschieden) · Ausgabe und Abdruck kommen aus **einer** Lesung ·
+der Schritt steht **zuletzt**, damit ein roter Prüfer nie die
+Schritte überspringt, die Zugangsdaten auf den Server schreiben · drei
+Lagen, drei Diagnosen · kein
+Cache-Umgeher, denn ein alter Stand aus einem Zwischenspeicher ist genau der
+Fall, den das Tor sehen soll.
+
+19 Tests, 14 Mutationen, alle rot. Der Refactor hat dabei prompt
+`csp-nonce.php` rot gemacht (16 Tests) — der Prüfstand schneidet den echten
+Code heraus, statt ihn nachzubilden, und hat das sofort gemeldet.
+
+**Dabei hat ein Sicherheitstor den eigenen Text beanstandet**, und das
+gehört hierher: `models.mjs --check` verbietet Infrastruktur-Begriffe in den
+ersten 3000 Zeichen dieser Datei — genau der Ausschnitt, der als Kontext an
+einen externen Anbieter geht. Mein Absatz nannte die Server-Konfigurationsdatei
+beim Namen, dreimal. Das Muster bleibt, der Text ist gewichen: ein Prüfer, der
+Prosa nicht von einem Austritt unterscheiden kann, hat trotzdem recht, dass das
+Wort dort steht — dieselbe Entscheidung wie beim erfundenen `@` im HQ-Journal
+und beim Schlüssel-Präfix im erklärenden Kommentar.
+
+**Merksatz für den Kopf dieser Datei:** Infrastruktur-Begriffe gehören nicht in
+die obersten 3000 Zeichen, sonst stirbt nachts eine Autopilot-Schicht.
+
+Vollständig: der Abschnitt „Der Deploy meldete Erfolg für den Upload, nicht
+für die Seite" in `CLAUDE.md`.
 
 ## Assistent ausgebaut (2026-10-01) — Kategorie und Sprache
 

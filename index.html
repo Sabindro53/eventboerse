@@ -811,12 +811,23 @@
               </div>
               <div class="feed-sidebar-card">
                 <h4>Trending Kategorien</h4>
+                <!-- Die Kategorie/der Anlass geht als ARGUMENT mit, nicht per
+                     setTimeout. Hier stand bis zum 01.10.2026 fuenfmal
+                     `navigateTo('browse'); setTimeout(()=>{…value='dj';
+                     filterListings();},100)` — ein 100-ms-Rennen gegen
+                     `loadDbListings()`, dieselbe Falle wie bei
+                     feedTabAktivieren() am 31.08.2026. Und `#Hochzeit` setzte
+                     `browseCategory.value='hochzeit'`: diese Option gibt es
+                     dort nicht, `value` blieb leer, der Link filterte auf
+                     NICHTS und zeigte alle 15 Inserate. Der Router nimmt
+                     Kategorie und Event-Typ und setzt beides NACH dem
+                     Grundaufbau. -->
                 <div class="sidebar-trending" id="sidebarTrending">
-                  <a href="#" onclick="navigateTo('browse'); setTimeout(()=>{document.getElementById('browseCategory').value='hochzeit';filterListings();},100)">#Hochzeit</a>
-                  <a href="#" onclick="navigateTo('browse'); setTimeout(()=>{document.getElementById('browseCategory').value='dj';filterListings();},100)">#DJMusic</a>
-                  <a href="#" onclick="navigateTo('browse'); setTimeout(()=>{document.getElementById('browseCategory').value='catering';filterListings();},100)">#Catering</a>
-                  <a href="#" onclick="navigateTo('browse'); setTimeout(()=>{document.getElementById('browseCategory').value='foto';filterListings();},100)">#Fotografie</a>
-                  <a href="#" onclick="navigateTo('browse'); setTimeout(()=>{document.getElementById('browseCategory').value='location';filterListings();},100)">#Locations</a>
+                  <a href="#" onclick="navigateTo('browse', 'Hochzeit')">#Hochzeit</a>
+                  <a href="#" onclick="navigateTo('browse', 'dj')">#DJMusic</a>
+                  <a href="#" onclick="navigateTo('browse', 'catering')">#Catering</a>
+                  <a href="#" onclick="navigateTo('browse', 'foto')">#Fotografie</a>
+                  <a href="#" onclick="navigateTo('browse', 'location')">#Locations</a>
                 </div>
               </div>
               <div class="feed-sidebar-card">
@@ -1129,11 +1140,11 @@
                   <option value="catering">Catering</option>
                   <option value="foto">Fotografie</option>
                   <option value="florist">Floristik</option>
-                  <option value="location">Locations</option>
-                  <option value="licht">Licht & Tech</option>
+                  <option value="location">Location</option>
+                  <option value="licht">Licht & Technik</option>
                   <option value="pyro">Pyrotechnik</option>
                   <option value="deko">Dekoration</option>
-                  <option value="planung">Eventplanung</option>
+                  <option value="planung">Planung</option>
                   <option value="moderation">Moderation</option>
                 </select>
               </div>
@@ -1248,7 +1259,11 @@
           </div>
           <div class="ebsc-demo" id="ebscDemo" aria-label="So funktioniert Eventbörse – Demo">
             <div class="ebsc-stage">
-              <div class="ebsc-stage-bg" aria-hidden="true"><img src="assets/showcase/dj-hero.jpg" alt="" loading="lazy" decoding="async" onerror="this.remove()" /></div>
+              <!-- Kein <img> mehr: die Datei assets/showcase/dj-hero.jpg hat
+                   es nie gegeben, `onerror="this.remove()"` versteckte die
+                   404, und der Gradient der Regel .ebsc-stage-bg IST die
+                   Gestaltung. Begründung dort. -->
+              <div class="ebsc-stage-bg" aria-hidden="true"></div>
               <div class="ebsc-journey" aria-hidden="true">
                 <span data-j="0">1 · Suchen</span><i>›</i><span data-j="1">2 · Vergleichen</span><i>›</i><span data-j="2">3 · Buchen</span><i>›</i><span data-j="3">4 · Feiern</span>
               </div>
@@ -2216,7 +2231,7 @@
                 <option value="licht">Licht & Technik</option>
                 <option value="pyro">Pyrotechnik</option>
                 <option value="deko">Dekoration</option>
-                <option value="planung">Eventplanung</option>
+                <option value="planung">Planung</option>
                 <option value="moderation">Moderation</option>
               </select>
             </div>
@@ -2520,7 +2535,7 @@
         </div>
         <div class="my-listings-preview-banner" id="myListingsPreviewBanner" style="display:none;">
           <span class="material-icons-round">visibility</span>
-          <span>So könnte Ihre Seite aussehen – <a href="javascript:void(0)" onclick="openModal('registerModal')">Jetzt registrieren</a> und loslegen!</span>
+          <span>So könnte Ihre Seite aussehen – <a href="#" onclick="openModal('registerModal')">Jetzt registrieren</a> und loslegen!</span>
         </div>
         <div class="my-listings-grid" id="myListingsGrid">
           <!-- Loaded by JS -->

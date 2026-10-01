@@ -1106,6 +1106,60 @@ function eb_inline_nonce_setzen( $html, $nonce ) {
 }
 
 /**
+ * Die SPA-Hülle, einmal je Anfrage gelesen.
+ *
+ * Zwei Aufrufer teilen sie: `eb_shell_ausgeben()` liefert sie aus,
+ * `eb_shell_stand()` bildet ihren Fingerabdruck. Zwei Lesevorgänge
+ * derselben 300-KB-Datei wären nicht nur Verschwendung — sie könnten
+ * zwischen den beiden Aufrufen auch verschiedene Inhalte sehen, und
+ * dann stünde im Kopf der Fingerabdruck eines Körpers, der darunter
+ * nicht steht.
+ *
+ * Ein Lesefehler ergibt den leeren String, nicht `false`: der
+ * Fingerabdruck fällt damit aus, und genau das soll das Deploy-Tor
+ * sehen. Eine ausgelieferte Seite ohne Hülle ist kein Grenzfall,
+ * sondern ein halber Deploy.
+ */
+function eb_shell_inhalt() {
+    static $html = null;
+    if ( $html === null ) {
+        $gelesen = file_get_contents( __DIR__ . '/app-shell.html' );
+        $html    = ( $gelesen === false ) ? '' : $gelesen;
+    }
+    return $html;
+}
+
+/**
+ * Welcher Stand der Hülle wirklich ausgeliefert wird — zwölf Hex-Zeichen.
+ *
+ * Der Grund steht im Deploy: bis zum 01.10.2026 meldete `ionos-deploy.yml`
+ * Erfolg, sobald der SFTP-Upload gelang. Ob die Seite den neuen Stand
+ * danach wirklich ausliefert, prüfte NICHTS — und der Site-Monitor belegte
+ * es auch nicht: er sucht `id="page-home"`, einen Marker, den jede Fassung
+ * seit dem 26.08.2026 trägt. Ein Deploy, der die Hälfte der Dateien nicht
+ * hochlädt, blieb damit grün, und beide Prüfer sahen zufrieden aus.
+ * Dieselbe Klasse wie der tote Gitleaks-Scan, eine Ebene tiefer: der
+ * Prüfer läuft, er findet auch etwas — nur nicht das, wofür man ihn hält.
+ *
+ * ABGELEITET, NICHT GEPFLEGT. Daneben steht `$asset_ver = '2.5.1'` in
+ * `index.php`: eine Zahl, die jemand hochzählen müsste und seit Monaten
+ * niemand hochgezählt hat. Eine Handzahl als Stand-Angabe sagt nach dem
+ * ersten vergessenen Hochzählen das Gegenteil der Wahrheit.
+ *
+ * Verraten wird dabei nichts: die Hülle liegt in einem öffentlichen
+ * Repository, und die `?ver=`-Angaben der Einbindungen nennen ohnehin
+ * schon `filemtime`. Zwölf Hex-Zeichen sind genug, um zwei Stände zu
+ * unterscheiden, und zu wenig, um daraus etwas zu rekonstruieren.
+ */
+function eb_shell_stand() {
+    $html = eb_shell_inhalt();
+    if ( $html === '' ) {
+        return '';
+    }
+    return substr( hash( 'sha256', $html ), 0, 12 );
+}
+
+/**
  * Liefert den SPA-Body aus — mit Nonce an jedem Inline-Skript.
  *
  * Ersetzt das frühere `readfile()`. Ohne diesen Schritt hätten die
@@ -1115,9 +1169,8 @@ function eb_inline_nonce_setzen( $html, $nonce ) {
  * weisses Aufblitzen bei jedem Seitenaufruf im Dunkelmodus.
  */
 function eb_shell_ausgeben() {
-    $pfad = __DIR__ . '/app-shell.html';
-    $html = file_get_contents( $pfad );
-    if ( $html === false ) {
+    $html = eb_shell_inhalt();
+    if ( $html === '' ) {
         return;
     }
     echo eb_inline_nonce_setzen( $html, eb_csp_nonce() );

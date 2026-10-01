@@ -227,7 +227,7 @@ Formalie: Apple kann die App deswegen aus dem Store nehmen, auch Monate später.
 | Mature Themes | Horror/Fear Themes | **keine** | |
 | Mature Themes | **Alkohol/Tabak/Drogen — Bezüge** | **selten** | siehe unten |
 | Medical or Wellness | Medical or Treatment Information | **keine** | |
-| Medical or Wellness | Health or Wellness Topics | **keine** | die Kategorie `wellness` vermittelt Dienstleister, sie gibt keine Auskunft |
+| Medical or Wellness | Health or Wellness Topics | **keine** | `🧖 Wellness-Bereich` ist ein Merkmal einer Location — die App vermittelt Orte, sie gibt keine gesundheitliche Auskunft |
 | Sexuality or Nudity | alle drei Fragen | **keine** | AGB § 9 verbietet sexuell explizite Inhalte |
 | Violence | alle vier Fragen | **keine** | auch „Guns or Other Weapons": die Kategorie `pyro` ist Feuerwerk, keine Waffe |
 | Chance-Based | Gambling / Simulated Gambling / Contests / Loot Boxes | **alle nein** | kein Glücksspiel, keine Gewinnspiele, kein IAP |

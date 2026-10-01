@@ -122,6 +122,17 @@ $asset_ver = '2.5.1'; // cache-bust;
 $release_css_ver = file_exists( __DIR__ . '/release-vision.css' )
     ? filemtime( __DIR__ . '/release-vision.css' )
     : $asset_ver;
+
+// Der Fingerabdruck der wirklich ausgelieferten Huelle. ABGELEITET aus
+// app-shell.html, nicht gepflegt — die Zahl zwei Zeilen darueber ist das
+// Gegenbeispiel: sie steht seit Monaten auf 2.5.1. Begruendung und die
+// Fehlerklasse dahinter stehen bei eb_shell_stand() in functions.php.
+//
+// KEIN function_exists() davor. WordPress laedt functions.php vor jedem
+// Template; der Schutz koennte also nie greifen und wuerde nur einen
+// vortaeuschen. Fehlt die Datei wirklich, soll es LAUT scheitern — wie
+// bei der toten typeof-Wache auf AI_CATEGORIES am 01.10.2026.
+$eb_stand = eb_shell_stand();
 ?>
 <!DOCTYPE html>
 <html lang="de">
@@ -139,6 +150,9 @@ $release_css_ver = file_exists( __DIR__ . '/release-vision.css' )
          Unterschied zwischen bedienbar und nicht bedienbar. -->
     <meta name="viewport"
           content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<?php if ( $eb_stand !== '' ) : ?>
+    <meta name="eb-stand" content="<?php echo esc_attr( $eb_stand ); ?>">
+<?php endif; ?>
 
     <!-- ── Primary SEO ── -->
     <title><?php echo $meta_title_esc; ?></title>
