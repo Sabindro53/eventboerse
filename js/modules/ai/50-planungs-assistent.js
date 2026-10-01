@@ -160,8 +160,14 @@ function _aiRenderSuggests() {
   try {
     var topCat = _ebTasteTop('cats', 1)[0];
     var topType = _ebTasteTop('types', 1)[0];
-    if (topCat && _EB_CAT_GRAMMAR[topCat]) {
-      chips.unshift('Zeig mir ' + _EB_CAT_GRAMMAR[topCat].label);
+    // ABGELEITET aus der einen Tabelle. Hier stand `_EB_CAT_GRAMMAR`, und
+    // die kannte `wellness` — ein Chip „Zeig mir Wellness & Spa", hinter dem
+    // garantiert null Inserate stehen, sobald jemand einmal nach Massage
+    // gesucht hatte. Das Geschmacksprofil lebt im localStorage und kann den
+    // alten Schlüssel weiter führen, deshalb entscheidet die Tabelle.
+    var catEintrag = topCat ? ebKategorieEintrag(topCat) : null;
+    if (catEintrag) {
+      chips.unshift('Zeig mir ' + catEintrag.label);
     } else if (topType && _EB_TYPE_GRAMMAR[topType]) {
       chips.unshift('Ich plane ' + _EB_TYPE_GRAMMAR[topType].label.toLowerCase());
     }

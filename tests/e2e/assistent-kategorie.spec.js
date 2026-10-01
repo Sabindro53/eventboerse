@@ -16,6 +16,33 @@
 //
 // Gemessen wird deshalb die BEDINGUNG, nicht der Einzelfall: eine Zuordnung,
 // ein Satz Keys, und der Weg wird geklickt statt im Markup gesucht.
+//
+// ── Nachtrag vom selben Tag: es waren NEUN, nicht vier ─────────────────
+//
+// Am Abend desselben Tages standen noch zwei weitere Fassungen in
+// `search/11-suche-ki.js`, beide ÜBER der autoritativen Tabelle und
+// deshalb beim ersten Durchgang nicht mitgezählt:
+//
+//   `_EB_CAT_GRAMMAR`    11 Einträge, eigenes Muster je Kategorie
+//   `EB_KATEGORIE_ICON`  11 Einträge, reine Kopie der Icon-Spalte
+//
+// Der elfte war in BEIDEN `wellness` — eine Kategorie, die kein Inserat
+// tragen kann, weil `#createCategory` sie nicht anbietet. Wer „massage"
+// tippte, bekam den fertigen Satz „Ich suche ein Wellness-Angebot für meine
+// Hochzeit in Köln" und danach garantiert null Treffer; und
+// `_ebTasteBump('cats', …)` schrieb den Schlüssel ins Geschmacksprofil, von
+// wo aus er die Vorgabe für JEDE weitere Vervollständigung war.
+//
+// Die achte Fassung trug ausserdem BEIDE Fehler, die am Vormittag an den
+// anderen behoben wurden — `pyrotechnik` → licht und der unverankerte
+// `/r[äa]um/`. Am erweiterten Korpus gemessen:
+//
+//   achte Fassung    49/64 Treffer · 1 Fehlalarm
+//   AI_CATEGORIES    48/64 Treffer · 0 Fehlalarme
+//   zusammengeführt  64/64 Treffer · 0 Fehlalarme
+//
+// Wieder nicht ineinander enthalten. Der Korpus steht deshalb NUR hier:
+// ein zweiter wäre die zehnte Fassung.
 // ════════════════════════════════════════════════════════════════════════
 const { test, expect } = require('@playwright/test');
 const fs = require('fs');
@@ -45,6 +72,33 @@ const TREFFER = [
   ['koordinator', 'planung'], ['planer', 'planung'], ['komplettplanung', 'planung'],
   ['moderation', 'moderation'], ['moderator', 'moderation'], ['sprecher', 'moderation'],
   ['deko', 'deko'], ['dekoration', 'deko'],
+
+  // ── Das Vokabular, das bis zum 01.10.2026 NUR die achte Fassung kannte ──
+  // Keines davon war an der Oberfläche erreichbar: `_EB_CAT_GRAMMAR` steuerte
+  // allein die Vervollständigung, und die autoritative Tabelle hat diese
+  // Wörter nie gesehen. Sie stehen jetzt dort, und das hier ist der Nachweis.
+  ['wer kann beats auflegen', 'dj'], ['jemand zum auflegen gesucht', 'dj'],
+  ['wir brauchen einen Koch', 'catering'], ['foodtruck für das Sommerfest', 'catering'],
+  ['food truck', 'catering'],
+  ['blumendeko für die Tische', 'florist'],
+  ['tischdeko', 'deko'], ['ballons für den Kindergeburtstag', 'deko'],
+  ['funken', 'pyro'],
+  ['wer macht den sound', 'licht'],
+  ['wer übernimmt die organisation', 'planung'],
+  ['wedding planner gesucht', 'planung'], ['eventplanung', 'planung'],
+  ['wir brauchen einen redner', 'moderation'], ['wer ist der host', 'moderation'],
+  ['scheune für die Feier', 'location'], ['bauernhof als Location', 'location'],
+  ['gutshof', 'location'],
+
+  // ── Reihenfolge-Beweise: zwei Muster könnten greifen, eines muss ───────
+  // „Beschallung für den Saal" nennt Technik UND Ort. `licht` steht vor
+  // `location`, also gewinnt die Technik — vor dem 01.10.2026 ergab derselbe
+  // Satz in BEIDEN Fassungen `location`.
+  ['beschallung für den Saal', 'licht'],
+  // „die Lichter funkeln" — `funken` darf „funkeln" nicht treffen, sonst
+  // wäre das ein Feuerwerk (`pyro` steht vor `licht`). Deshalb `funken`
+  // und nicht `funke`.
+  ['die Lichter funkeln so schön', 'licht'],
 ];
 
 // Darf KEINE Kategorie ergeben. Ein Fehlalarm ist hier die teurere Hälfte:
@@ -56,6 +110,16 @@ const DURCHLASS = [
   'status', 'übersicht', 'was fehlt noch', 'hilfe',
   'wer hilft beim aufräumen', 'ich plane eine Hochzeit',
   'mein budget ist 5000 euro', 'wie funktioniert die Buchung',
+  // Dazugekommen mit der Zusammenführung vom 01.10.2026 — jeder Satz ist
+  // die Begründung dafür, dass ein Wort der achten Fassung DRAUSSEN blieb:
+  'wir treffen uns am Bahnhof',   // bares `hof` hätte „Bahnhof" getroffen
+  'technische Ausstattung',       // `ausstattung` in deko hätte licht geschlagen
+  'was ist mit dem Filmabend',    // `film` in foto hätte den Event-Typ getroffen
+  'wie funktioniert der Chat',    // `funken` darf „funktioniert" nicht treffen
+  // `\bhost\b` statt `host`: ohne die Wortgrenze wäre eine Hostess ein
+  // Moderator. Dieser Satz ist dazugekommen, WEIL die Mutation „host ohne
+  // Wortgrenze" ohne ihn überlebte — die Zusicherung hatte kein Subjekt.
+  'die Hostess am Eingang',
 ];
 
 /** Die zehn Keys, die ein Anbieter im Formular wirklich wählen kann. */
@@ -142,20 +206,26 @@ test.describe('Text → Kategorie', () => {
     await openApp(page);
     await warteAufAppBereit(page);
     const r = await page.evaluate(([treffer]) => {
-      const fehlerText = [], fehlerGuide = [];
+      const fehlerText = [], fehlerGuide = [], fehlerSuche = [];
       treffer.forEach(([satz, soll]) => {
         const a = _aiCatFromText(String(satz).toLowerCase());
         if (a !== soll) fehlerText.push(`${satz} → ${a} (soll ${soll})`);
         const g = _guideCategoryFor(satz);
         if (g !== soll) fehlerGuide.push(`${satz} → ${g} (soll ${soll})`);
+        // Der DRITTE Erkenner. Er hatte bis zum 01.10.2026 eine eigene
+        // Schleife über eine eigene Tabelle und wurde hier nie gemessen.
+        const s = _ebGuessCategory(satz);
+        if (s !== soll) fehlerSuche.push(`${satz} → ${s} (soll ${soll})`);
       });
-      return { fehlerText, fehlerGuide };
+      return { fehlerText, fehlerGuide, fehlerSuche };
     }, [TREFFER]);
     // Vorher: 32/45 im Assistenten, 35/45 am Inserat. „getränke", „torte",
     // „venue", „gelände", „strom", „livestream", „feuerwerk", „koordinator"
     // liefen im Assistenten ins Leere.
     expect(r.fehlerText, 'getippter Text').toEqual([]);
     expect(r.fehlerGuide, 'Inseratstext').toEqual([]);
+    // Vorher 49/64 — und zwar mit „pyrotechnik" → licht und einem Fehlalarm.
+    expect(r.fehlerSuche, 'Vervollständigung der Suche').toEqual([]);
   });
 
   test('keine Fehlalarme — eine harmlose Frage bleibt ohne Kategorie', async ({ page }) => {
@@ -168,6 +238,8 @@ test.describe('Text → Kategorie', () => {
         if (a) out.push(`_aiCatFromText: ${satz} → ${a}`);
         const g = _guideCategoryFor(satz);
         if (g) out.push(`_guideCategoryFor: ${satz} → ${g}`);
+        const s = _ebGuessCategory(satz);
+        if (s) out.push(`_ebGuessCategory: ${satz} → ${s}`);
       });
       return out;
     }, [DURCHLASS]);
@@ -185,6 +257,166 @@ test.describe('Text → Kategorie', () => {
     expect(await page.evaluate(() => _guideCategoryFor('Pyrotechnik Show'))).toBe('pyro');
     const reihenfolge = await page.evaluate(() => AI_CATEGORIES.map((c) => c.key));
     expect(reihenfolge.indexOf('pyro')).toBeLessThan(reihenfolge.indexOf('licht'));
+  });
+
+  test('„Beschallung für den Saal" ist Technik, nicht der Saal', async ({ page }) => {
+    await openApp(page);
+    await warteAufAppBereit(page);
+    // Die zweite Reihenfolge-Bedingung, mit der Zusammenführung dazu-
+    // gekommen: `beschallung` steht in `licht`, `saal` in `location`. Beide
+    // greifen, also entscheidet die Stellung. Vor dem 01.10.2026 ergab
+    // dieser Satz in BEIDEN Fassungen `location` — der Fragende bekam
+    // Schlösser für eine Tonanlage.
+    for (const satz of ['beschallung für den Saal', 'Beschallung Saal 200 Gäste']) {
+      expect(await page.evaluate((s) => _guideCategoryFor(s), satz), satz).toBe('licht');
+    }
+    const r = await page.evaluate(() => AI_CATEGORIES.map((c) => c.key));
+    expect(r.indexOf('licht')).toBeLessThan(r.indexOf('location'));
+  });
+});
+
+test.describe('Die achte und neunte Fassung derselben Zuordnung', () => {
+  test('beide sind abgeleitet, nicht abgeschrieben — und zwar LAZY', () => {
+    // `AI_CATEGORIES` ist ein `const` WEITER UNTEN in derselben Datei. Eine
+    // Ableitung an der alten Zeile würde beim Laden in die TDZ greifen und
+    // die ganze Datei zerlegen; `typeof` hilft dort nicht, es wirft selbst.
+    // Deshalb wird im FUNKTIONSRUMPF abgeleitet und gemerkt.
+    const code = ohneJsKommentare(
+      fs.readFileSync(path.join(MODULE, 'search/11-suche-ki.js'), 'utf8'));
+
+    for (const name of ['_EB_CAT_GRAMMAR', 'EB_KATEGORIE_ICON']) {
+      expect(code, `${name} ist als Tabelle zurück`)
+        .not.toMatch(new RegExp('var\\s+' + name + '\\s*='));
+    }
+
+    // Gegenprobe: die Ableitung steht wirklich da. Ohne sie wäre „die
+    // Tabelle ist weg" auch erfüllt, indem jemand die Funktion leert.
+    const ikon = /function ebKategorieIcon\([\s\S]{0,400}?\n\}/.exec(code);
+    expect(ikon, 'ebKategorieIcon() ist verschwunden').not.toBeNull();
+    expect(ikon[0], 'ebKategorieIcon() leitet nicht aus AI_CATEGORIES ab')
+      .toContain('AI_CATEGORIES');
+
+    const eintrag = /function ebKategorieEintrag\([\s\S]{0,400}?\n\}/.exec(code);
+    expect(eintrag, 'ebKategorieEintrag() ist verschwunden').not.toBeNull();
+    expect(eintrag[0], 'ebKategorieEintrag() liest nicht aus AI_CATEGORIES')
+      .toContain('AI_CATEGORIES');
+  });
+
+  test('ein unbekannter Key ergibt null — kein erfundener Ersatz', async ({ page }) => {
+    await openApp(page);
+    await warteAufAppBereit(page);
+    // Gemessen wird die AUSGABE des Helfers, nicht seine Wirkung an der
+    // Oberfläche: dort hat der `null`-Zweig heute kein Subjekt, weil jeder
+    // Aufrufer seinen Key entweder aus der Tabelle nimmt oder vorher
+    // `ebKategorieBekannt()` fragt. Genau deshalb überlebte die Mutation
+    // „erfindet einen Eintrag" den ersten Durchgang — dieselbe Lehre wie
+    // bei `ebAuftragSchluessel()` hinter seiner Gruppierung.
+    //
+    // Ein erfundener Ersatz wäre die schlechtere Antwort: er trägt Label und
+    // Icon und sieht an jeder Aufrufstelle echt aus, bis jemand auf eine
+    // Kategorie filtert, die kein Inserat tragen kann.
+    const r = await page.evaluate(() => ({
+      wellness: ebKategorieEintrag('wellness'),
+      quatsch: ebKategorieEintrag('quatsch'),
+      leer: ebKategorieEintrag(''),
+      // Gegenprobe: für einen echten Key kommt der echte Eintrag. Sonst
+      // bestünde „gibt immer null" jede Zusicherung darüber.
+      pyro: ebKategorieEintrag('pyro'),
+    }));
+    expect(r.wellness, 'eine Kategorie ohne Formularwert bekommt einen Eintrag').toBeNull();
+    expect(r.quatsch).toBeNull();
+    expect(r.leer).toBeNull();
+    expect(r.pyro && r.pyro.label).toBe('Pyrotechnik');
+    expect(r.pyro && r.pyro.akk).toBe('ein Feuerwerk');
+  });
+
+  test('der Chip des Assistenten nennt keine Kategorie ohne Inserate', async ({ page }) => {
+    await openApp(page);
+    await warteAufAppBereit(page);
+    await assistentOeffnen(page);
+    // Das Geschmacksprofil liegt im localStorage und überlebt die Behebung.
+    // Vor dem 01.10.2026 las der Chip sein Label aus `_EB_CAT_GRAMMAR` — bei
+    // `wellness` im Profil stand dort „Zeig mir Wellness & Spa", hinter dem
+    // garantiert null Inserate liegen.
+    const r = await page.evaluate(() => {
+      const echt = window._ebTasteTop;
+      const lese = () => {
+        const el = document.getElementById('baiSuggests');
+        return el ? el.textContent : '';
+      };
+      try {
+        window._ebTasteTop = (art) => (art === 'cats' ? ['wellness'] : []);
+        _aiRenderSuggests();
+        const erfunden = lese();
+        // Gegenprobe: ein ECHTER Key muss den Chip erzeugen, sonst wäre
+        // „zeichne nie einen Kategorie-Chip" eine bestehende Erklärung.
+        window._ebTasteTop = (art) => (art === 'cats' ? ['pyro'] : []);
+        _aiRenderSuggests();
+        return { erfunden, echtKey: lese() };
+      } finally { window._ebTasteTop = echt; }
+    });
+    expect(r.erfunden, 'der Chip nennt eine Kategorie, die es nicht gibt')
+      .not.toMatch(/wellness/i);
+    expect(r.echtKey, 'der Chip erscheint gar nicht mehr — die Gegenprobe greift nicht')
+      .toContain('Pyrotechnik');
+  });
+
+  test('der Erkenner der Suche hat keine eigene Schleife mehr', () => {
+    // Gemessen wird der RUMPF, nicht die Datei: die Erklärung daneben nennt
+    // `_EB_CAT_GRAMMAR` und `AI_CATEGORIES` mehrfach, und ein Ausdruck über
+    // den rohen Text hätte an genau dieser Stelle schon mehrfach den
+    // Kommentar statt des Codes getroffen.
+    const code = ohneJsKommentare(
+      fs.readFileSync(path.join(MODULE, 'search/11-suche-ki.js'), 'utf8'));
+    const rumpf = /function _ebGuessCategory\([\s\S]{0,300}?\n\}/.exec(code);
+    expect(rumpf, '_ebGuessCategory() ist verschwunden').not.toBeNull();
+    expect(rumpf[0], 'der Erkenner der Suche ruft nicht den gemeinsamen')
+      .toContain('_guideCategoryFor');
+    expect(rumpf[0], 'der Erkenner hat wieder eine eigene Schleife')
+      .not.toMatch(/\bfor\s*\(/);
+  });
+
+  test('jede Kategorie trägt ihren Akkusativ — er war der Grund für die achte', async ({ page }) => {
+    await openApp(page);
+    await warteAufAppBereit(page);
+    const akk = await page.evaluate(() => AI_CATEGORIES.map((c) => [c.key, c.akk]));
+    expect(akk.length).toBe(10);
+    for (const [key, a] of akk) {
+      expect(typeof a === 'string' && a.trim().length > 2,
+        `${key} hat keinen Akkusativ — die Vervollständigung sagt „Ich suche undefined"`)
+        .toBe(true);
+    }
+    // Und er kommt wirklich in der Vervollständigung an.
+    const satz = await page.evaluate(() => _ebSuggest('ich brauche').full);
+    expect(satz, 'der Akkusativ erreicht die Vervollständigung nicht')
+      .toMatch(/einen DJ|ein Catering|einen Fotografen|eine Location/);
+  });
+
+  test('eine erfundene Kategorie aus dem Geschmacksprofil wird nicht vorgeschlagen', async ({ page }) => {
+    await openApp(page);
+    await warteAufAppBereit(page);
+    // Das Profil liegt im localStorage und ÜBERLEBT die Behebung: wer vor
+    // dem 01.10.2026 einmal nach „massage" gesucht hat, trägt `wellness`
+    // weiter mit sich. Ohne die Wache wäre die Vorgabe jeder weiteren
+    // Vervollständigung eine Kategorie, die garantiert nichts findet.
+    const r = await page.evaluate(() => {
+      const echt = window._ebTasteTop;
+      try {
+        window._ebTasteTop = function (art, n) {
+          if (art === 'cats') return ['wellness', 'dj'];
+          return echt ? echt(art, n) : [];
+        };
+        const s = _ebSuggest('ich brauche');
+        return { full: s.full, erkannt: _ebGuessCategory('massage buchen') };
+      } finally { window._ebTasteTop = echt; }
+    });
+    expect(r.full, 'die erfundene Kategorie steht wieder im Vorschlag')
+      .not.toMatch(/wellness/i);
+    expect(r.full, 'statt der erfundenen kommt gar nichts — auch falsch')
+      .toMatch(/einen DJ/);
+    // Und sie entsteht auch nicht neu: `massage` ergibt keine Kategorie.
+    expect(r.erkannt, '„massage" erzeugt wieder eine Kategorie ohne Inserate')
+      .not.toBe('wellness');
   });
 });
 

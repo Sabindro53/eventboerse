@@ -27,6 +27,23 @@ Code mit einer erfundenen Kategorie (`wellness`). Die Vereinheitlichung hat
 die Erkennung von 32/45 und 35/45 auf **45/45** gehoben — ohne dass dafür ein
 einziger neuer Ausdruck geschrieben wurde. Es fehlte nur die Vereinigung.
 
+**Es waren am Ende neun, und ich habe dreimal zu früh „alle" gesagt.** Am
+selben Tag kamen eine siebte (in Prosa, in der öffentlichen Wissensbasis),
+eine achte (`_EB_CAT_GRAMMAR`) und eine neunte (`EB_KATEGORIE_ICON`) dazu —
+die letzten zwei standen in **derselben Datei**, nur weiter oben, und wurden
+deshalb beim Zählen übersehen. Zusammengeführt: **64/64 bei 0 Fehlalarmen**,
+gegen 49/64 und 48/64 vorher.
+
+**Die Lehre dazu ist nicht „besser suchen", sondern: beim Zählen von Kopien
+ist die eigene Zahl eine Schätzung, bis ein Test sie hält.** Was zählt, ist
+die Bedingung — jede Liste ist abgeleitet oder hat einen Test, der ihre
+Herkunft prüft. Erst dann ist „alle" eine Aussage statt einer Hoffnung.
+
+**Und die achte trug beide Fehler, die ich am Vormittag an den anderen
+behoben hatte** (`pyrotechnik` → licht, unverankertes `/r[äa]um/`). Eine
+Fundstelle zu beheben verhindert die nächste nicht; es verschiebt nur, wo
+sie auftaucht.
+
 **Die Lehre, die sich wiederholt:** die autoritative Quelle ist nicht die
 längste Liste, sondern die Stelle, an der der Nutzer die Wahl trifft. Hier
 war das `#createCategory` mit seinen zehn Werten. Nach dieser Frage ergibt

@@ -155,24 +155,28 @@ function _ebTasteReset() {
 
    NEUES ICON HIER → `node scripts/icons.mjs && python3 scripts/icons-subset.py`,
    sonst fehlt der Glyph im Zuschnitt und der Knopf bleibt leer. Der
-   PR-Check bricht sonst ab. */
-var EB_KATEGORIE_ICON = {
-  dj:         'headphones',
-  catering:   'restaurant',
-  foto:       'photo_camera',
-  location:   'castle',
-  licht:      'lightbulb',
-  florist:    'local_florist',
-  deko:       'celebration',
-  moderation: 'mic',
-  planung:    'event_note',
-  pyro:       'local_fire_department',
-  wellness:   'spa'
-};
+   PR-Check bricht sonst ab.
+
+   ABGELEITET aus `AI_CATEGORIES` weiter unten in DIESER Datei. Hier stand
+   bis zum 01.10.2026 eine eigene Aufzählung — die neunte Fassung derselben
+   Zuordnung. Sie war eine reine Kopie der Icon-Spalte und war genau um den
+   einen Eintrag gedriftet, den es nicht gibt: `wellness: 'spa'`. Ein
+   Inserat kann diese Kategorie nicht tragen (`#createCategory` bietet sie
+   nicht an), das Icon hing also an einem Schlüssel, der nie ankommt.
+
+   LAZY, nicht beim Laden: `AI_CATEGORIES` ist ein `const` WEITER UNTEN, und
+   `typeof` auf eine Variable in der TDZ WIRFT, statt 'undefined' zu liefern.
+   Eine Ableitung an dieser Zeile würde die ganze Datei beim Laden zerlegen.
+   Gerufen wird die Funktion erst, wenn ein Inserat gezeichnet wird. */
+var _ebIkonen = null;
 
 /** Fällt auf ein neutrales Zeichen zurück, nie auf einen leeren Kasten. */
 function ebKategorieIcon(key) {
-  return EB_KATEGORIE_ICON[key] || 'push_pin';
+  if (!_ebIkonen) {
+    _ebIkonen = {};
+    AI_CATEGORIES.forEach(function(c) { _ebIkonen[c.key] = c.icon; });
+  }
+  return _ebIkonen[key] || 'push_pin';
 }
 
 /** Ein Icon als Markup. `aria-hidden`, weil daneben immer der Text steht. */
@@ -186,20 +190,28 @@ function ebIconHtml(name) {
 var _EB_STOPWORDS_SUGGEST = ['ich','für','und','der','die','das','ein','eine','einen','mit','von','auf',
   'suche','brauche','möchte','will','wir','uns','mir','mein','meine','einem','einer','den','dem','bei','zum','zur'];
 
-// Kategorien mit korrektem Artikel — damit die Vorschläge grammatisch sauber sind.
-var _EB_CAT_GRAMMAR = {
-  dj:         { akk: 'einen DJ',              label: 'DJ & Musik',      icon: 'headphones', re: /\bdjs?\b|musik|band|beats|auflegen/ },
-  catering:   { akk: 'ein Catering',          label: 'Catering',        icon: 'restaurant', re: /catering|essen|buffet|men[üu]|koch|foodtruck/ },
-  foto:       { akk: 'einen Fotografen',      label: 'Fotografie',      icon: 'photo_camera', re: /fotograf|foto|kamera|video|film/ },
-  location:   { akk: 'eine Location',         label: 'Location',        icon: 'castle', re: /location|saal|halle|r[äa]um|schloss|scheune|hof/ },
-  licht:      { akk: 'Licht & Technik',       label: 'Licht & Technik', icon: 'lightbulb', re: /licht|technik|ton|b[üu]hne|sound|beschallung/ },
-  florist:    { akk: 'einen Floristen',       label: 'Floristik',       icon: 'local_florist', re: /blume|florist|strau[ßs]|blumendeko/ },
-  deko:       { akk: 'eine Dekoration',       label: 'Dekoration',      icon: 'celebration', re: /deko|ballon|tischdeko|ausstattung/ },
-  moderation: { akk: 'einen Moderator',       label: 'Moderation',      icon: 'mic', re: /moderat|sprecher|redner|host/ },
-  planung:    { akk: 'eine Eventplanung',     label: 'Eventplanung',    icon: 'event_note', re: /planer|planung|organisation|wedding ?planner/ },
-  pyro:       { akk: 'ein Feuerwerk',         label: 'Pyrotechnik',     icon: 'local_fire_department', re: /feuerwerk|pyro|funken/ },
-  wellness:   { akk: 'ein Wellness-Angebot',  label: 'Wellness & Spa',  icon: 'spa', re: /wellness|spa|massage/ }
-};
+// HIER STAND `_EB_CAT_GRAMMAR` — die ACHTE Fassung derselben Zuordnung, mit
+// Artikel, Label, Icon und einem eigenen Erkennungsmuster je Kategorie.
+//
+// Sie führte ELF Einträge. Der elfte war `wellness`, und den kann kein
+// Inserat tragen: `#createCategory` bietet ihn nicht an. Wer „massage"
+// tippte, bekam den fertigen Satz „Ich suche ein Wellness-Angebot für meine
+// Hochzeit in Köln" vorgeschlagen — und danach garantiert null Treffer.
+// Schlimmer: `_ebTasteBump('cats', …)` schrieb den Schlüssel in das lokale
+// Geschmacksprofil, und von da an war er die Vorgabe für JEDE weitere
+// Vervollständigung. Eine Suche vergiftete alle folgenden.
+//
+// Dazu trug sie beide Fehler, die am Vormittag desselben Tages an den
+// anderen Fassungen behoben wurden: `pyrotechnik` → licht (weil `technik`
+// vor `pyro` stand) und `wer hilft beim aufräumen` → location (weil
+// `/r[äa]um/` unverankert war).
+//
+// Alles davon steht jetzt in `AI_CATEGORIES` — Label, Icon, Muster und der
+// Akkusativ (`akk`). WER SIE HIER NEU ANLEGT, gewinnt in der Verkettung,
+// und die erfundene Kategorie wäre zurück.
+//
+// Der Erkenner ist `_guideCategoryFor()`, derselbe, den auch der
+// Planungs-Assistent und der QA-Bot benutzen.
 
 /* ══════════════════════════════════════════════════════════════════════
    EVENT-UNIVERSUM — jede Art von Event, nicht nur die üblichen sechs
@@ -307,12 +319,19 @@ var _EB_TYPE_GRAMMAR = {
   private:   { dat: 'für unsere Feier',          label: 'Privatfeier', emoji: '🏡', re: /party|feier|jubil[äa]um|abschluss|abiball/ }
 };
 
+/**
+ * Welche Kategorie meint dieser Text?
+ *
+ * EIN Erkenner für die ganze Anwendung: `_guideCategoryFor()` läuft über
+ * `AI_CATEGORIES` in der Reihenfolge der Tabelle. Hier stand bis zum
+ * 01.10.2026 eine eigene Schleife über eine eigene Tabelle — sie erkannte
+ * Dinge, die der gemeinsame Erkenner verfehlte, und verfehlte Dinge, die er
+ * erkannte. Die Zusammenführung steht bei der Tabelle, mit den Zahlen.
+ *
+ * Die Reihenfolge trägt mit: der ERSTE Treffer gewinnt.
+ */
 function _ebGuessCategory(text) {
-  var t = String(text || '').toLowerCase();
-  for (var k in _EB_CAT_GRAMMAR) {
-    if (_EB_CAT_GRAMMAR[k].re.test(t)) return k;
-  }
-  return '';
+  return _guideCategoryFor(String(text || '')) || '';
 }
 function _ebGuessEventType(text) {
   var t = String(text || '').toLowerCase();
@@ -382,8 +401,13 @@ function _ebSuggest(raw) {
   // ── 1) Fortsetzung des eigenen Satzes ──────────────────────────────
   var parts = [];
   if (!cat) {
-    var pick = topCats.filter(function(c) { return _EB_CAT_GRAMMAR[c]; })[0] || 'dj';
-    var catFrag = _EB_CAT_GRAMMAR[pick].akk;
+    // Die Wache am Geschmacksprofil ist nicht Zierrat: `_ebTasteTop` liest
+    // aus dem localStorage, und dort kann ein Schlüssel aus einer früheren
+    // Fassung liegen — `wellness` zum Beispiel, bis zum 01.10.2026. Ein
+    // unbekannter Schlüssel darf keine Vervollständigung erzeugen, die
+    // garantiert nichts findet.
+    var pick = topCats.filter(ebKategorieBekannt)[0] || 'dj';
+    var catFrag = ebKategorieEintrag(pick).akk;
     // Wer sein Event beschreibt, bekommt einen sauberen Anschluss statt
     // eines angeklebten Objekts („… in München" → „… — dafür suche ich einen DJ").
     if (describesEvent && (type || city)) catFrag = '— dafür suche ich ' + catFrag;
@@ -429,7 +453,7 @@ function _ebSuggest(raw) {
     typeCandidates.forEach(function(k) {
       if (alts.length >= 2) return;
       var g = _EB_TYPE_GRAMMAR[k];
-      var c = _EB_CAT_GRAMMAR[baseCat];
+      var c = ebKategorieEintrag(baseCat);
       if (!g || !c) return;
       var sentence = cat ? appendToStem(g.dat) : 'Ich suche ' + c.akk + ' ' + g.dat;
       addAlt(sentence, g.label, g.icon, 'Anderer Anlass');
@@ -450,7 +474,7 @@ function _ebSuggest(raw) {
 
   companions.forEach(function(ck) {
     if (ck === cat) return;
-    var g = _EB_CAT_GRAMMAR[ck];
+    var g = ebKategorieEintrag(ck);
     if (!g) return;
     var tg = _EB_TYPE_GRAMMAR[type || topTypes[0] || 'wedding'];
     addAlt('Ich suche ' + g.akk + (tg ? ' ' + tg.dat : ''), g.label, g.icon, 'Passt dazu');
@@ -606,29 +630,69 @@ function aiMatchKeyword(input) {
 // REIHENFOLGE IST LOGIK, nicht Gestaltung: `_guideCategoryFor()` nimmt den
 // ERSTEN Treffer. `pyro` steht deshalb vor `licht` — sonst ist der Befund
 // oben sofort zurück. Ein Test hält genau das fest.
+//
+// Am 01.10.2026, NACH dieser Zusammenführung, standen noch zwei weitere
+// Fassungen hier in derselben Datei: `_EB_CAT_GRAMMAR` (Vervollständigung,
+// elf Einträge) und `EB_KATEGORIE_ICON` (nur Icons, elf Einträge). Beide
+// sind jetzt abgeleitet, und die Messung sagt, warum das kein Aufräumen war:
+//
+//   achte Fassung   49/64 Treffer · 1 Fehlalarm   (`aufräumen` → location)
+//   diese Tabelle   48/64 Treffer · 0 Fehlalarme
+//   zusammengeführt 64/64 Treffer · 0 Fehlalarme
+//
+// Wieder nicht ineinander enthalten — und die achte trug BEIDE Fehler, die
+// am Vormittag an den anderen behoben wurden: `pyrotechnik` → licht und der
+// unverankerte `/r[äa]um/`. Eine Fundstelle zu beheben verhindert die
+// nächste nicht, solange jede Oberfläche ihre eigene Kopie pflegt.
+//
+// `akk` ist der Akkusativ für die Satz-Vervollständigung („Ich suche einen
+// DJ"). Er stand hier NICHT, und genau das war die Begründung für die
+// zweite Tabelle — eine echte eigene Information, die aber zur Kategorie
+// gehört und nicht in eine Nebentabelle.
 const AI_CATEGORIES = [
   { key: 'dj', label: 'DJ & Musik', icon: 'headphones', emoji: '🎧',
-    muster: /\bdjs?\b|musik|band|line-?up|playlist/i },
+    akk: 'einen DJ',
+    muster: /\bdjs?\b|musik|band|line-?up|playlist|beats|auflegen/i },
   { key: 'catering', label: 'Catering', icon: 'restaurant', emoji: '🍽️',
-    muster: /catering|essen|buffet|men[üu]|getr[äa]nke|kuchen|torte/i },
+    akk: 'ein Catering',
+    muster: /catering|essen|buffet|men[üu]|getr[äa]nke|kuchen|torte|koch|food ?truck/i },
   { key: 'foto', label: 'Fotografie', icon: 'photo_camera', emoji: '📷',
+    akk: 'einen Fotografen',
+    // `film` bleibt DRAUSSEN, obwohl die achte Fassung es führte: es trifft
+    // „Filmabend", und das ist ein Event-Typ im Universum, keine Kategorie.
     muster: /fotograf|videograf|foto|kamera|video/i },
   { key: 'florist', label: 'Floristik', icon: 'local_florist', emoji: '💐',
+    akk: 'einen Floristen',
     muster: /florist|blume|strau[ßs]/i },
   { key: 'deko', label: 'Dekoration', icon: 'celebration', emoji: '🎈',
-    muster: /deko/i },
+    akk: 'eine Dekoration',
+    // `ausstattung` bleibt DRAUSSEN: „technische Ausstattung" wäre damit
+    // Dekoration, weil `deko` vor `licht` steht. Ein Wort, dessen Aufnahme
+    // die Reihenfolge der Tabelle gegen sich selbst stellt, kommt nicht rein.
+    muster: /deko|ballon/i },
   // VOR `licht`: „pyrotechnik" enthält „technik".
   { key: 'pyro', label: 'Pyrotechnik', icon: 'local_fire_department', emoji: '🎆',
-    muster: /feuerwerk|pyro/i },
+    akk: 'ein Feuerwerk',
+    // `funken`, nicht `funke`: letzteres trifft „funkeln", und „die Lichter
+    // funkeln" wäre dann ein Feuerwerk. Gemessen, nicht vermutet.
+    muster: /feuerwerk|pyro|funken/i },
+  // VOR `location`: „Beschallung für den Saal" ist Technik, nicht der Saal.
   { key: 'licht', label: 'Licht & Technik', icon: 'lightbulb', emoji: '💡',
-    muster: /licht|technik|\bav\b|strom|b[üu]hne|\bton|livestream/i },
+    akk: 'Licht & Technik',
+    muster: /licht|technik|\bav\b|strom|b[üu]hne|\bton|livestream|sound|beschallung/i },
   { key: 'planung', label: 'Planung', icon: 'event_note', emoji: '🗂️',
-    muster: /koordinator|planer\b|komplettplanung|eventplanung/i },
+    akk: 'eine Eventplanung',
+    muster: /koordinator|planer\b|planung|organisation|wedding ?planner/i },
   { key: 'moderation', label: 'Moderation', icon: 'mic', emoji: '🎤',
-    muster: /moderat|sprecher/i },
+    akk: 'einen Moderator',
+    // `\bhost\b` statt `host`: sonst trifft es „Hosting" und „Hostess".
+    muster: /moderat|sprecher|redner|\bhost\b/i },
   // `\br[äa]um` statt `/räum/`: der Wortanfang hält „aufräumen" draussen.
+  // Bares `hof` bleibt DRAUSSEN — es trifft „Bahnhof"; die echten
+  // Veranstaltungsorte stehen ausgeschrieben.
   { key: 'location', label: 'Location', icon: 'castle', emoji: '🏰',
-    muster: /location|venue|gel[äa]nde|meetingraum|schloss|saal|halle|\br[äa]um/i },
+    akk: 'eine Location',
+    muster: /location|venue|gel[äa]nde|meetingraum|schloss|saal|halle|scheune|bauernhof|gutshof|hofgut|\br[äa]um/i },
 ];
 
 let selectedCategories = new Set();
@@ -636,6 +700,18 @@ let selectedCategories = new Set();
 /** Gibt es diesen Kategorie-Key wirklich? Jede Übergabe von aussen fragt hier. */
 function ebKategorieBekannt(key) {
   return AI_CATEGORIES.some(function(c) { return c.key === key; });
+}
+
+/**
+ * Der Tabelleneintrag zu einem Key — oder `null`.
+ *
+ * Der Weg an Label, Icon und Akkusativ. Vorher griffen die Vorschläge in
+ * eine eigene Tabelle (`_EB_CAT_GRAMMAR`), und die kannte eine Kategorie,
+ * die es nicht gibt. `null` statt eines erfundenen Ersatzes: ein
+ * unbekannter Key ist ein Fehler des Aufrufers, und den soll man sehen.
+ */
+function ebKategorieEintrag(key) {
+  return AI_CATEGORIES.filter(function(c) { return c.key === key; })[0] || null;
 }
 
 /**

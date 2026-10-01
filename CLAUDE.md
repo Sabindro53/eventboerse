@@ -2855,7 +2855,111 @@ Frühabweisung zurück · Assistent gibt die Kategorie nicht mit (2) · Weisslis
 entfernt · erst abschneiden, dann zählen · tote Ersatzliste mit `wellness` zurück.
 
 ```bash
-npx playwright test tests/e2e/assistent-kategorie.spec.js   # 16 Tests, 13 Mutationen
+npx playwright test tests/e2e/assistent-kategorie.spec.js   # 23 Tests, 30 Mutationen
+```
+
+#### Es waren NEUN Fassungen, nicht vier — zwei standen in derselben Datei
+
+Am Abend des 01.10.2026 nachgezählt. Über der autoritativen Tabelle, in
+**derselben** Datei, standen noch zwei:
+
+| Fassung | Einträge | wofür |
+|---|---:|---|
+| `_EB_CAT_GRAMMAR` | **11** | Satz-Vervollständigung: Artikel, Label, Icon, eigenes Muster |
+| `EB_KATEGORIE_ICON` | **11** | nur Icons — reine Kopie der Icon-Spalte |
+
+Beide waren beim ersten Durchgang nicht mitgezählt, weil sie **vor**
+`AI_CATEGORIES` stehen und mit ihr nie verglichen wurden. Am erweiterten
+Korpus gemessen:
+
+| | Treffer (64) | Fehlalarme |
+|---|---:|---:|
+| achte Fassung | 49 | **1** |
+| `AI_CATEGORIES` | 48 | 0 |
+| **zusammengeführt** | **64** | **0** |
+
+**Wieder nicht ineinander enthalten** — und die achte trug **beide** Fehler,
+die am Vormittag desselben Tages an den anderen behoben wurden:
+`pyrotechnik` → **licht** (weil `technik` vor `pyro` stand) und
+`wer hilft beim aufräumen` → **location** (weil `/r[äa]um/` unverankert war).
+*Eine Fundstelle zu beheben verhindert die nächste nicht, solange jede
+Oberfläche ihre eigene Kopie pflegt.*
+
+**Der elfte Eintrag war `wellness` — eine Kategorie, die kein Inserat tragen
+kann.** `#createCategory` bietet sie nicht an. Wer „massage" tippte, bekam
+den fertigen Satz *„Ich suche ein Wellness-Angebot für meine Hochzeit in
+Köln"* vorgeschlagen und danach garantiert null Treffer.
+
+**Und sie blieb.** `_ebTasteBump('cats', …)` schrieb den Schlüssel ins
+Geschmacksprofil im `localStorage`; von dort war er die **Vorgabe für jede
+weitere Vervollständigung**, auch für unverwandte Suchen. Eine Suche
+vergiftete alle folgenden — und das Profil überlebt die Behebung, weshalb
+die Vorschläge jetzt gegen die Tabelle prüfen, statt dem Profil zu glauben.
+
+**`akk` zieht in die Tabelle, nicht in eine Nebentabelle.** Der Akkusativ
+(„einen DJ", „ein Catering") war die einzige **echte** eigene Information
+der achten Fassung — und damit ihre ganze Begründung. Er gehört zur
+Kategorie; eine Nebentabelle dafür bringt neun weitere Spalten mit, die
+niemand gegen das Original misst.
+
+**Abgeleitet wird LAZY, im Funktionsrumpf.** `AI_CATEGORIES` ist ein `const`
+weiter unten in derselben Datei: eine Ableitung an der alten Zeile greift
+beim Laden in die TDZ und zerlegt die Datei. `typeof` hilft dort nicht — es
+wirft selbst. `ebKategorieIcon()` leitet beim ersten Aufruf ab und merkt es.
+
+**Drei Wörter blieben DRAUSSEN, jedes mit gemessenem Grund** — und jedes
+steht als Durchlass-Satz im Korpus, nicht als Absatz:
+
+| Wort | hätte getroffen | Folge |
+|---|---|---|
+| `ausstattung` → deko | „technische Ausstattung" | `deko` steht vor `licht` |
+| `film` → foto | „was ist mit dem Filmabend" | ein Event-Typ, keine Kategorie |
+| bares `hof` → location | „wir treffen uns am Bahnhof" | die echten Orte stehen ausgeschrieben |
+
+Dazu zwei Formfragen: **`funken`, nicht `funke`** (letzteres trifft
+„funkeln", und `pyro` steht vor `licht` — „die Lichter funkeln" wäre ein
+Feuerwerk geworden) und **`\bhost\b`, nicht `host`** (sonst ist eine
+Hostess ein Moderator).
+
+**Zwei Reihenfolge-Bedingungen, nicht eine.** Neben `pyro` vor `licht` trägt
+jetzt `licht` vor `location`: „Beschallung für den Saal" nennt Technik **und**
+Ort, und vor dem 01.10.2026 ergab der Satz in **beiden** Fassungen
+`location` — der Fragende bekam Schlösser für eine Tonanlage. Beide
+Bedingungen haben einen eigenen Test mit einem konkreten Satz, weil sie beim
+nächsten alphabetischen Aufräumen still kaputtgehen.
+
+**Vier Mutationen überlebten den ersten Durchgang, drei waren Lücken in den
+Tests.** `\bhost\b` hatte keinen Durchlass-Satz mit „Hostess"; der
+`null`-Zweig von `ebKategorieEintrag()` hat an der Oberfläche **kein
+Subjekt** (jeder Aufrufer nimmt seinen Key aus der Tabelle oder fragt vorher
+`ebKategorieBekannt()`) und misst jetzt die **Ausgabe** des Helfers, wie
+`ebAuftragSchluessel()` hinter seiner Gruppierung; und den Kategorie-Chip des
+Planungs-Assistenten prüfte niemand.
+
+**Die vierte überlebt weiterhin, und das steht im Test.** Der Kommentarabzug
+im Icon-Test ist dort **Vorsorge ohne Subjekt**: die Erklärung, die
+`wellness: 'spa'` wörtlich nennt, liegt ausserhalb des geschnittenen Blocks.
+Er bleibt, weil ein breiterer Schnitt sonst still den Kommentar misst — aber
+er behauptet keine Wirkung, die er beim heutigen Schnitt nicht hat.
+
+Siebzehn Mutationen, sechzehn machen die Suite rot: achte Fassung zurück
+(**4 rot**) · neunte Fassung zurück (2) · `akk` fällt aus der Tabelle (3) ·
+`ebKategorieIcon` leitet nicht ab (3) · `pyro` nach `licht` (2) · `licht`
+nach `location` (2) · `ebKategorieEintrag` erfindet einen Eintrag (2) ·
+Vokabular weg bei licht (2) · `funken` → `funke` · `host` ohne Wortgrenze ·
+bares `hof` · `ausstattung` in deko · `film` in foto · Vokabular weg bei
+catering · die Wache am Geschmacksprofil weg · der Chip fragt die Tabelle
+nicht.
+
+**Nicht angefasst:** die Merkmalsliste der Inserate führt weiter
+`🧖 Wellness-Bereich` — das ist eine **Eigenschaft einer Location**, keine
+Kategorie, und völlig in Ordnung. Mitgezogen wurde nur die Begründung in
+`vault/40-Governance/Legal/App-Store.md`: sie nannte „die Kategorie
+`wellness`" als Grund für ein „keine" und zeigte damit auf etwas, das es
+nicht gibt. Die **Antwort** ändert sich nicht.
+
+```bash
+npx playwright test tests/e2e/such-icons.spec.js   # 9 Tests
 ```
 
 #### Und der ZWEITE Assistent hatte dieselbe Lücke
@@ -2936,11 +3040,13 @@ Wer nach Wellness suchte, fand garantiert nichts; wer Pyrotechnik suchte,
 erfuhr nicht, dass es sie gibt. **Dieselbe Drift wie bei den vier
 Code-Fassungen, nur in Prosa** — und diese stand vor jedem Besucher.
 
-Daneben liegt eine **achte**: `_EB_CAT_GRAMMAR` in `11-suche-ki.js` führt
-elf Einträge mit eigenen Ausdrücken, `wellness` darunter. Sie bedient die
-Satz-Vervollständigung, nicht den Filter, und ist deshalb **nicht** in diesem
-PR angefasst: ein Umbau der Vorschlagsgrammatik ist eine eigene Messung, keine
-Beifracht. Als Befund steht sie in `Current-Sprint.md`.
+Daneben lag eine **achte**: `_EB_CAT_GRAMMAR` in `11-suche-ki.js`, elf
+Einträge mit eigenen Ausdrücken, `wellness` darunter. Sie bediente die
+Satz-Vervollständigung, nicht den Filter — ein Umbau der Vorschlagsgrammatik
+war eine eigene Messung und keine Beifracht, also stand sie zunächst als
+Befund da. **Sie ist am Abend desselben Tages gemessen und zusammengeführt
+worden**, und mit ihr eine neunte (`EB_KATEGORIE_ICON`): siehe den Abschnitt
+„Es waren NEUN Fassungen, nicht vier" weiter oben.
 
 **Die Notiz bekommt ihr Subjekt.** Ein Test leitet die Labels aus
 `#createCategory` **und** `AI_CATEGORIES` ab und verlangt, dass der Abschnitt
@@ -5378,7 +5484,7 @@ npm run test:smoke      # nur Routen-Smoke-Tests
 npm run test:css        # CSS-Minify-Regression (Verlaufsschrift)
 ```
 
-1366 Tests in 93 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
+1374 Tests in 93 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
 Sätze), Gebühren (centgenau, JS↔PHP-Parität), Wissensbasis (Antworten +
 Leckage-Schutz), Zufluss (Quarantäne-Tor + Demo-Feed-Ehrlichkeit),
 Verbindungen (HQ-Zugang + Connector-Katalog), Auftragsstrom (Herkunft +
@@ -5478,13 +5584,21 @@ vorgefiltert, und die angelegte Karte landet wirklich AM Baustein — im echten
 Browser geklickt, im Projekt nachgesehen; der gewöhnliche Weg verknüpft nichts,
 eine abgebrochene Auswahl hinterlässt keine Notiz, und die Herkunft gilt nur
 für ihr eigenes Vorhaben),
-**Assistent-Kategorie** (eine Zuordnung statt vier: die Chips der Suche sind
-genau das, was ein Anbieter im Formular wählen kann, Knöpfe und Erkenner sind
-daraus ABGELEITET und nicht abgeschrieben; 45 getippte Sätze treffen ihre
-Kategorie und 12 harmlose Fragen keine; „pyrotechnik" ist Pyrotechnik, nicht
-Technik; und der Weg hinein wird geklickt — `navigateTo('browse','dj')`
-filtert wirklich, ein unbekannter Wert lässt keinen Chip markiert
-zurückstehen, und der Knopf nennt die GANZE Zahl, nicht die drei gezeigten),
+**Assistent-Kategorie** (eine Zuordnung statt **neun**: die Chips der Suche
+sind genau das, was ein Anbieter im Formular wählen kann, und Knöpfe, Icons,
+Akkusativ und alle drei Erkenner sind daraus ABGELEITET statt abgeschrieben —
+die achte Fassung trug `wellness`, eine Kategorie, die kein Inserat tragen
+kann, und beide Fehler, die am Vormittag an den anderen behoben wurden;
+64 getippte Sätze treffen ihre Kategorie und 17 harmlose Fragen keine, wobei
+jeder Durchlass-Satz begründet, warum ein Wort DRAUSSEN blieb; „pyrotechnik"
+ist Pyrotechnik und nicht Technik, „Beschallung für den Saal" ist Technik und
+nicht der Saal, „die Lichter funkeln" ist kein Feuerwerk und eine Hostess
+kein Moderator; ein unbekannter Key ergibt `null` statt eines erfundenen
+Eintrags, und eine erfundene Kategorie aus dem localStorage-Geschmacksprofil
+erreicht weder Vorschlag noch Chip; und der Weg hinein wird geklickt —
+`navigateTo('browse','dj')` filtert wirklich, ein unbekannter Wert lässt
+keinen Chip markiert zurückstehen, und der Knopf nennt die GANZE Zahl, nicht
+die drei gezeigten),
 **QA-Bot-Kategorie** (der Assistent auf der Landeseite gibt die gefragte
 Kategorie an die Suche weiter — geklickt wird der echte Knopf der echten
 Antwort und im gefilterten Raster nachgesehen, nicht im Markup: nur `browse`

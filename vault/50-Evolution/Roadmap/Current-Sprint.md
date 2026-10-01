@@ -16,7 +16,7 @@ Zahlen ihrer Zeit — die sind Historie, kein Ist-Stand. Der Ensemble-Kontext
 liest diese Datei von oben; ein Modell, das „68 Tests" als aktuell meldet, hat
 einen alten Abschnitt gelesen und nicht diesen.
 
-- **Playwright-Suite: 1366 Tests in 93 Suiten**, blockierendes Gate in `pr-check.yml`.
+- **Playwright-Suite: 1374 Tests in 93 Suiten**, blockierendes Gate in `pr-check.yml`.
   Läuft seit dem Self-Hosting auch ohne Netzzugang vollständig durch
 
 ## Der QA-Bot gibt die Kategorie weiter (2026-10-01)
@@ -41,18 +41,61 @@ beide einen Fehler im **Test**: eine Schleife ohne Subjekt und eine Wache, die
 an der Oberfläche nicht beobachtbar ist. Vollständig: der Abschnitt „Und der
 ZWEITE Assistent hatte dieselbe Lücke" in `CLAUDE.md`.
 
-### Befund, nicht behoben: die achte Fassung
+### Die achte und neunte Fassung — gemessen und zusammengeführt (2026-10-01)
 
-`_EB_CAT_GRAMMAR` in `js/modules/search/11-suche-ki.js` führt **elf** Einträge
-mit eigenen Ausdrücken, Labels und Icons — zehn davon doppeln `AI_CATEGORIES`,
-der elfte ist `wellness`. Sie bedient die Satz-Vervollständigung der Suche,
-nicht den Filter.
+Hier stand *„Befund, nicht behoben"*, mit der Begründung, ein Umbau der
+Vorschlagsgrammatik brauche eine eigene Messung am Korpus. Die Messung ist
+gemacht, und sie hat die Dringlichkeit nach oben korrigiert.
 
-Bewusst **nicht** in diesem Durchgang angefasst: ein Umbau der
-Vorschlagsgrammatik braucht eine eigene Messung am Korpus (welche Vorschläge
-ändern sich?), und Beifracht in einem gemeldeten Fehler ist genau die Sorte
-Änderung, die man hinterher nicht mehr zuordnen kann. Wer sie angeht, misst
-vorher, welche Vervollständigungen heute entstehen.
+**Es waren zwei Fassungen, nicht eine.** Über der autoritativen Tabelle, in
+derselben Datei: `_EB_CAT_GRAMMAR` (elf Einträge, eigenes Muster je
+Kategorie) und `EB_KATEGORIE_ICON` (elf Einträge, reine Kopie der
+Icon-Spalte). Beide waren beim ersten Zählen nicht mitgekommen, weil sie
+**vor** `AI_CATEGORIES` stehen.
+
+| | Treffer (Korpus 64) | Fehlalarme |
+|---|---:|---:|
+| achte Fassung | 49 | **1** (`aufräumen` → location) |
+| `AI_CATEGORIES` | 48 | 0 |
+| **zusammengeführt** | **64** | **0** |
+
+Wieder nicht ineinander enthalten — und die achte trug **beide** Fehler, die
+am Vormittag an den anderen behoben wurden: `pyrotechnik` → licht und der
+unverankerte `/r[äa]um/`.
+
+**Der elfte Eintrag war schlimmer als eine Doppelung.** `wellness` kann kein
+Inserat tragen; wer „massage" tippte, bekam den fertigen Satz *„Ich suche ein
+Wellness-Angebot für meine Hochzeit in Köln"* und danach null Treffer. Und
+`_ebTasteBump('cats', …)` schrieb den Schlüssel in das Geschmacksprofil im
+`localStorage` — von dort war er die Vorgabe für **jede** weitere
+Vervollständigung. Eine Suche vergiftete alle folgenden, und das Profil
+überlebt die Behebung.
+
+`akk` (der Akkusativ) ist in `AI_CATEGORIES` gezogen: er war die einzige
+echte eigene Information der achten Fassung und damit ihre ganze Begründung.
+Abgeleitet wird **lazy im Funktionsrumpf** — `AI_CATEGORIES` ist ein `const`
+weiter unten, und `typeof` auf eine Variable in der TDZ wirft.
+
+**Drei Wörter blieben draussen, jedes mit Grund als Durchlass-Satz:**
+`ausstattung` (→ „technische Ausstattung" würde `deko` vor `licht` schlagen),
+`film` (→ trifft den Event-Typ „Filmabend"), bares `hof` (→ trifft
+„Bahnhof"). Dazu `funken` statt `funke` und `\bhost\b` statt `host`.
+
+17 Mutationen, 16 rot. Die vier, die zuerst überlebten: drei waren Lücken in
+den Tests (kein Durchlass-Satz für „Hostess", der `null`-Zweig ohne Subjekt
+an der Oberfläche, der Kategorie-Chip des Planungs-Assistenten) und sind
+geschlossen; die vierte ist Kommentarabzug als **Vorsorge ohne Subjekt** und
+steht als solche im Test. Vollständig: der Abschnitt „Es waren NEUN
+Fassungen, nicht vier" in `CLAUDE.md`.
+
+Mitgezogen: die Begründungsspalte in
+`vault/40-Governance/Legal/App-Store.md` nannte „die Kategorie `wellness`"
+als Grund für ein „keine" — ein Verweis auf etwas, das es nicht gibt. Die
+**Antwort** ändert sich nicht.
+
+**Offen und ausdrücklich nicht angefasst:** die Merkmalsliste der Inserate
+führt weiter `🧖 Wellness-Bereich`. Das ist eine Eigenschaft einer Location,
+keine Kategorie — richtig so.
 
 ## Der Deploy prüft jetzt, ob die Seite ankommt (2026-10-01)
 
