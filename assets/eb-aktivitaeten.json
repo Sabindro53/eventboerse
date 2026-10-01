@@ -1,7 +1,7 @@
 {
   "version": 2,
   "hinweis": "Erzeugt von scripts/aktivitaeten.mjs. Nicht von Hand bearbeiten.",
-  "stand": "2026-09-29T03:39:38.188Z",
+  "stand": "2026-10-01T03:43:28.908Z",
   "gebiete": [
     {
       "stadt": "Köln",
@@ -3580,12 +3580,12 @@
     {
       "id": "osm:node/3416691017",
       "art": "ort",
-      "titel": "Kölner Senfmuseum (b.a.W. geschlossen)",
+      "titel": "Kölner Senfmuseum",
       "kategorie": "Museum",
       "beginn": null,
       "gebiet": "Köln",
       "ort": {
-        "name": "Kölner Senfmuseum (b.a.W. geschlossen)",
+        "name": "Kölner Senfmuseum",
         "stadt": "Köln",
         "lat": 50.93257,
         "lon": 6.96248
@@ -13389,6 +13389,27 @@
       "partner": false
     },
     {
+      "id": "osm:node/14230601801",
+      "art": "ort",
+      "titel": "Lichthof Theater",
+      "kategorie": "Theater",
+      "beginn": null,
+      "gebiet": "Hamburg",
+      "ort": {
+        "name": "Lichthof Theater",
+        "stadt": "",
+        "lat": 53.56563,
+        "lon": 9.97762
+      },
+      "entfernungKm": 1.9,
+      "quelle": {
+        "name": "OpenStreetMap",
+        "url": "https://www.openstreetmap.org/node/14230601801",
+        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
+      },
+      "partner": false
+    },
+    {
       "id": "osm:node/60568486",
       "art": "ort",
       "titel": "Abaton-Kino",
@@ -13889,28 +13910,6 @@
       "partner": false
     },
     {
-      "id": "osm:node/9670503278",
-      "art": "ort",
-      "titel": "AdventureRooms",
-      "kategorie": "Escape-Room",
-      "beginn": null,
-      "gebiet": "Hamburg",
-      "ort": {
-        "name": "AdventureRooms",
-        "stadt": "Hamburg",
-        "lat": 53.54849,
-        "lon": 10.02857
-      },
-      "entfernungKm": 2.3,
-      "webseite": "https://www.adventurerooms-hamburg.de/",
-      "quelle": {
-        "name": "OpenStreetMap",
-        "url": "https://www.openstreetmap.org/node/9670503278",
-        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
-      },
-      "partner": false
-    },
-    {
       "id": "osm:node/60013074",
       "art": "ort",
       "titel": "Spielzeugmuseum München",
@@ -13946,7 +13945,7 @@
         "lon": 11.57589
       },
       "entfernungKm": 0.1,
-      "webseite": "https://www.muenchen.de/sehenswuerdigkeiten/rathausgalerie",
+      "webseite": "https://www.rathausgalerie-muenchen.de/de",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/1132414558",
