@@ -8,7 +8,7 @@ tags: [layer/L4, domain/governance, share/internal]
 # Rechtliche Lage — gemessen
 
 > **Erzeugt von `scripts/recht.mjs`. Nicht von Hand bearbeiten.**
-> Stand: 2026-10-01 03:43 UTC · 31 Frontend-Module geprüft.
+> Stand: 2026-10-02 03:38 UTC · 32 Frontend-Module geprüft.
 
 Diese Notiz vergleicht, was der Vault über die Plattform behauptet, mit dem,
 was der Code tut. Sie ersetzt keine Rechtsberatung: sie prüft nur, ob
@@ -22,12 +22,13 @@ Beschreibung und Code sagen dasselbe.
 
 ## Speicherschlüssel im Frontend (TDDDG § 25)
 
-24 Schlüssel im Code, 24 in der Cookie-Liste beschrieben.
+25 Schlüssel im Code, 25 in der Cookie-Liste beschrieben.
 
 | Schlüssel | Speicher | Modul |
 |---|---|---|
 | `eb_accepted_bookings` | localStorage | chat/20-chat-nachrichten.js |
 | `eb_ai_chat_v1_<dynamisch>` | localStorage | ai/50-planungs-assistent.js |
+| `eb_assistent_stimme_v1` | localStorage | ai/53-assistent-stimme.js |
 | `eb_board_projects` | localStorage | board/40-board-kanban.js |
 | `eb_board_projects_<dynamisch>` | localStorage | board/40-board-kanban.js |
 | `eb_board_tombstones_<dynamisch>` | localStorage | board/40-board-kanban.js |
