@@ -1,7 +1,7 @@
 {
   "version": 2,
   "hinweis": "Erzeugt von scripts/aktivitaeten.mjs. Nicht von Hand bearbeiten.",
-  "stand": "2026-10-02T03:38:04.271Z",
+  "stand": "2026-10-03T03:46:32.500Z",
   "gebiete": [
     {
       "stadt": "Köln",
@@ -19407,6 +19407,27 @@
       "partner": false
     },
     {
+      "id": "osm:node/11970612357",
+      "art": "ort",
+      "titel": "Heimatstüble Kaltental",
+      "kategorie": "Museum",
+      "beginn": null,
+      "gebiet": "Stuttgart",
+      "ort": {
+        "name": "Heimatstüble Kaltental",
+        "stadt": "",
+        "lat": 48.74179,
+        "lon": 9.12844
+      },
+      "entfernungKm": 5.5,
+      "quelle": {
+        "name": "OpenStreetMap",
+        "url": "https://www.openstreetmap.org/node/11970612357",
+        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
+      },
+      "partner": false
+    },
+    {
       "id": "osm:node/1575384578",
       "art": "ort",
       "titel": "Heimatstube im Alten Haus",
@@ -20407,28 +20428,6 @@
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/299812491",
-        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
-      },
-      "partner": false
-    },
-    {
-      "id": "osm:node/1609075419",
-      "art": "ort",
-      "titel": "Scala Kultur",
-      "kategorie": "Kino",
-      "beginn": null,
-      "gebiet": "Stuttgart",
-      "ort": {
-        "name": "Scala Kultur",
-        "stadt": "Ludwigsburg",
-        "lat": 48.89547,
-        "lon": 9.19372
-      },
-      "entfernungKm": 13.3,
-      "webseite": "https://www.scala-ludwigsburg.de/",
-      "quelle": {
-        "name": "OpenStreetMap",
-        "url": "https://www.openstreetmap.org/node/1609075419",
         "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
       },
       "partner": false
