@@ -1,7 +1,7 @@
 {
   "version": 2,
   "hinweis": "Erzeugt von scripts/aktivitaeten.mjs. Nicht von Hand bearbeiten.",
-  "stand": "2026-10-04T04:38:54.449Z",
+  "stand": "2026-10-05T03:47:14.846Z",
   "gebiete": [
     {
       "stadt": "Köln",
@@ -16737,18 +16737,18 @@
     {
       "id": "osm:node/385171325",
       "art": "ort",
-      "titel": "Deutsches Filmmuseum",
+      "titel": "Deutsches Filminstitut Filmmuseum",
       "kategorie": "Museum",
       "beginn": null,
       "gebiet": "Frankfurt",
       "ort": {
-        "name": "Deutsches Filmmuseum",
+        "name": "Deutsches Filminstitut Filmmuseum",
         "stadt": "Frankfurt am Main",
         "lat": 50.10506,
         "lon": 8.67769
       },
       "entfernungKm": 0.7,
-      "webseite": "https://deutsches-filminstitut.de/filmmuseum/",
+      "webseite": "https://www.dff.film/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/385171325",
