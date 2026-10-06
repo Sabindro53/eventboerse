@@ -1,7 +1,7 @@
 {
   "version": 2,
   "hinweis": "Erzeugt von scripts/aktivitaeten.mjs. Nicht von Hand bearbeiten.",
-  "stand": "2026-10-05T03:47:14.846Z",
+  "stand": "2026-10-06T03:38:25.792Z",
   "gebiete": [
     {
       "stadt": "Köln",
@@ -18245,6 +18245,7 @@
         "lon": 8.7225
       },
       "entfernungKm": 9.4,
+      "webseite": "https://www.kultur-bad-vilbel.de/museen/heimatmuseum",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/2708724903",
