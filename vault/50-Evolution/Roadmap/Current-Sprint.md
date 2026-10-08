@@ -144,6 +144,36 @@ Löschung), kein Token in `.git/config`, kein volles Protokoll, Fokus über
 scheitert seit Juli. Ob die Action `--add-dir` und die Werkzeugliste
 annimmt, zeigt erst ein echter Lauf.
 
+## Chrome bot im Suchfeld Zugangsdaten an (2026-10-08)
+
+Gemeldet vom Inhaber, mit Bild: die Konten-Liste des Chrome-Passwortmanagers
+lag über dem Suchfeld der Landeseite. **Die Panzerung am Feld war längst da**
+(`autocomplete="off"`, `data-lpignore`, `data-1p-ignore`,
+`data-form-type="other"`) — Chrome ignoriert sie absichtlich, sobald es ein
+Feld als Benutzernamen einstuft.
+
+Im echten Chromium gemessen: von 130 Formularfeldern der Hülle haben **58
+keinen `<form>`-Eigentümer**, darunter **3 Passwortfelder** und **21
+Text-/Suchfelder**. Chrome fasst genau diese zu EINER synthetischen Form
+zusammen — damit war jedes Suchfeld ein Benutzernamen-Kandidat.
+
+Behoben an den drei, nicht an den einundzwanzig: `#settingsPasswordForm`
+nimmt die Passwortfelder aus dem Pool. Nachher: **0 Passwortfelder** darin.
+Optisch ein Nullschritt (Box `672 × 452` vorher wie nachher). Dieselbe Lage
+im HQ behoben, wo `#pat-input` den GitHub-Token hält.
+
+**Zwei Instrumente mussten unterwegs ersetzt werden:** `requestSubmit()`
+misst am Knopf vorbei, und Tag-Zählen über HTML ist kein Parser — es fiel
+erst auf meinen eigenen Kommentar herein, dann auf ungleich verteilte
+`<form>`-Tags. Gemessen wird jetzt beidseits im Browser über `el.form`.
+
+**Nicht von hier aus prüfbar:** dass die Konten-Liste wirklich wegbleibt.
+Das ist Browser-Oberfläche; gemessen ist die Vorbedingung im DOM. Die
+Gegenprobe gehört dem Inhaber in seinem Chrome.
+
+`tests/e2e/autofill.spec.js` — 10 Tests, 11 Mutationen (10 rot, eine als Paar
+belegt). Volle Details in CLAUDE.md.
+
 ## Der QA-Bot gibt die Kategorie weiter (2026-10-01)
 
 Gemeldet vom Inhaber: *„Suche alle DJs"* → der Bot schlug die Suche vor, und
