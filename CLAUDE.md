@@ -3221,6 +3221,114 @@ verschweigt Pyrotechnik.
 npx playwright test tests/e2e/qabot-kategorie.spec.js   # 13 Tests, 11 Mutationen
 ```
 
+### Chrome bot im Suchfeld gespeicherte Zugangsdaten an
+
+Gemeldet am 08.10.2026 vom Inhaber, mit Bild: wer auf der Landeseite in die
+Suche tippt, bekommt die Konten-Liste des Chrome-Passwortmanagers darüber
+gelegt — fünf E-Mail-Adressen mit Passwortpunkten, mitten im Produkt.
+
+**Die naheliegende Reparatur war längst da und tat nichts.** `#browseSearch`
+trug bereits `type="search"`, `autocomplete="off"`, `data-lpignore="true"`,
+`data-1p-ignore` und `data-form-type="other"` — jemand hatte diesen Kampf
+schon geführt. Chrome ignoriert `autocomplete="off"` aber **absichtlich**,
+sobald es ein Feld als Benutzernamen eines Anmeldeformulars einstuft: die
+Attribute bedienen den gewöhnlichen Autofill, nicht den Passwortmanager.
+Dieselbe Klasse wie der tote Gitleaks-Scan — etwas ist da, sieht nach Schutz
+aus und wirkt nicht.
+
+**Die Ursache ist der form-Eigentümer**, im echten Chromium gemessen:
+
+| | |
+|---|---:|
+| Formularfelder der Hülle | 130 |
+| davon **ohne** `<form>`-Eigentümer | **58** |
+| darin Passwortfelder | **3** (`settingsCurrentPw`, `settingsNewPw`, `settingsConfirmPw`) |
+| darin Text-/Suchfelder | **21** (`browseSearch`, `heroSearchInput`, `settingsEmail`, …) |
+
+Felder ohne `<form>` fasst Chrome zu **einer synthetischen Form** zusammen.
+Lag darin ein Passwortfeld, war jedes Suchfeld der Anwendung ein
+Benutzernamen-Kandidat — auch das auf der Landeseite, dreitausend Zeilen
+entfernt. `#settingsEmail` liegt im selben Pool und steht in der
+Dokumentreihenfolge direkt vor den drei Passwortfeldern; genau dieses Paar
+sucht die Heuristik.
+
+**Behoben an den DREI, nicht an den einundzwanzig.** Die Passwortfelder
+bekommen mit `#settingsPasswordForm` einen eigenen Eigentümer und verlassen
+den Pool; jedes Textfeld — auch jedes künftige — ist damit wieder ein
+Textfeld. Die Gegenrichtung (jedes Suchfeld in ein eigenes `<form>`) wären
+21 Stellen, die man bei der nächsten vergisst. Dieselbe Begründung wie
+`defaults: run: shell: bash` am Job statt je Schritt.
+
+**Optisch ein Nullschritt, gemessen statt behauptet.** Dieselbe Karte vorher
+als `<div>` und nachher als `<form>`, bei 1280 px: Box `672 × 452` an
+`(304, 841)`, Padding 28 px, Margin unten 24 px, Rand 1 px, Radius 16 px —
+in beiden Fassungen identisch. Es gibt keinen `div.settings-card`-Selektor,
+und ein Test hält das fest.
+
+**Der Preis des `<form>` ist eine Navigation**, und die ist der eigentliche
+Fallstrick: ein Formular ohne `action` sendet an die eigene Adresse, die SPA
+lüde neu und die Eingabe wäre weg. Deshalb `onsubmit="event.preventDefault();
+…"` und ein Knopf, der sein `type` ausdrücklich trägt.
+
+#### Und die Prüfung musste zweimal umgebaut werden
+
+**Erster Anlauf: `requestSubmit()` statt des Knopfes.** Damit sendet man das
+Formular an jedem Knopf vorbei — die Mutation „der Knopf trägt
+`type='button'`" (und tut damit nichts mehr) überlebte klaglos. Ein Prüfer,
+der die Kette hinter dem Knopf misst und den Knopf überspringt, deckt genau
+den Fall nicht, der hier eintreten kann. Geklickt wird jetzt der echte Knopf.
+
+**Zweiter Anlauf: Tag-Zählen über HTML.** Für das HQ zählte der erste Prüfer
+`<form\b` gegen `</form>` im Quelltext. Er fiel zuerst auf **meinen eigenen
+erklärenden Kommentar** herein, der `<form>` wörtlich nennt — die zwölfte
+Fundstelle dieser Klasse, und Kommentarabzug hätte sie behoben. Dieselbe
+Mutation überlebte danach **ein zweites Mal**, aus einem Grund, den kein
+Kommentarabzug deckt: `hq.html` trägt ein `<form id="zugang-form">`, dessen
+öffnende und schliessende Tags im Quelltext nicht aufgehen.
+
+**Eine Klammerzählung über HTML ist kein Parser.** Der Browser ist einer, und
+`el.form` ist genau die Zuordnung, auf die Chromes Passwortmanager aufsetzt.
+Gemessen wird deshalb im Browser, auf beiden Seiten — alles andere wäre eine
+Nachbildung, und eine Nachbildung driftet.
+
+**Das hat prompt etwas Echtes gefunden:** ein `<form>`-Starttag **innerhalb**
+eines offenen Formulars verwirft der HTML-Parser ersatzlos. Wäre das im HQ so
+gewesen, stünde die Reparatur richtig im Markup und hätte nichts bewirkt. Die
+Messung sagt, dass sie greift (`pat-input` → `pat-form`, null herrenlose
+Passwortfelder); das Tag-Zählen hätte dasselbe gesagt, ohne es zu wissen.
+
+#### Dieselbe Lage im HQ, und dort liegt ein Token
+
+`hq.html` trug `#pat-input` — den GitHub-PAT — ohne Eigentümer, zusammen mit
+`#zugang-mail` und `#recht-suche` im selben Pool. Doppelt teuer: der Manager
+böte in der Rechtsuche Zugangsdaten an **und** wollte den Token als Passwort
+der Domain speichern. Eine Fundstelle zu beheben verhindert die nächste
+nicht, solange jede Oberfläche ihre eigene hat.
+
+**Zwei Wachen für zwei Wege, und nur als Paar belegbar:** `type="button"`
+hält den **Klick** vom Absenden ab, `onsubmit="return false"` das **Enter**
+im Feld. Solange `onsubmit` steht, ändert das Entfernen von `type="button"`
+nichts — diese Mutation überlebt, zu Recht. Erst wenn beide fallen, lädt das
+HQ beim Speichern neu. Dieselbe Lage wie bei den zwei Leer-Wachen der
+Erstattungsregel.
+
+**Was von hier aus NICHT prüfbar ist:** die Konten-Liste selbst. Sie ist
+Browser-Oberfläche, kein DOM, und ein automatisierter Chromium hat keine
+gespeicherten Passwörter. Gemessen wird die **Vorbedingung**, auf der die
+Heuristik aufsetzt — die liegt im DOM. Dass die Liste danach wirklich
+wegbleibt, sieht erst der Inhaber in seinem Chrome.
+
+Elf Mutationen, zehn machen die Suite rot: das `<form>` wird wieder ein
+`<div>` (**3 rot**) · `onsubmit` entfernt · der Knopf trägt `type="button"` ·
+ein viertes Passwortfeld ohne `<form>` kommt dazu · ein Stylesheet bindet
+`settings-card` wieder an ein `div` · das PAT-Feld verliert seinen Eigentümer
+(2) · im HQ beide Wachen entfernt (2) · im HQ nur `onsubmit` entfernt · beide
+Gegenproben, dass die Pools überhaupt gemessen werden.
+
+```bash
+npx playwright test tests/e2e/autofill.spec.js   # 10 Tests, 11 Mutationen
+```
+
 ### Die Parole wurde länger, und `nowrap` stand noch da
 
 Am 01.10.2026 auf Wunsch des Inhabers: aus *„EVENTBÖRSE, finde dein Event ©"*
@@ -5639,7 +5747,7 @@ npm run test:smoke      # nur Routen-Smoke-Tests
 npm run test:css        # CSS-Minify-Regression (Verlaufsschrift)
 ```
 
-1384 Tests in 93 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
+1394 Tests in 94 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
 Sätze), Gebühren (centgenau, JS↔PHP-Parität), Wissensbasis (Antworten +
 Leckage-Schutz), Zufluss (Quarantäne-Tor + Demo-Feed-Ehrlichkeit),
 Verbindungen (HQ-Zugang + Connector-Katalog), Auftragsstrom (Herkunft +
