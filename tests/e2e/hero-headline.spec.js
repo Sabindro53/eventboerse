@@ -2,7 +2,9 @@
 // Die Überschrift der Landeseite
 //
 // Am 01.10.2026 auf Wunsch des Inhabers geändert: aus „EVENTBÖRSE, finde
-// dein Event ©" wurde „EVENTBÖRSE, PLANE DEIN PERFEKTES EVENT."
+// dein Event ©" wurde „EVENTBÖRSE, PLANE DEIN PERFEKTES EVENT." Am
+// 08.10.2026 ebenfalls auf seinen Wunsch: die Parole steht nicht mehr in
+// Grossbuchstaben, sondern als „Plane dein perfektes Event."
 //
 // Das ist nicht nur ein Austausch von Text. `.ai-hero-line2` trug
 // `white-space: nowrap` — gesetzt, damit das frühere `©` nicht von seinem
@@ -19,7 +21,7 @@ const path = require('path');
 const { openApp, warteAufAppBereit } = require('./helpers');
 
 const WURZEL = path.join(__dirname, '..', '..');
-const PAROLE = 'PLANE DEIN PERFEKTES EVENT.';
+const PAROLE = 'Plane dein perfektes Event.';
 const BREITEN = [
   { name: 'Telefon', w: 390, h: 844 },
   { name: 'Tablet', w: 768, h: 1024 },
@@ -34,7 +36,7 @@ test.describe('Hero-Überschrift', () => {
     await expect(h1).toBeVisible();
     const text = (await h1.innerText()).replace(/\s+/g, ' ').trim();
     // Marke, Komma und Parole — in dieser Reihenfolge.
-    expect(text).toMatch(/^EVENTBÖRSE,\s*PLANE DEIN PERFEKTES EVENT\.$/);
+    expect(text).toMatch(/^EVENTBÖRSE,\s*Plane dein perfektes Event\.$/);
   });
 
   for (const b of BREITEN) {
@@ -64,6 +66,20 @@ test.describe('Hero-Überschrift', () => {
       expect(r.seiteScrollt, `${b.name}: die Landeseite scrollt seitwärts`).toBe(false);
     });
   }
+
+  test('die Parole steht nicht in Grossbuchstaben — auch nicht per CSS', async ({ page }) => {
+    // Gemessen wird der GERENDERTE Text: ein `text-transform: uppercase` an
+    // Zeile oder Überschrift machte aus dem Markup wieder Grossbuchstaben,
+    // und ein Test auf das Markup bliebe grün.
+    await openApp(page);
+    await warteAufAppBereit(page);
+    const r = await page.evaluate(() => {
+      const el = document.querySelector('.ai-hero-gradient');
+      return { text: el.innerText.trim(), transform: getComputedStyle(el).textTransform };
+    });
+    expect(r.transform).not.toBe('uppercase');
+    expect(r.text).toBe('Plane dein perfektes Event.');
+  });
 
   test('die Verlaufsschrift bleibt lesbar, nicht transparent ins Nichts', async ({ page }) => {
     await openApp(page);
