@@ -3241,7 +3241,47 @@ Parole zurück · Schrift kleingerechnet · der `background-clip: text` entfernt
 `index.html` nicht neu gebaut (**3 rot**).
 
 ```bash
-npx playwright test tests/e2e/hero-headline.spec.js   # 8 Tests, 5 Mutationen
+npx playwright test tests/e2e/hero-headline.spec.js   # 9 Tests, 5 Mutationen
+```
+
+**Am 08.10.2026 nicht mehr in Grossbuchstaben**, ebenfalls auf Wunsch des
+Inhabers: die Parole heisst jetzt **„Plane dein perfektes Event."**, die Marke
+davor bleibt `EVENTBÖRSE`. Gemessen wird der **gerenderte** Text samt
+`text-transform` — ein `uppercase` an Zeile oder Überschrift machte aus dem
+Markup wieder Grossbuchstaben, und ein Test auf das Markup bliebe grün.
+
+### „150+ Dienstleister · 4.8★" — eine Werbeaussage über Demo-Daten
+
+Am 08.10.2026 beim Bau des IHK-Pitches gefunden: der Screenshot der Startseite
+zeigte *„150+ Dienstleister · Sofort kontaktierbar · Top bewertet"* und
+darunter *„150+ Dienstleister · 4.8★ Ø Bewertung · 12 Kategorien"* — in einer
+Beta mit Demo-Daten, deren eigener Banner sagt, dass noch nichts buchbar ist.
+
+**Drei Ursachen, alle gemessen:**
+
+- **„150+", „4.8★" und „Top bewertet" waren Platzhalter im Markup.** Sie
+  standen da, bis `updateHeroStats()` lief, und blieben stehen, wenn das Laden
+  der Inserate scheiterte. In der Dev-Shell ist genau das der Normalfall.
+- **`updateHeroStats()` zählte das sichtbare Set.** Blendet der Admin-Switch
+  Demo-Inserate ein, wurden Demo-Anbieter und Demo-Bewertungen zur
+  Werbeaussage auf der Startseite. Das ist eine Angabe ohne Deckung (UWG), und
+  sie steht vor jedem Besucher.
+- **„12 Kategorien" stimmte nie.** Ein Inserat kann zehn tragen
+  (`AI_CATEGORIES`).
+
+**Die Zeile zählt jetzt ausschliesslich echte Inserate**, unabhängig vom
+Demo-Switch, und bleibt **verborgen**, solange es keines gibt — „0
+Dienstleister" wäre die ehrliche, aber schlechtere Auskunft. Die
+Kategorienzahl kommt aus `AI_CATEGORIES`. Die Unterzeile trägt keine Zahl
+mehr: *„Dienstleister finden · Direkt anfragen · Gemeinsam planen"*.
+
+**`.ai-hero-stats[hidden] { display: none }` ist Pflicht** — die Zeile hat eine
+eigene `display`-Angabe, ohne die Regel stünde sie leer und sichtbar da.
+
+Mutation „Demo-Inserate zählen wieder mit" → **3 von 5 rot**.
+
+```bash
+npx playwright test tests/e2e/hero-zahlen.spec.js   # 5 Tests
 ```
 
 ### Der Assistent spricht — mit einer Fassung, nicht zwei
@@ -5609,7 +5649,7 @@ npm run test:smoke      # nur Routen-Smoke-Tests
 npm run test:css        # CSS-Minify-Regression (Verlaufsschrift)
 ```
 
-1384 Tests in 93 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
+1390 Tests in 94 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
 Sätze), Gebühren (centgenau, JS↔PHP-Parität), Wissensbasis (Antworten +
 Leckage-Schutz), Zufluss (Quarantäne-Tor + Demo-Feed-Ehrlichkeit),
 Verbindungen (HQ-Zugang + Connector-Katalog), Auftragsstrom (Herkunft +
