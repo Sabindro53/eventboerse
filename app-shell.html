@@ -1988,7 +1988,15 @@
         </div>
 
         <!-- Password -->
-        <div class="settings-card">
+        <!-- Das <form> ist KEINE Kosmetik und kein Absenden-Weg: es gibt den drei
+             Passwortfeldern einen form-Eigentuemer. Ohne ihn liegen sie in dem
+             Pool herrenloser Felder, den Chrome zu EINER synthetischen Form
+             zusammenfasst — zusammen mit jedem Suchfeld der Anwendung. Der
+             Passwortmanager klassifiziert dann das Suchfeld der Landeseite als
+             Benutzernamen und bietet dort gespeicherte Zugangsdaten an;
+             autocomplete="off" ignoriert er in genau diesem Fall. Siehe
+             tests/e2e/autofill.spec.js. -->
+        <form class="settings-card" id="settingsPasswordForm" onsubmit="event.preventDefault(); savePasswordSettings(); return false;">
           <div class="settings-card-header">
             <span class="material-icons-round">lock</span>
             <h2>Passwort ändern</h2>
@@ -2014,8 +2022,11 @@
               <button type="button" class="settings-pw-toggle" aria-label="Passwort anzeigen" onclick="toggleSettingsPw('settingsConfirmPw', this)"><span class="material-icons-round">visibility_off</span></button>
             </div>
           </div>
-          <button class="btn-primary settings-save-btn" onclick="savePasswordSettings()">Passwort ändern</button>
-        </div>
+          <!-- type="submit" ist Absicht: ohne das waere Enter im Passwortfeld
+               wirkungslos. Der Weg laeuft ueber onsubmit, nicht ueber eine
+               Navigation — ein Formular ohne action laedt die SPA sonst neu. -->
+          <button type="submit" class="btn-primary settings-save-btn">Passwort ändern</button>
+        </form>
 
         <div class="settings-card">
           <div class="settings-card-header">

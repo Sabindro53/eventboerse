@@ -1164,10 +1164,24 @@
         <strong>GitHub Token verbinden</strong> — schaltet Bot-Trigger, Rollback &amp; höhere API-Limits frei (sonst nur 60 Anfragen/Std).<br>
         Benötigt <code>repo</code> + <code>workflow</code> Berechtigung.
         <a href="https://github.com/settings/tokens/new?scopes=repo,workflow&description=EventB%C3%B6rse+HQ" target="_blank" rel="noopener">Token erstellen →</a>
-        <div class="pat-input-row">
+        <!-- Dasselbe <form> wie bei den Einstellungen der Website, aus
+             demselben Grund: ohne Eigentuemer liegt dieses Passwortfeld in
+             dem Pool herrenloser Felder, den Chrome zu EINER synthetischen
+             Form zusammenfasst — hier zusammen mit `zugang-mail` und
+             `recht-suche`. Der Passwortmanager bietet dann in der Rechtsuche
+             Zugangsdaten an und will den PAT als Passwort der Domain
+             speichern. `type="button"` ist Pflicht: der Knopf haengt an
+             addEventListener, ohne das Attribut wuerde er zusaetzlich
+             absenden und das HQ neu laden.
+             Geprueft wird das im BROWSER ueber `el.form`, nicht durch
+             Tag-Zaehlen im Quelltext: ein `<form>`-Starttag innerhalb eines
+             offenen Formulars verwirft der Parser, die Reparatur saehe dann
+             im Markup richtig aus und waere wirkungslos.
+             Siehe tests/e2e/autofill.spec.js. -->
+        <form class="pat-input-row" id="pat-form" onsubmit="return false;">
           <input type="password" id="pat-input" placeholder="ghp_…" autocomplete="off">
-          <button class="btn btn-primary" id="pat-save">Speichern</button>
-        </div>
+          <button type="button" class="btn btn-primary" id="pat-save">Speichern</button>
+        </form>
       </div>
     </div>
 
