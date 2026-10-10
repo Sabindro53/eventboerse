@@ -1,7 +1,7 @@
 {
   "version": 2,
   "hinweis": "Erzeugt von scripts/aktivitaeten.mjs. Nicht von Hand bearbeiten.",
-  "stand": "2026-10-09T03:43:29.938Z",
+  "stand": "2026-10-10T03:40:55.143Z",
   "gebiete": [
     {
       "stadt": "Köln",
@@ -71,31 +71,11 @@
     }
   ],
   "anzahl": {
-    "gesamt": 949,
-    "sport": 149,
+    "gesamt": 948,
+    "sport": 148,
     "orte": 800
   },
   "eintraege": [
-    {
-      "id": "openligadb:83192",
-      "art": "sport",
-      "titel": "Borussia Dortmund – SV Werder Bremen",
-      "beginn": "2026-10-09T18:30:00.000Z",
-      "gebiet": "Dortmund",
-      "ort": {
-        "name": "Stadion",
-        "stadt": "Dortmund",
-        "lat": 51.5136,
-        "lon": 7.4653,
-        "ungefaehr": true
-      },
-      "quelle": {
-        "name": "OpenLigaDB",
-        "url": "https://www.openligadb.de/",
-        "lizenz": "frei (openligadb.de)"
-      },
-      "partner": false
-    },
     {
       "id": "openligadb:83198",
       "art": "sport",
@@ -16370,17 +16350,18 @@
     {
       "id": "osm:node/136959344",
       "art": "ort",
-      "titel": "Fliegende Volksbühne Cantate Saal",
+      "titel": "Volksbühne im Großen Hirschgraben",
       "kategorie": "Theater",
       "beginn": null,
       "gebiet": "Frankfurt",
       "ort": {
-        "name": "Fliegende Volksbühne Cantate Saal",
+        "name": "Volksbühne im Großen Hirschgraben",
         "stadt": "",
         "lat": 50.11099,
         "lon": 8.67706
       },
       "entfernungKm": 0.4,
+      "webseite": "https://volksbuehne.net",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/136959344",
