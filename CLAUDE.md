@@ -2496,7 +2496,7 @@ grün, und der echte Knopf wäre tot.
 **Noch nicht gebaut:** Suche nach öffentlichem Anzeigenamen, der Hinweis „Dein Nickname ist @…"
 beim nächsten Besuch, Profil-Links per Nickname.
 
-Neunundvierzig Mutationen über Server, Probelauf, HQ und Oberfläche, jede macht ihre
+Fünfzig Mutationen über Server, Probelauf, HQ und Oberfläche, jede macht ihre
 Suite rot. Eine überlebte zuerst und hat ein Loch im Prüfstand gezeigt: die
 Besitzerprüfung der Vorschläge hatte kein Subjekt, weil der erste Vorschlag
 ohnehin frei war. Eine zweite war im ersten Lauf **scheinbar** rot — ein
@@ -2505,7 +2505,7 @@ bösartigem Vorschlag im Registrierungsformular machte sie wirklich rot.
 Mutationen laufen deshalb zweimal.
 
 ```bash
-npx playwright test tests/e2e/nickname-ansicht.spec.js  # 19 Tests, echter Browser
+npx playwright test tests/e2e/nickname-ansicht.spec.js  # 20 Tests, echter Browser
 npx playwright test tests/e2e/hq-nickname.spec.js       # 8 Tests, echter Browser
 ```
 
@@ -5722,7 +5722,7 @@ npm run test:smoke      # nur Routen-Smoke-Tests
 npm run test:css        # CSS-Minify-Regression (Verlaufsschrift)
 ```
 
-1438 Tests in 95 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
+1439 Tests in 95 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
 Sätze), Gebühren (centgenau, JS↔PHP-Parität), Wissensbasis (Antworten +
 Leckage-Schutz), Zufluss (Quarantäne-Tor + Demo-Feed-Ehrlichkeit),
 Verbindungen (HQ-Zugang + Connector-Katalog), Auftragsstrom (Herkunft +
