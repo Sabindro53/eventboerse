@@ -211,7 +211,10 @@
         </div>
       </div>
       <div class="nav-actions">
-        <a href="#" class="nav-link" onclick="navigateTo('create-listing')">Inserieren</a>
+        <!-- Hauptlink je Rolle (_applyRoleNav): abgemeldet „Für Dienstleister",
+             Planer „Mein Event", Dienstleister „Mein Geschäft". Vorher stand hier
+             für alle „Inserieren" — für einen Planer die falsche Einladung. -->
+        <a href="#" class="nav-link" id="navHauptLink" onclick="ebNavHauptweg(); return false;">Für Dienstleister</a>
         <button type="button" class="nav-icon-btn journey-friends-nav" onclick="navigateTo('freunde')" title="Freunde & Gruppen" aria-label="Freunde & Gruppen"><span class="material-icons-round">groups</span></button>
         <button class="nav-icon-btn" onclick="navigateTo('messages')" title="Nachrichten" aria-label="Nachrichten">
           <span class="material-icons-round">chat_bubble_outline</span>
@@ -221,7 +224,7 @@
           <span class="material-icons-round">notifications_none</span>
           <span class="badge" id="notificationBadge" style="display:none"></span>
         </button>
-        <button class="nav-avatar" id="avatarBtn" onclick="toggleUserMenu()">
+        <button class="nav-avatar" id="avatarBtn" onclick="toggleUserMenu()" aria-label="Menü" aria-haspopup="true" aria-expanded="false" aria-controls="userMenu">
           <img src="data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20100%20100%22%3E%3Crect%20width%3D%22100%22%20height%3D%22100%22%20rx%3D%2250%22%20fill%3D%22%23FF385C%22%2F%3E%3Ctext%20x%3D%2250%22%20y%3D%2250%22%20dominant-baseline%3D%22central%22%20text-anchor%3D%22middle%22%20font-size%3D%2240%22%20font-weight%3D%22700%22%20fill%3D%22%23fff%22%20font-family%3D%22sans-serif%22%3EU%3C%2Ftext%3E%3C%2Fsvg%3E" alt="User" loading="lazy" decoding="async" />
           <span class="nav-admin-label" id="navAdminLabel">Admin</span>
         </button>
@@ -240,28 +243,42 @@
       </div>
       <hr class="user-menu-hr" />
       <div class="user-menu-section" id="loggedOutMenu">
-        <button onclick="navigateTo('my-listings')"><span class="material-icons-round">storefront</span> Meine Inserate</button>
+        <button onclick="openModal('loginModal')"><span class="material-icons-round" aria-hidden="true">login</span> Anmelden</button>
+        <button onclick="openModal('registerModal')"><span class="material-icons-round" aria-hidden="true">person_add</span> Registrieren</button>
         <hr />
-        <button onclick="openModal('loginModal')">Anmelden</button>
-        <button onclick="openModal('registerModal')">Registrieren</button>
+        <button onclick="ebAnbieterEinstieg()"><span class="material-icons-round" aria-hidden="true">storefront</span> Für Dienstleister</button>
       </div>
       <div class="user-menu-section" id="loggedInMenu" style="display:none">
-        <button onclick="navigateTo('profile')"><span class="material-icons-round">person</span> Mein Profil</button>
-        <button onclick="navigateTo('messages')"><span class="material-icons-round">chat</span> Nachrichten</button>
-        <button id="boardMenuBtn" onclick="navigateTo('board')"><span class="material-icons-round">view_kanban</span> Planungs-Board</button>
-        <button onclick="navigateTo('freunde')"><span class="material-icons-round">groups</span> Freunde &amp; Gruppen</button>
-        <button onclick="navigateTo('create-listing')"><span class="material-icons-round">add_circle</span> Inserat erstellen</button>
+        <!-- Drei Abschnitte statt einer flachen Liste von 14 Einträgen.
+             Kein Eintrag ist weggefallen — die Zuordnung steht in
+             PRODUCT_REDESIGN.md, Abschnitt 4, und navigation-rollen.spec.js
+             prüft, dass jedes bisherige Ziel erreichbar bleibt. -->
+        <div class="user-menu-gruppe" id="menuGeschaeft" role="group" aria-labelledby="menuGeschaeftTitel" hidden>
+          <p class="user-menu-titel" id="menuGeschaeftTitel">Mein Geschäft</p>
+          <button id="auftraegeMenuBtn" onclick="navigateTo('auftraege')"><span class="material-icons-round" aria-hidden="true">assignment</span> Aufträge</button>
+          <button onclick="navigateTo('my-listings')"><span class="material-icons-round" aria-hidden="true">storefront</span> Meine Inserate</button>
+          <button onclick="navigateTo('create-listing', 'angebot')"><span class="material-icons-round" aria-hidden="true">add_circle</span> Inserat erstellen</button>
+          <button id="businessMenuBtn" onclick="navigateTo('business')"><span class="material-icons-round" aria-hidden="true">insights</span> Business-Cockpit</button>
+        </div>
+        <div class="user-menu-gruppe" id="menuEvent" role="group" aria-labelledby="menuEventTitel">
+          <p class="user-menu-titel" id="menuEventTitel">Mein Event</p>
+          <button id="boardMenuBtn" onclick="navigateTo('board')"><span class="material-icons-round" aria-hidden="true">view_kanban</span> Planungs-Board</button>
+          <button onclick="navigateTo('create-listing', 'suche')"><span class="material-icons-round" aria-hidden="true">campaign</span> Gesuch aufgeben</button>
+          <button id="gesucheMenuBtn" onclick="navigateTo('my-listings')"><span class="material-icons-round" aria-hidden="true">format_list_bulleted</span> Meine Gesuche</button>
+          <button onclick="navigateTo('favorites')"><span class="material-icons-round" aria-hidden="true">favorite</span> Favoriten</button>
+          <button onclick="navigateTo('freunde')"><span class="material-icons-round" aria-hidden="true">groups</span> Freunde &amp; Gruppen</button>
+        </div>
+        <div class="user-menu-gruppe" id="menuKonto" role="group" aria-labelledby="menuKontoTitel">
+          <p class="user-menu-titel" id="menuKontoTitel">Konto</p>
+          <button onclick="navigateTo('profile')"><span class="material-icons-round" aria-hidden="true">person</span> Mein Profil</button>
+          <button onclick="navigateTo('messages')"><span class="material-icons-round" aria-hidden="true">chat</span> Nachrichten</button>
+          <button onclick="navigateTo('notifications')"><span class="material-icons-round" aria-hidden="true">notifications</span> Benachrichtigungen</button>
+          <button onclick="navigateTo('settings')"><span class="material-icons-round" aria-hidden="true">settings</span> Einstellungen</button>
+          <button onclick="navigateTo('contact')"><span class="material-icons-round" aria-hidden="true">help_outline</span> Hilfe &amp; Kontakt</button>
+        </div>
+        <button id="adminMenuBtn" style="display:none" onclick="navigateTo('admin')" class="admin-menu-btn"><span class="material-icons-round" aria-hidden="true">admin_panel_settings</span> Admin-Bereich</button>
         <hr />
-        <button onclick="navigateTo('my-listings')"><span class="material-icons-round">storefront</span> Meine Inserate</button>
-        <button id="auftraegeMenuBtn" onclick="navigateTo('auftraege')" style="display:none"><span class="material-icons-round">assignment</span> Auftragsboard</button>
-        <button id="businessMenuBtn" onclick="navigateTo('business')" style="display:none"><span class="material-icons-round">insights</span> Business-Cockpit</button>
-        <button onclick="navigateTo('notifications')"><span class="material-icons-round">notifications</span> Benachrichtigungen</button>
-        <button onclick="navigateTo('favorites')"><span class="material-icons-round">favorite</span> Favoriten</button>
-        <button onclick="navigateTo('settings')"><span class="material-icons-round">settings</span> Einstellungen</button>
-        <button onclick="navigateTo('contact')"><span class="material-icons-round">help_outline</span> Kontakt & Support</button>
-        <button id="adminMenuBtn" style="display:none" onclick="navigateTo('admin')" class="admin-menu-btn"><span class="material-icons-round">admin_panel_settings</span> Admin-Bereich</button>
-        <hr />
-        <button onclick="logout()"><span class="material-icons-round">logout</span> Abmelden</button>
+        <button onclick="logout()"><span class="material-icons-round" aria-hidden="true">logout</span> Abmelden</button>
       </div>
     </div>
   </nav>
@@ -310,23 +327,23 @@
   <!-- ============ MOBILE BOTTOM NAV ============ -->
   <nav class="mobile-nav" id="mobileNav">
     <button onclick="navigateTo('aktuelles')" data-page="aktuelles">
-      <span class="material-icons-round">dynamic_feed</span>
+      <span class="material-icons-round" aria-hidden="true">dynamic_feed</span>
       <span>Feed</span>
     </button>
     <button onclick="navigateTo('browse')" data-page="browse">
-      <span class="material-icons-round">search</span>
+      <span class="material-icons-round" aria-hidden="true">search</span>
       <span>Suche</span>
     </button>
     <button onclick="navigateTo('board')" data-page="board" class="mobile-nav-board">
-      <span class="material-icons-round">view_kanban</span>
-      <span>Board</span>
+      <span class="material-icons-round" aria-hidden="true">view_kanban</span>
+      <span>Planen</span>
     </button>
     <button onclick="navigateTo('messages')" data-page="messages">
-      <span class="material-icons-round">chat_bubble</span>
+      <span class="material-icons-round" aria-hidden="true">chat_bubble</span>
       <span>Chat</span>
     </button>
     <button onclick="navigateTo('profile')" data-page="profile">
-      <span class="material-icons-round">person</span>
+      <span class="material-icons-round" aria-hidden="true">person</span>
       <span>Profil</span>
     </button>
   </nav>
@@ -2560,7 +2577,7 @@
       <div class="container">
         <div class="auftraege-header" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:20px">
           <div>
-            <h1 style="margin:0 0 4px;display:flex;align-items:center;gap:10px"><span class="material-icons-round" style="font-size:32px;color:var(--primary)">assignment</span> Auftragsboard</h1>
+            <h1 style="margin:0 0 4px;display:flex;align-items:center;gap:10px"><span class="material-icons-round" style="font-size:32px;color:var(--primary)">assignment</span> Aufträge</h1>
             <p style="margin:0;color:var(--text-light);font-size:14px">Offene Buchungen, Zahlungen &amp; Event-Tag-Bestätigungen.</p>
           </div>
           <span style="background:rgba(255,56,92,0.12);color:var(--primary-text);padding:6px 12px;border-radius:20px;font-size:12px;font-weight:600">BETA</span>

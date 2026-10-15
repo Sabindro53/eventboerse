@@ -150,7 +150,7 @@ function _showBookingSuccess(info) {
         '<div style="text-align:left;background:var(--bg-alt);border:1px solid var(--border);border-radius:12px;padding:14px 16px;margin:0 0 18px;font-size:14px;line-height:1.7">' +
           '<strong>Wie es jetzt weitergeht:</strong>' +
           '<div style="display:flex;gap:10px;margin-top:8px"><span class="material-icons-round" style="color:var(--primary);font-size:20px">view_kanban</span><span>Die Buchung liegt in deinem <strong>Planungs-Board</strong> unter „Direktbuchungen".</span></div>' +
-          '<div style="display:flex;gap:10px;margin-top:8px"><span class="material-icons-round" style="color:var(--primary);font-size:20px">notifications_active</span><span>Der Dienstleister wurde benachrichtigt und sieht die Buchung in seinem <strong>Auftragsboard</strong>.</span></div>' +
+          '<div style="display:flex;gap:10px;margin-top:8px"><span class="material-icons-round" style="color:var(--primary);font-size:20px">notifications_active</span><span>Der Dienstleister wurde benachrichtigt und sieht die Buchung unter seinen <strong>Aufträgen</strong>.</span></div>' +
           '<div style="display:flex;gap:10px;margin-top:8px"><span class="material-icons-round" style="color:var(--primary);font-size:20px">event_available</span><span>Am Event-Tag bestätigt ihr beide die Leistung – erst dann gilt der Auftrag als erfüllt.</span></div>' +
         '</div>' +
         '<button class="btn-primary btn-block" onclick="' + goBoard + '"><span class="material-icons-round">view_kanban</span> Zum Board</button>' +

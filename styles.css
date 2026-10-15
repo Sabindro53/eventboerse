@@ -678,6 +678,13 @@ body.dark-mode .nav-clear-search:hover { background: var(--border-light); }
   padding: 8px 0;
   z-index: 1001;
   display: none;
+  /* Mit Abschnitten ist das Menü für Dienstleister höher als ein
+     Telefonbildschirm; ohne Grenze lägen die letzten Einträge (Abmelden)
+     unerreichbar unter dem Rand. */
+  max-height: calc(100vh - var(--nav-height) - 16px);
+  max-height: calc(100dvh - var(--nav-height) - 16px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
   animation: menuSlide 0.15s ease;
 }
 @keyframes menuSlide {
@@ -697,6 +704,13 @@ body.dark-mode .nav-clear-search:hover { background: var(--border-light); }
 .user-menu-section button:hover { background: var(--bg-alt); }
 .user-menu-section button .material-icons-round { font-size: 20px; color: var(--text-light); }
 .user-menu-section hr { border: none; border-top: 1px solid var(--border-light); margin: 4px 0; }
+.user-menu-gruppe + .user-menu-gruppe { border-top: 1px solid var(--border-light); margin-top: 4px; padding-top: 4px; }
+.user-menu-gruppe[hidden], .user-menu-section button[hidden] { display: none; }
+.user-menu-titel {
+  margin: 8px 20px 2px; font-size: 0.72rem; font-weight: 700; letter-spacing: .04em;
+  text-transform: uppercase; color: var(--text-light);
+}
+.user-menu-section button:focus-visible { outline: 2px solid var(--primary); outline-offset: -2px; background: var(--bg-alt); }
 
 /* ======== BOTTOM NAV ======== */
 .mobile-nav {

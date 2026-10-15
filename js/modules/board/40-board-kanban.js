@@ -746,7 +746,7 @@ function _renderAuftraegeJobs(container, jobs, isProvider) {
   html += '<details class="auftraege-howto" style="background:linear-gradient(135deg,rgba(255,56,92,0.06),rgba(0,166,153,0.06));border:1px solid var(--border);border-radius:14px;padding:14px 18px;margin-bottom:18px">' +
     '<summary style="display:flex;align-items:center;gap:10px;cursor:pointer;font-weight:600;list-style:none">' +
       '<span class="material-icons-round" style="color:var(--primary);font-size:22px">info</span>' +
-      'So funktioniert dein Auftragsboard' +
+      'So funktionieren deine Aufträge' +
     '</summary>' +
     '<div style="font-size:14px;line-height:1.7;margin-top:10px;color:var(--text-light)">' +
       '1. Ein Kunde bucht dich verbindlich &rarr; der Auftrag erscheint hier mit Status <em>&bdquo;Gebucht&ldquo;</em>.<br>' +

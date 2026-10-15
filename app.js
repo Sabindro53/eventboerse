@@ -1925,7 +1925,7 @@ function navigateTo(page, data, skipHistory) {
   }
 
   // Hide user menu
-  document.getElementById('userMenu').classList.remove('show');
+  if (typeof _userMenuSetzen === 'function') _userMenuSetzen(false); else document.getElementById('userMenu').classList.remove('show');
 
   // Push browser history state (unless triggered by popstate or explicit skip)
   if (!skipHistory) {
@@ -2074,6 +2074,14 @@ function navigateTo(page, data, skipHistory) {
         if (_csB) _csB.innerHTML = '<span class="material-icons-round">publish</span> <span id="clSubmitLabel">Inserat veröffentlichen</span>';
       }
       updateCreateFormForRole();
+      // Eine AUSDRÜCKLICHE Wahl über den Weg (`/create-listing/suche`,
+      // `/create-listing/angebot`) schlägt die Rollen-Voreinstellung aus
+      // `updateCreateFormForRole()` — darum steht sie danach. Ohne das öffnete
+      // „Gesuch aufgeben" bei einem Dienstleister die Maske auf „Ich biete":
+      // ein Knopf, der etwas anderes tut, als er sagt.
+      if (!window._isEditNavigation && (data === 'suche' || data === 'angebot')) {
+        try { _clSetType(data === 'suche' ? 'search' : 'offer'); } catch (e) {}
+      }
       break;
     case 'dashboard':
       navigateTo('profile');
@@ -15323,27 +15331,60 @@ function isDienstleister() {
  * Desktop-Menü und kontextbezogene Buttons konsistent bleiben. Zeigt ein
  * Element mit '' (CSS-Default) und versteckt mit 'none'.
  */
+/**
+ * Der Hauptlink der Leiste — Ziel je Rolle, dieselbe Frage wie die
+ * Beschriftung in `_applyRoleNav()`. Abgemeldet geht es in die
+ * Registrierung als Anbieter (`ebAnbieterEinstieg`), nicht in die Anmeldung.
+ */
+function ebNavHauptweg() {
+  if (!isLoggedIn) { ebAnbieterEinstieg(); return; }
+  navigateTo(isDienstleister() ? 'my-listings' : 'board');
+}
+
 function _applyRoleNav() {
   var provider = isLoggedIn && isDienstleister();
 
-  // Auftragsboard nur für Dienstleister; Planungs-Board für alle sichtbar.
-  var auftraegeBtn = document.getElementById('auftraegeMenuBtn');
-  if (auftraegeBtn) auftraegeBtn.style.display = provider ? '' : 'none';
-  var businessBtn = document.getElementById('businessMenuBtn');
-  if (businessBtn) businessBtn.style.display = provider ? '' : 'none';
-  var boardBtn = document.getElementById('boardMenuBtn');
-  if (boardBtn) boardBtn.style.display = '';
+  // ── MENÜ IN ABSCHNITTEN (15.10.2026) ────────────────────────────────
+  //
+  // „Mein Geschäft" nur für Dienstleister, „Mein Event" für alle — auch
+  // Dienstleister planen eigene Events. Ein Planer sieht seine Gesuche als
+  // „Meine Gesuche"; ein Dienstleister hat dieselbe Seite schon als „Meine
+  // Inserate" im Geschäft, ein zweiter Eintrag wäre dort ein Doppel.
+  var geschaeft = document.getElementById('menuGeschaeft');
+  if (geschaeft) geschaeft.hidden = !provider;
+  var gesucheBtn = document.getElementById('gesucheMenuBtn');
+  if (gesucheBtn) gesucheBtn.hidden = provider;
 
-  // Mobile Bottom-Nav: der Board-Slot führt immer zum Planungs-Board.
-  // Das Auftragsboard erreichen Dienstleister über das Menü.
+  // ── HAUPTLINK IN DER LEISTE ─────────────────────────────────────────
+  //
+  // Hier stand für alle „Inserieren". Für einen Planer ist das die falsche
+  // Einladung: er bietet nichts an, er sucht — und genau diese Verwechslung
+  // erzeugte Gesuche mit Anbieterpreis. Beschriftung und Ziel kommen aus
+  // derselben Rollenfrage wie `ebNavHauptweg()`.
+  var hauptLink = document.getElementById('navHauptLink');
+  if (hauptLink) {
+    hauptLink.textContent = !isLoggedIn ? 'Für Dienstleister'
+      : provider ? 'Mein Geschäft' : 'Mein Event';
+  }
+
+  // ── MOBILLEISTE, DRITTER PLATZ ──────────────────────────────────────
+  //
+  // Bis zum 15.10.2026 führte er für ALLE zum Planungs-Board, und das
+  // Auftragsboard lag für Dienstleister hinter dem Menü — auf dem Gerät,
+  // auf dem man unterwegs nachsieht, was als Nächstes ansteht. Die Leiste
+  // war bewusst unangetastet geblieben, weil das eine Produktentscheidung
+  // des Inhabers ist; sie ist mit dem Überarbeitungsauftrag getroffen
+  // (PRODUCT_REDESIGN.md, Abschnitt 3.1). Das Planungs-Board bleibt für
+  // Dienstleister im Menü unter „Mein Event".
   var mobileBoardBtn = document.querySelector('#mobileNav .mobile-nav-board');
   if (mobileBoardBtn) {
     var icon = mobileBoardBtn.querySelector('.material-icons-round');
     var label = mobileBoardBtn.querySelector('span:last-child');
-    mobileBoardBtn.setAttribute('onclick', "navigateTo('board')");
-    mobileBoardBtn.dataset.page = 'board';
-    if (icon) icon.textContent = 'view_kanban';
-    if (label) label.textContent = 'Board';
+    var ziel = provider ? 'auftraege' : 'board';
+    mobileBoardBtn.setAttribute('onclick', "navigateTo('" + ziel + "')");
+    mobileBoardBtn.dataset.page = ziel;
+    if (icon) icon.textContent = provider ? 'assignment' : 'view_kanban';
+    if (label) label.textContent = provider ? 'Aufträge' : 'Planen';
   }
 
   // ── DER DRITTE WEG AUF DER LANDESEITE ────────────────────────────────
@@ -15461,7 +15502,7 @@ function applyLogout() {
   updateMsgBadge(0);
   document.getElementById('loggedOutMenu').style.display = 'block';
   document.getElementById('loggedInMenu').style.display = 'none';
-  document.getElementById('userMenu').classList.remove('show');
+  if (typeof _userMenuSetzen === 'function') _userMenuSetzen(false); else document.getElementById('userMenu').classList.remove('show');
   var navAvatar = document.querySelector('#avatarBtn img');
   if (navAvatar) navAvatar.src = ebAvatar('user', 'User');
   var adminLabel = document.getElementById('navAdminLabel');
@@ -16336,9 +16377,29 @@ function closeModalOnOverlay(e) {
 }
 
 // ========== USER MENU ==========
+// Das Menü sagt jetzt, ob es offen ist (`aria-expanded`), schließt mit
+// Escape und gibt den Fokus an den Avatar zurück. Vorher war es per Tastatur
+// zu öffnen, aber nicht wieder zu verlassen — und ein Screenreader erfuhr
+// nicht, dass sich etwas geöffnet hatte.
+function _userMenuSetzen(offen) {
+  const menu = document.getElementById('userMenu');
+  const avatar = document.getElementById('avatarBtn');
+  if (!menu) return;
+  menu.classList.toggle('show', !!offen);
+  if (avatar) avatar.setAttribute('aria-expanded', offen ? 'true' : 'false');
+}
+
 function toggleUserMenu() {
   const menu = document.getElementById('userMenu');
-  menu.classList.toggle('show');
+  const offen = !menu.classList.contains('show');
+  _userMenuSetzen(offen);
+  if (offen) {
+    // Der erste SICHTBARE Knopf — nicht der erste im DOM: der liegt beim
+    // Planer im versteckten Abschnitt „Mein Geschäft", und dorthin kann der
+    // Fokus nicht. Er blieb dann still am Avatar stehen.
+    const erster = [...menu.querySelectorAll('button')].find((b) => b.offsetParent !== null);
+    if (erster) erster.focus();
+  }
 }
 
 // Close menu on outside click
@@ -16346,8 +16407,17 @@ document.addEventListener('click', (e) => {
   const menu = document.getElementById('userMenu');
   const avatar = document.getElementById('avatarBtn');
   if (!menu.contains(e.target) && !avatar.contains(e.target)) {
-    menu.classList.remove('show');
+    _userMenuSetzen(false);
   }
+});
+
+document.addEventListener('keydown', (e) => {
+  if (e.key !== 'Escape') return;
+  const menu = document.getElementById('userMenu');
+  if (!menu || !menu.classList.contains('show')) return;
+  _userMenuSetzen(false);
+  const avatar = document.getElementById('avatarBtn');
+  if (avatar) avatar.focus();
 });
 
 // ========== TOAST ==========
@@ -16489,7 +16559,7 @@ var QA_TOPICS = [
     ],
     actions: [
       { label: 'Business-Cockpit', icon: 'insights', kind: 'page', target: 'business' },
-      { label: 'Auftragsboard', icon: 'assignment', kind: 'page', target: 'auftraege' },
+      { label: 'Aufträge', icon: 'assignment', kind: 'page', target: 'auftraege' },
       { label: 'Auszahlungen', icon: 'account_balance', kind: 'page', target: 'settings' }
     ]
   },
@@ -18429,7 +18499,7 @@ function _renderAuftraegeJobs(container, jobs, isProvider) {
   html += '<details class="auftraege-howto" style="background:linear-gradient(135deg,rgba(255,56,92,0.06),rgba(0,166,153,0.06));border:1px solid var(--border);border-radius:14px;padding:14px 18px;margin-bottom:18px">' +
     '<summary style="display:flex;align-items:center;gap:10px;cursor:pointer;font-weight:600;list-style:none">' +
       '<span class="material-icons-round" style="color:var(--primary);font-size:22px">info</span>' +
-      'So funktioniert dein Auftragsboard' +
+      'So funktionieren deine Aufträge' +
     '</summary>' +
     '<div style="font-size:14px;line-height:1.7;margin-top:10px;color:var(--text-light)">' +
       '1. Ein Kunde bucht dich verbindlich &rarr; der Auftrag erscheint hier mit Status <em>&bdquo;Gebucht&ldquo;</em>.<br>' +
@@ -21013,7 +21083,7 @@ function _showBookingSuccess(info) {
         '<div style="text-align:left;background:var(--bg-alt);border:1px solid var(--border);border-radius:12px;padding:14px 16px;margin:0 0 18px;font-size:14px;line-height:1.7">' +
           '<strong>Wie es jetzt weitergeht:</strong>' +
           '<div style="display:flex;gap:10px;margin-top:8px"><span class="material-icons-round" style="color:var(--primary);font-size:20px">view_kanban</span><span>Die Buchung liegt in deinem <strong>Planungs-Board</strong> unter „Direktbuchungen".</span></div>' +
-          '<div style="display:flex;gap:10px;margin-top:8px"><span class="material-icons-round" style="color:var(--primary);font-size:20px">notifications_active</span><span>Der Dienstleister wurde benachrichtigt und sieht die Buchung in seinem <strong>Auftragsboard</strong>.</span></div>' +
+          '<div style="display:flex;gap:10px;margin-top:8px"><span class="material-icons-round" style="color:var(--primary);font-size:20px">notifications_active</span><span>Der Dienstleister wurde benachrichtigt und sieht die Buchung unter seinen <strong>Aufträgen</strong>.</span></div>' +
           '<div style="display:flex;gap:10px;margin-top:8px"><span class="material-icons-round" style="color:var(--primary);font-size:20px">event_available</span><span>Am Event-Tag bestätigt ihr beide die Leistung – erst dann gilt der Auftrag als erfüllt.</span></div>' +
         '</div>' +
         '<button class="btn-primary btn-block" onclick="' + goBoard + '"><span class="material-icons-round">view_kanban</span> Zum Board</button>' +

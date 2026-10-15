@@ -1235,27 +1235,60 @@ function isDienstleister() {
  * Desktop-Menü und kontextbezogene Buttons konsistent bleiben. Zeigt ein
  * Element mit '' (CSS-Default) und versteckt mit 'none'.
  */
+/**
+ * Der Hauptlink der Leiste — Ziel je Rolle, dieselbe Frage wie die
+ * Beschriftung in `_applyRoleNav()`. Abgemeldet geht es in die
+ * Registrierung als Anbieter (`ebAnbieterEinstieg`), nicht in die Anmeldung.
+ */
+function ebNavHauptweg() {
+  if (!isLoggedIn) { ebAnbieterEinstieg(); return; }
+  navigateTo(isDienstleister() ? 'my-listings' : 'board');
+}
+
 function _applyRoleNav() {
   var provider = isLoggedIn && isDienstleister();
 
-  // Auftragsboard nur für Dienstleister; Planungs-Board für alle sichtbar.
-  var auftraegeBtn = document.getElementById('auftraegeMenuBtn');
-  if (auftraegeBtn) auftraegeBtn.style.display = provider ? '' : 'none';
-  var businessBtn = document.getElementById('businessMenuBtn');
-  if (businessBtn) businessBtn.style.display = provider ? '' : 'none';
-  var boardBtn = document.getElementById('boardMenuBtn');
-  if (boardBtn) boardBtn.style.display = '';
+  // ── MENÜ IN ABSCHNITTEN (15.10.2026) ────────────────────────────────
+  //
+  // „Mein Geschäft" nur für Dienstleister, „Mein Event" für alle — auch
+  // Dienstleister planen eigene Events. Ein Planer sieht seine Gesuche als
+  // „Meine Gesuche"; ein Dienstleister hat dieselbe Seite schon als „Meine
+  // Inserate" im Geschäft, ein zweiter Eintrag wäre dort ein Doppel.
+  var geschaeft = document.getElementById('menuGeschaeft');
+  if (geschaeft) geschaeft.hidden = !provider;
+  var gesucheBtn = document.getElementById('gesucheMenuBtn');
+  if (gesucheBtn) gesucheBtn.hidden = provider;
 
-  // Mobile Bottom-Nav: der Board-Slot führt immer zum Planungs-Board.
-  // Das Auftragsboard erreichen Dienstleister über das Menü.
+  // ── HAUPTLINK IN DER LEISTE ─────────────────────────────────────────
+  //
+  // Hier stand für alle „Inserieren". Für einen Planer ist das die falsche
+  // Einladung: er bietet nichts an, er sucht — und genau diese Verwechslung
+  // erzeugte Gesuche mit Anbieterpreis. Beschriftung und Ziel kommen aus
+  // derselben Rollenfrage wie `ebNavHauptweg()`.
+  var hauptLink = document.getElementById('navHauptLink');
+  if (hauptLink) {
+    hauptLink.textContent = !isLoggedIn ? 'Für Dienstleister'
+      : provider ? 'Mein Geschäft' : 'Mein Event';
+  }
+
+  // ── MOBILLEISTE, DRITTER PLATZ ──────────────────────────────────────
+  //
+  // Bis zum 15.10.2026 führte er für ALLE zum Planungs-Board, und das
+  // Auftragsboard lag für Dienstleister hinter dem Menü — auf dem Gerät,
+  // auf dem man unterwegs nachsieht, was als Nächstes ansteht. Die Leiste
+  // war bewusst unangetastet geblieben, weil das eine Produktentscheidung
+  // des Inhabers ist; sie ist mit dem Überarbeitungsauftrag getroffen
+  // (PRODUCT_REDESIGN.md, Abschnitt 3.1). Das Planungs-Board bleibt für
+  // Dienstleister im Menü unter „Mein Event".
   var mobileBoardBtn = document.querySelector('#mobileNav .mobile-nav-board');
   if (mobileBoardBtn) {
     var icon = mobileBoardBtn.querySelector('.material-icons-round');
     var label = mobileBoardBtn.querySelector('span:last-child');
-    mobileBoardBtn.setAttribute('onclick', "navigateTo('board')");
-    mobileBoardBtn.dataset.page = 'board';
-    if (icon) icon.textContent = 'view_kanban';
-    if (label) label.textContent = 'Board';
+    var ziel = provider ? 'auftraege' : 'board';
+    mobileBoardBtn.setAttribute('onclick', "navigateTo('" + ziel + "')");
+    mobileBoardBtn.dataset.page = ziel;
+    if (icon) icon.textContent = provider ? 'assignment' : 'view_kanban';
+    if (label) label.textContent = provider ? 'Aufträge' : 'Planen';
   }
 
   // ── DER DRITTE WEG AUF DER LANDESEITE ────────────────────────────────
@@ -1373,7 +1406,7 @@ function applyLogout() {
   updateMsgBadge(0);
   document.getElementById('loggedOutMenu').style.display = 'block';
   document.getElementById('loggedInMenu').style.display = 'none';
-  document.getElementById('userMenu').classList.remove('show');
+  if (typeof _userMenuSetzen === 'function') _userMenuSetzen(false); else document.getElementById('userMenu').classList.remove('show');
   var navAvatar = document.querySelector('#avatarBtn img');
   if (navAvatar) navAvatar.src = ebAvatar('user', 'User');
   var adminLabel = document.getElementById('navAdminLabel');
