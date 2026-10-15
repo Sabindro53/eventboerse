@@ -1118,20 +1118,102 @@ function isEventPlaner() {
 /**
  * Den bei der Registrierung gewaehlten Nickname setzen.
  *
- * Bewusst ohne `await` im Anmeldepfad und ohne Fehlermeldung an den Nutzer:
- * das Konto steht bereits, und ein roter Kasten ueber einem geglueckten
- * Vorgang verwirrt mehr, als er hilft. Misslingt es (Name inzwischen
- * vergeben), traegt der Nutzer ihn unter Freunde nach.
+ * Das Konto steht bereits — eine Registrierung wegen eines Nicknames
+ * zurueckzurollen waere die schlechtere Antwort. Bis zum 15.10.2026 wurde
+ * ein Fehlschlag hier aber VERSCHLUCKT: wer in der Zwischenzeit denselben
+ * Namen bekommen hatte, stand ohne Nickname da und erfuhr es nie. Jetzt
+ * sagt eine Meldung, was passiert ist und wo man ihn waehlt.
+ *
+ * `auffindbar: true`, weil das Formular sagt, wozu der Name dient
+ * („Damit andere dich finden"). Abschalten geht in den Einstellungen.
  */
 function _regHandleSetzen(handle) {
+  var nachtragen = function (grund) {
+    showToast('Dein Nickname @' + handle + ' konnte nicht gesetzt werden'
+      + (grund ? ' (' + grund + ')' : '') + '. Du kannst ihn in den Einstellungen wählen.', 'info');
+  };
   try {
     fetch(_apiUrl('social/handle'), {
       method: 'POST',
       headers: _apiHeaders(),
       credentials: 'include',
-      body: JSON.stringify({ handle: handle }),
-    }).catch(function () { /* Konto steht, Nickname ist nachtragbar. */ });
-  } catch (e) { /* dito */ }
+      body: JSON.stringify({ handle: handle, auffindbar: true }),
+    }).then(function (r) {
+      if (r.ok) return;
+      return r.json().catch(function () { return {}; }).then(function (d) {
+        nachtragen(d && d.message ? String(d.message).replace(/\.$/, '') : '');
+      });
+    }).catch(function () { nachtragen(''); });
+  } catch (e) { nachtragen(''); }
+}
+
+/*
+ * Vorpruefung im Registrierungsformular — entprellt, und nur eine Vorschau.
+ *
+ * Entschieden wird beim Speichern, unter der Sperre (eb_handle_beanspruchen);
+ * „Verfuegbar" ist kein Versprechen. Deshalb blockiert das Absenden NUR bei
+ * einem sicheren „vergeben"/„reserviert" — eine Netzstoerung waere als
+ * Absage eine Falschaussage: der Name ist vielleicht frei, und die
+ * Registrierung scheiterte an einer Pruefung, die gar nicht stattfand.
+ */
+var _regHandleStand = { wert: '', status: '' };
+var _regHandleFolge = 0;
+var _regHandleUhr = null;
+
+function _regHandleMelden(html) {
+  var el = document.getElementById('regHandleStatus');
+  if (el) el.innerHTML = html || '';
+}
+
+function regHandlePruefen() {
+  var feld = document.getElementById('regHandle');
+  if (!feld) return;
+  var h = String(feld.value || '').trim().toLowerCase().replace(/^@/, '');
+  var folge = ++_regHandleFolge;
+  clearTimeout(_regHandleUhr);
+  _regHandleStand = { wert: h, status: '' };
+  if (h.length < 3) { _regHandleMelden(''); return; }
+  if (!/^[a-z0-9._]{3,24}$/.test(h)) {
+    _regHandleStand.status = 'ungueltig';
+    _regHandleMelden('Nur Kleinbuchstaben, Ziffern, Punkt und Unterstrich.');
+    return;
+  }
+  _regHandleUhr = setTimeout(function () {
+    _regHandleMelden('Wird geprüft …');
+    fetch(_apiUrl('social/handle/frei?h=' + encodeURIComponent(h)),
+      { headers: _apiHeaders(), credentials: 'include' })
+      .then(function (r) { if (!r.ok) throw new Error('http'); return r.json(); })
+      .then(function (d) {
+        if (folge !== _regHandleFolge) return;
+        var st = d && d.status;
+        _regHandleStand = { wert: h, status: st || '' };
+        if (st === 'frei') { _regHandleMelden('✓ Verfügbar'); return; }
+        if (st === 'gesperrt') { _regHandleMelden('Dieser Name ist reserviert. Bitte wähle einen anderen.'); return; }
+        if (st === 'ungueltig') { _regHandleMelden('3–24 Zeichen: Kleinbuchstaben, Ziffern, Punkt, Unterstrich.'); return; }
+        if (st === 'vergeben') {
+          var vs = ((d && d.vorschlaege) || []).filter(function (v) { return /^[a-z0-9._]{3,24}$/.test(v); });
+          _regHandleMelden('Schon vergeben.' + (vs.length ? ' Frei wären: ' + vs.map(function (v) {
+            return '<button type="button" class="btn-outline btn-sm" onclick="regHandleUebernehmen(\'' + v + '\')">@'
+              + _escHtml(v) + '</button>';
+          }).join('') : ''));
+          return;
+        }
+        _regHandleMelden('');
+      })
+      .catch(function () {
+        if (folge !== _regHandleFolge) return;
+        _regHandleStand = { wert: h, status: 'fehler' };
+        _regHandleMelden('Prüfung gerade nicht möglich — der Name wird beim Absenden geprüft.');
+      });
+  }, 350);
+}
+
+function regHandleUebernehmen(v) {
+  var feld = document.getElementById('regHandle');
+  if (!feld || !/^[a-z0-9._]{3,24}$/.test(String(v))) return;
+  feld.value = v;
+  regHandlePruefen();
+  feld.focus();
 }
 
 function isDienstleister() {
@@ -1525,7 +1607,7 @@ async function handleRegister(e) {
   var firstName = document.getElementById('regFirstName').value.trim();
   var lastName = document.getElementById('regLastName').value.trim();
   var handleFeld = document.getElementById('regHandle');
-  var handle = handleFeld ? handleFeld.value.trim().toLowerCase() : '';
+  var handle = handleFeld ? handleFeld.value.trim().toLowerCase().replace(/^@/, '') : '';
   var email = document.getElementById('regEmail').value.trim();
   var password = document.getElementById('regPassword').value.trim();
   var activeRole = document.querySelector('.role-toggle:not(.role-toggle-sub) > .role-btn.active');
@@ -1560,6 +1642,12 @@ async function handleRegister(e) {
   // driften, und diese driftete in ein 400 nach abgeschickter Anmeldung.
   if (handleFeld && !/^[a-z0-9._]{3,24}$/.test(handle)) {
     _setFieldError('regHandle', '3–24 Zeichen: Kleinbuchstaben, Ziffern, Punkt, Unterstrich');
+    hasError = true;
+  }
+  else if (handleFeld && _regHandleStand.wert === handle
+      && (_regHandleStand.status === 'vergeben' || _regHandleStand.status === 'gesperrt')) {
+    _setFieldError('regHandle', _regHandleStand.status === 'vergeben'
+      ? 'Dieser Nickname ist schon vergeben.' : 'Dieser Nickname ist reserviert.');
     hasError = true;
   }
   if (termsBox && !termsBox.checked) {

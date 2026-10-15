@@ -1987,6 +1987,10 @@
           <button class="btn-primary settings-save-btn" onclick="savePersonalSettings()">Änderungen speichern</button>
         </div>
 
+        <!-- Nickname: derselbe Kasten wie auf der Freunde-Seite, gezeichnet von
+             ebNicknameEinstellungen() (social/60-freunde-gruppen.js). -->
+        <div class="settings-nickname" data-nickname-kasten="einstellungen"></div>
+
         <!-- Password -->
         <div class="settings-card">
           <div class="settings-card-header">
@@ -3691,11 +3695,17 @@ Datum: ___________________________________________________
                ist dieselbe wie serverseitig (eb_handle_gueltig): 3–24 Zeichen,
                Kleinbuchstaben, Ziffern, Punkt, Unterstrich. -->
           <div class="form-group">
-            <label for="regHandle">Nickname <small>(so finden dich Freunde)</small></label>
-            <input type="text" id="regHandle" placeholder="max.mustermann" required
-                   minlength="3" maxlength="24" pattern="[a-z0-9._]{3,24}"
-                   autocomplete="username" inputmode="latin" />
-            <small class="form-hint">3–24 Zeichen · Kleinbuchstaben, Ziffern, Punkt, Unterstrich</small>
+            <label for="regHandle">Dein Nickname</label>
+            <div class="reg-handle-zeile">
+              <span class="soz-at" aria-hidden="true">@</span>
+              <input type="text" id="regHandle" placeholder="max.mustermann" required
+                     minlength="3" maxlength="24" pattern="[a-z0-9._]{3,24}"
+                     autocomplete="username" inputmode="latin"
+                     aria-describedby="regHandleHinweis regHandleStatus"
+                     oninput="regHandlePruefen()" />
+            </div>
+            <small class="form-hint" id="regHandleHinweis">Damit andere dich finden und eindeutig erkennen können. 3–24 Zeichen · Kleinbuchstaben, Ziffern, Punkt, Unterstrich</small>
+            <small class="form-hint-status" id="regHandleStatus" role="status" aria-live="polite"></small>
           </div>
           <div class="form-group">
             <label for="regEmail">E-Mail</label>

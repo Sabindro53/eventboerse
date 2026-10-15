@@ -357,12 +357,22 @@ test.describe('Der Rahmen: Deckel, Erlaubnis, Schema', () => {
     }
   });
 
+  // Genau EINE Route ist offen, und sie steht hier mit Grund: die
+  // Registrierung prueft den Nickname, bevor es ein Konto gibt. Eine
+  // Ausnahmeliste, die wachsen kann, waere das Ende der Regel — deshalb
+  // ist sie ein fester Eintrag, und die Route darf nur LESEN.
+  const OFFEN = { 'GET /social/handle/frei': 'Registrierung prueft vor der Anmeldung' };
+
   test('jede Route verlangt eine Anmeldung', async () => {
     const d = stand();
     expect(d.routen.length, 'es sind gar keine Routen registriert').toBeGreaterThanOrEqual(14);
+    const offen = [];
     for (const r of d.routen) {
-      expect(r.erlaubnis, `${r.methoden} ${r.pfad} ist offen`).toBe('is_user_logged_in');
+      const name = `${r.methoden} ${r.pfad}`;
+      if (OFFEN[name]) { offen.push(name); continue; }
+      expect(r.erlaubnis, `${name} ist offen`).toBe('is_user_logged_in');
     }
+    expect(offen, 'die eine offene Route ist verschwunden — dann gehoert sie aus OFFEN').toEqual(Object.keys(OFFEN));
   });
 
   test('jede Route liegt unter /social/', async () => {
@@ -574,5 +584,106 @@ test.describe('Der Handle-Nachtrag ist opt-in — ausgeführt, nicht gelesen', (
     const s = stand();
     expect(s.nachtrag_marke).toBe('fertig');
     expect(s.nachtrag_zweiter_lauf).toBe(0);
+  });
+});
+
+/* ══════════════════════════════════════════════════════════════════════
+   Nickname für alle — auffindbar nur mit Zustimmung (15.10.2026)
+   ══════════════════════════════════════════════════════════════════════ */
+
+test.describe('Nickname für alle: Vergabe ist keine Zustimmung', () => {
+  test('der Nachtrag vergibt Namen VERBORGEN — weder Teil- noch genauer Name findet sie', async () => {
+    const n = stand().nick;
+    expect(n.nachtrag_auffindbar).toEqual(['0', '0']);
+    expect(n.suche_nachtrag_teil.body.results).toEqual([]);
+    expect(n.suche_nachtrag_genau.body.results, 'der genaue Name umgeht die Zustimmung').toEqual([]);
+  });
+
+  test('wer selbst einschaltet, wird gefunden — ohne dass es als Namenswechsel zählt', async () => {
+    const n = stand().nick;
+    expect(n.einschalten.status).toBe(200);
+    expect(n.einschalten.body.auffindbar).toBe(true);
+    expect(n.einschalten_bremse, 'Umschalten verbraucht den Wechsel-Deckel').toBe(0);
+    expect(n.suche_nach_einschalten.body.results.map((r) => r.id)).toEqual([900]);
+    expect(n.ich_900.body.auffindbar).toBe(true);
+  });
+
+  test('ein Namenswechsel macht niemanden still sichtbar', async () => {
+    const n = stand().nick;
+    expect(n.wechsel_901.status).toBe(200);
+    expect(n.wechsel_901.body.auffindbar).toBe(false);
+    expect(n.wechsel_901_bleibt).toBe('0');
+    expect(n.wechsel_901_bremse).toEqual({ action: 'social_handle', limit: 10, ident: 'u901' });
+  });
+
+  test('@ und Großschreibung werden normalisiert, irreführende Varianten sind reserviert', async () => {
+    const n = stand().nick;
+    expect(n.mit_at.body.handle).toBe('neu.mensch');
+    expect(n.res_support.body.error).toBe('handle_gesperrt');
+    expect(n.res_admin.body.error).toBe('handle_gesperrt');
+    expect(n.res_frei.status, 'die Sperre trifft zu weit').toBe(200);
+  });
+});
+
+test.describe('Nickname: genau einer bekommt den Namen', () => {
+  test('wer die Sperre nicht bekommt, schreibt nichts', async () => {
+    const n = stand().nick;
+    expect(n.wettlauf_zweiter.status).toBe(503);
+    expect(n.wettlauf_zweiter_name, 'geschrieben ohne Sperre').toBe('');
+    expect(n.wettlauf_erster.status).toBe(200);
+    expect(n.wettlauf_danach.body.error).toBe('handle_vergeben');
+    expect(n.wettlauf_besitzer).toBe(951);
+  });
+
+  test('die Sperre wird immer wieder freigegeben — auch nach einem Konflikt', async () => {
+    expect(stand().nick.sperren_offen).toBe(0);
+  });
+
+  test('eine Datenbank ohne Antwort ist „nicht prüfbar", nicht „vergeben"', async () => {
+    const n = stand().nick;
+    expect(n.sperre_kaputt.status).toBe(503);
+    expect(n.sperre_kaputt.body.error).toBe('handle_sperre');
+    expect(n.sperre_kaputt_name).toBe('');
+  });
+
+  test('die Bremse hält den Namenswechsel auf, nicht das Umschalten', async () => {
+    const n = stand().nick;
+    expect(n.bremse.status).toBe(429);
+    expect(n.bremse_name).toBe('zwilling');
+    expect(n.bremse_umschalten.status).toBe(200);
+  });
+
+  test('der genaue Treffer steht vorn, auch hinter zehn Teiltreffern', async () => {
+    const r = stand().nick.genau_zuerst.body.results;
+    expect(r[0].handle).toBe('lena');
+    expect(r.length).toBeLessThanOrEqual(10);
+  });
+});
+
+test.describe('Nickname: die offene Prüfroute', () => {
+  test('sie sagt frei, vergeben, ungültig, reserviert — und nie, wem', async () => {
+    const n = stand().nick;
+    expect(n.frei_vergeben.body.status).toBe('vergeben');
+    expect(n.frei_frei.body.status).toBe('frei');
+    expect(n.frei_kurz.body.status).toBe('ungueltig');
+    expect(n.frei_gesperrt.body.status).toBe('gesperrt');
+    for (const k of ['frei_vergeben', 'frei_frei', 'frei_kurz', 'frei_gesperrt', 'frei_verborgen']) {
+      expect(Object.keys(n[k].body).sort(), `${k} verrät mehr als den Zustand`).toEqual(['status', 'vorschlaege']);
+    }
+  });
+
+  test('Vorschläge sind wirklich frei', async () => {
+    const n = stand().nick;
+    expect(n.frei_vergeben.body.vorschlaege.length).toBeGreaterThan(0);
+    expect(n.frei_vorschlag_besitzer.every((b) => b === 0)).toBe(true);
+    expect(n.frei_vergeben.body.vorschlaege, 'lena1 ist vergeben und wird trotzdem vorgeschlagen').not.toContain('lena1');
+  });
+
+  test('der eigene Name ist für einen selbst frei', async () => {
+    expect(stand().nick.frei_eigener.body.status).toBe('frei');
+  });
+
+  test('abgemeldet hängt der Deckel an der Leitung', async () => {
+    expect(stand().nick.frei_eimer).toEqual({ action: 'social_handle_frei', limit: 60, ident: null });
   });
 });

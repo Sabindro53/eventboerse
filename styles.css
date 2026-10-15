@@ -17809,6 +17809,18 @@ body.dark-mode .akt-karte { background: var(--bg-alt); }
   display: flex; flex-wrap: wrap; align-items: center; gap: .45rem; margin-bottom: .5rem;
 }
 .soz-at { font-weight: 700; color: var(--text-light); }
+.soz-label { display: block; margin: .2rem 0 .3rem; font-size: .8rem; font-weight: 600; color: var(--text); }
+.soz-schalter {
+  display: flex; align-items: center; gap: .5rem; margin: .7rem 0 .2rem;
+  font-size: .86rem; color: var(--text); cursor: pointer;
+}
+.soz-schalter input { width: 18px; height: 18px; accent-color: var(--primary); }
+.soz-nick-status { min-height: 1.2em; margin: .5rem 0; font-size: .8rem; color: var(--text); }
+.soz-nick-vorschlaege { display: flex; flex-wrap: wrap; align-items: center; gap: .4rem; margin-bottom: .6rem; font-size: .8rem; color: var(--text-light); }
+.form-hint-status { display: block; min-height: 1.2em; font-size: .78rem; color: var(--text); }
+.form-hint-status .btn-sm { margin: .2rem .3rem 0 0; }
+.reg-handle-zeile { display: flex; align-items: center; gap: .35rem; }
+.reg-handle-zeile input { flex: 1 1 auto; min-width: 0; }
 .soz-handle-zeile input, .soz-suche-zeile input, .soz-beitritt input {
   flex: 1 1 12rem; min-width: 0;
   padding: .55rem .7rem; border: 1px solid var(--border);

@@ -526,6 +526,7 @@ function navigateTo(page, data, skipHistory) {
       break;
     case 'settings':
       loadSettings();
+      if (typeof ebNicknameEinstellungen === 'function') ebNicknameEinstellungen();
       break;
     case 'business':
       if (!isDienstleister() && !(currentUser && currentUser.isAdmin)) {

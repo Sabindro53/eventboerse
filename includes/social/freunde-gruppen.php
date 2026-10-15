@@ -91,7 +91,26 @@ function eb_handle_gesperrt() {
     );
 }
 
-/** Den Handle eines Nutzers lesen (leer = nicht auffindbar). */
+/**
+ * Darf dieser Handle NEU vergeben werden?
+ *
+ * Die Liste oben trifft nur den genauen Namen — „eventboerse.support" oder
+ * „admin_team" kamen durch und sähen in einer Trefferliste aus wie wir.
+ * Ein Nickname ist nie ein Verifizierungszeichen; er darf also auch nicht
+ * so aussehen.
+ *
+ * Gilt nur beim Beanspruchen, nicht rückwirkend: ein Bestandskonto, das
+ * schon so heisst, verliert seinen Namen dadurch nicht.
+ */
+function eb_handle_reserviert( $handle ) {
+    $handle = (string) $handle;
+    if ( in_array( $handle, eb_handle_gesperrt(), true ) ) {
+        return true;
+    }
+    return (bool) preg_match( '/^(eventb(oe|o)rse|admin|administrator|support|moderator)([._0-9]|$)/', $handle );
+}
+
+/** Den Handle eines Nutzers lesen (leer = kein Nickname; auffindbar: eb_handle_auffindbar). */
 function eb_handle_von( $user_id ) {
     $h = get_user_meta( absint( $user_id ), 'eb_handle', true );
     return is_string( $h ) ? $h : '';
@@ -167,12 +186,22 @@ function eb_handle_freier( $wunsch, $user_id = 0 ) {
         if ( ! eb_handle_gueltig( $kandidat ) ) {
             continue;
         }
-        if ( in_array( $kandidat, eb_handle_gesperrt(), true ) ) {
+        if ( eb_handle_reserviert( $kandidat ) ) {
             continue;
         }
         $besitzer = eb_handle_besitzer( $kandidat );
         if ( ! $besitzer || (int) $besitzer === (int) $user_id ) {
             return $kandidat;
+        }
+    }
+    // Ein Name, aus dem sich nichts Freies machen laesst („Support Team"
+    // ist reserviert, mit jeder Zahl dahinter), bekommt einen neutralen —
+    // sonst bliebe genau dieses Konto fuer immer ohne Nickname.
+    $neutral = 'eventfan.' . absint( $user_id );
+    if ( absint( $user_id ) && eb_handle_gueltig( $neutral ) && $neutral !== $basis ) {
+        $besitzer = eb_handle_besitzer( $neutral );
+        if ( ! $besitzer || (int) $besitzer === (int) $user_id ) {
+            return $neutral;
         }
     }
     return '';
@@ -259,7 +288,14 @@ function eb_handles_nachtragen( $deckel = 200 ) {
         if ( $handle === '' ) {
             continue;
         }
-        update_user_meta( $u->ID, 'eb_handle', $handle );
+        // Ueber die Sperre, nicht an ihr vorbei — und VERBORGEN: ein
+        // vergebener Name ist keine Zustimmung, gefunden zu werden. Wer
+        // gefunden werden will, schaltet es selbst ein (Freunde, Einstellungen).
+        // Ein Konflikt mit einer gleichzeitigen Registrierung ist kein
+        // Fehler: das Konto bleibt ohne Namen und kommt beim naechsten Lauf.
+        if ( eb_handle_beanspruchen( $u->ID, $handle, false ) !== true ) {
+            continue;
+        }
         $gesetzt++;
     }
     if ( count( $nutzer ) < absint( $deckel ) ) {
@@ -281,6 +317,141 @@ function eb_handle_besitzer( $handle ) {
         'fields'     => 'ID',
     ) );
     return $treffer ? (int) $treffer[0] : 0;
+}
+
+/**
+ * Ist dieser Nutzer über seinen Nickname auffindbar?
+ *
+ * ── NICKNAME UND AUFFINDBARKEIT SIND ZWEI ANGABEN ───────────────────────
+ *
+ * Bis zum 15.10.2026 waren sie eine: wer einen Handle hatte, war
+ * auffindbar, und der Handle-Kasten versprach jedem ohne ihn ausdrücklich
+ * „nicht auffindbar". Ein Nickname für JEDES Konto (Auftrag des Inhabers)
+ * hätte dieses Versprechen still aufgehoben.
+ *
+ * Deshalb steht die Einwilligung jetzt daneben, in `eb_handle_auffindbar`:
+ *
+ *  · '0'    — verborgen. So schreibt der Nachtrag: ein vergebener Name ist
+ *             keine Zustimmung, gefunden zu werden.
+ *  · fehlt  — auffindbar. Das ist der Bestand: jeder, der bisher einen
+ *             Handle hatte, hat ihn SELBST gesetzt, und genau das war die
+ *             Einwilligung. Ein Rückfall auf „verborgen" machte über Nacht
+ *             alle bisherigen Nutzer unsichtbar.
+ *  · '1'    — ausdrücklich auffindbar.
+ *
+ * Ohne Handle ist niemand auffindbar, egal was hier steht.
+ */
+function eb_handle_auffindbar( $user_id ) {
+    if ( eb_handle_von( $user_id ) === '' ) {
+        return false;
+    }
+    return (string) get_user_meta( absint( $user_id ), 'eb_handle_auffindbar', true ) !== '0';
+}
+
+/**
+ * Eine Sperre auf genau diesen Namen, über alle PHP-Prozesse hinweg.
+ *
+ * ── WARUM NICHT „ERST PRÜFEN, DANN SCHREIBEN" ───────────────────────────
+ *
+ * So stand es hier: `eb_handle_besitzer()` fragen, dann `update_user_meta()`.
+ * Zwei Registrierungen, die im selben Augenblick denselben Namen wollen,
+ * sehen beide „frei" und schreiben beide — danach heissen zwei Konten
+ * gleich, und die Suche liefert für einen Namen zwei Menschen. Bei einer
+ * Freundesliste ist das kein Schönheitsfehler, sondern der Weg, an eine
+ * fremde Planung zu kommen.
+ *
+ * `usermeta` hat keinen eindeutigen Index, und einen anzulegen hiesse, eine
+ * WordPress-Kerntabelle umzubauen. `GET_LOCK` ist die kleinere Antwort: die
+ * Datenbank ordnet die beiden Anfragen hintereinander, und die zweite sieht
+ * den Namen schon vergeben.
+ *
+ * Der Name der Sperre ist ein Hash: MySQL-Sperren gelten für den ganzen
+ * Server, nicht nur für unsere Datenbank, und sind auf 64 Zeichen begrenzt.
+ */
+function eb_handle_sperrname( $handle ) {
+    $db = defined( 'DB_NAME' ) ? DB_NAME : '';
+    return 'eb_h_' . md5( $db . '|' . (string) $handle );
+}
+
+function eb_handle_sperre_holen( $handle ) {
+    global $wpdb;
+    $ok = $wpdb->get_var( $wpdb->prepare( 'SELECT GET_LOCK(%s, %d)', eb_handle_sperrname( $handle ), 3 ) );
+    return (string) $ok === '1';
+}
+
+function eb_handle_sperre_freigeben( $handle ) {
+    global $wpdb;
+    $wpdb->query( $wpdb->prepare( 'SELECT RELEASE_LOCK(%s)', eb_handle_sperrname( $handle ) ) );
+}
+
+/**
+ * Einen Nickname für einen Nutzer beanspruchen — der EINZIGE Schreibweg.
+ *
+ * Route, Registrierung und Nachtrag gehen alle hier durch; ein zweiter Weg
+ * an der Sperre vorbei machte sie wertlos.
+ *
+ * Bekommt die Sperre niemand, ist das „gerade nicht prüfbar", nicht
+ * „vergeben": wer eine Netzstörung als Konflikt meldet, schickt Menschen
+ * auf die Suche nach einem anderen Namen, obwohl ihrer frei ist.
+ *
+ * @param bool|null $auffindbar null lässt die Einwilligung, wie sie ist.
+ * @return true|WP_Error
+ */
+function eb_handle_beanspruchen( $user_id, $handle, $auffindbar = null ) {
+    $user_id = absint( $user_id );
+    $handle  = strtolower( trim( (string) $handle ) );
+
+    if ( ! eb_handle_gueltig( $handle ) ) {
+        return new WP_Error( 'handle_ungueltig',
+            '3 bis 24 Zeichen, nur Kleinbuchstaben, Ziffern, Punkt und Unterstrich.' );
+    }
+    $bisher = eb_handle_von( $user_id );
+    if ( $handle !== $bisher && eb_handle_reserviert( $handle ) ) {
+        return new WP_Error( 'handle_gesperrt', 'Dieser Name ist reserviert.' );
+    }
+
+    if ( ! eb_handle_sperre_holen( $handle ) ) {
+        return new WP_Error( 'handle_sperre', 'Der Name kann gerade nicht geprüft werden. Bitte versuche es gleich noch einmal.' );
+    }
+    try {
+        $besitzer = eb_handle_besitzer( $handle );
+        if ( $besitzer && $besitzer !== $user_id ) {
+            return new WP_Error( 'handle_vergeben', 'Dieser Name ist schon vergeben.' );
+        }
+        update_user_meta( $user_id, 'eb_handle', $handle );
+        if ( $auffindbar !== null ) {
+            update_user_meta( $user_id, 'eb_handle_auffindbar', $auffindbar ? '1' : '0' );
+        }
+    } finally {
+        eb_handle_sperre_freigeben( $handle );
+    }
+    return true;
+}
+
+/**
+ * Bis zu drei freie Varianten eines Wunschnamens.
+ *
+ * Ohne Vorschlag ist „schon vergeben" eine Sackgasse: der Nutzer rät, und
+ * jeder Rateversuch kostet eine Prüfung. Reservierte Namen werden nie
+ * vorgeschlagen — auch nicht als „admin1".
+ */
+function eb_handle_vorschlaege( $wunsch, $user_id = 0, $anzahl = 3 ) {
+    $basis = eb_handle_vorschlag( $wunsch );
+    if ( strlen( $basis ) < 3 ) {
+        return array();
+    }
+    $raus = array();
+    for ( $i = 1; $i <= 30 && count( $raus ) < $anzahl; $i++ ) {
+        $kandidat = rtrim( substr( $basis, 0, 21 ), '._' ) . $i;
+        if ( ! eb_handle_gueltig( $kandidat ) || eb_handle_reserviert( $kandidat ) ) {
+            continue;
+        }
+        $besitzer = eb_handle_besitzer( $kandidat );
+        if ( ! $besitzer || $besitzer === absint( $user_id ) ) {
+            $raus[] = $kandidat;
+        }
+    }
+    return $raus;
 }
 
 /**
