@@ -86,8 +86,13 @@ function eb_social_handle_setzen( WP_REST_Request $request ) {
     $auffindbar = array_key_exists( 'auffindbar', $params ) ? (bool) $params['auffindbar'] : null;
 
     if ( $handle === '' ) {
-        delete_user_meta( $ich, 'eb_handle' );
-        delete_user_meta( $ich, 'eb_handle_auffindbar' );
+        // LEER schreiben, nicht loeschen. Der Nachtrag sucht Konten, bei
+        // denen der Schluessel FEHLT — ein geloeschter Schluessel sah fuer
+        // ihn aus wie „hatte nie einen", und wer sich bewusst zurueckgezogen
+        // hatte, bekam beim naechsten Lauf doch einen Namen. Der Kommentar am
+        // Nachtrag versprach seit dem 15.09.2026 das Gegenteil.
+        update_user_meta( $ich, 'eb_handle', '' );
+        update_user_meta( $ich, 'eb_handle_auffindbar', '0' );
         return new WP_REST_Response( array( 'handle' => '', 'auffindbar' => false, 'success' => true ), 200 );
     }
 

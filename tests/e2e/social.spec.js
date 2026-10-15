@@ -687,3 +687,82 @@ test.describe('Nickname: die offene Prüfroute', () => {
     expect(stand().nick.frei_eimer).toEqual({ action: 'social_handle_frei', limit: 60, ident: null });
   });
 });
+
+/* ══════════════════════════════════════════════════════════════════════
+   Probelauf der Nickname-Vergabe (Briefing N01) — zählt, plant, schreibt nichts
+   ══════════════════════════════════════════════════════════════════════ */
+
+test.describe('Nickname-Probelauf: erst sehen, dann umlegen', () => {
+  test('er schreibt NICHTS — kein Meta, keine Option, keine Sperre', async () => {
+    const p = stand().probe;
+    expect(p.unveraendert, 'der Probelauf hat den Zustand verändert').toBe(true);
+    expect(p.keine_sperre, 'der Probelauf hat die Namenssperre angefasst').toBe(true);
+    expect(p.lauf.probelauf).toBe(true);
+  });
+
+  test('die Zählung geht auf: jedes Konto steht in genau einer Spalte', async () => {
+    const { lauf, nutzer_gesamt, ohne_schluessel } = stand().probe;
+    const z = lauf.zaehlung;
+    expect(z.konten).toBe(nutzer_gesamt);
+    expect(z.gueltig + z.fehlt + z.geleert + z.ungueltig).toBe(z.konten);
+    expect(z.auffindbar + z.verborgen).toBe(z.gueltig);
+    expect(z.fehlt).toBe(ohne_schluessel);
+    expect(lauf.plan.wuerde_vergeben + lauf.plan.ohne_vorschlag).toBe(z.fehlt);
+  });
+
+  test('zwei gleiche Namen bekommen in der Planung zwei verschiedene Nicknames', async () => {
+    const v = stand().probe.lauf.vorschau;
+    const name = (id) => (v.find((e) => e.id === id) || {}).nickname;
+    expect(name(1000)).toBe('max.mustermann');
+    expect(name(1001)).toBe('max.mustermann1');
+    const alle = v.map((e) => e.nickname);
+    expect(new Set(alle).size, 'die Planung vergibt einen Namen doppelt').toBe(alle.length);
+  });
+
+  test('ohne brauchbaren Namen: Login-Rest oder neutral, nie leer, nie reserviert', async () => {
+    const { lauf } = stand().probe;
+    const name = (id) => (lauf.vorschau.find((e) => e.id === id) || {}).nickname;
+    expect(name(1002)).toBe('u1002');
+    expect(name(1003)).toBe('eventfan.1003');
+    expect(lauf.plan.davon_neutral).toBeGreaterThanOrEqual(1);
+  });
+
+  test('Altlasten werden benannt: ungültige und doppelte Namen, mit Konto', async () => {
+    const { lauf } = stand().probe;
+    expect(lauf.ungueltig).toContain(1004);
+    expect(lauf.doppelt).toContainEqual([1005, 1006]);
+  });
+
+  test('wer seinen Namen zurückzieht, behält den Schlüssel — und fällt aus der Planung', async () => {
+    const p = stand().probe;
+    expect(p.leeren.status).toBe(200);
+    expect(p.leeren_schluessel, 'Leeren löscht den Schlüssel — der Nachtrag hielte das für „nie gehabt"').toBe(true);
+    expect(p.lauf.vorschau.map((e) => e.id)).not.toContain(1010);
+    expect(p.lauf.zaehlung.geleert).toBeGreaterThanOrEqual(1);
+  });
+
+  test('der Bericht nennt keine Anzeigenamen und keine E-Mail', async () => {
+    const roh = JSON.stringify(stand().probe.lauf);
+    for (const verboten of ['Max Mustermann', 'Support Team', 'Doppel A', '@', 'display_name', 'user_login']) {
+      expect(roh, `der Bericht enthält „${verboten}"`).not.toContain(verboten);
+    }
+  });
+
+  test('der Deckel greift und wird gemeldet', async () => {
+    const g = stand().probe.gedeckelt;
+    expect(g.abgeschnitten).toBe(true);
+    expect(g.zaehlung.konten).toBe(3);
+  });
+
+  test('die Route ist nur für die Verwaltung, nur lesend', async () => {
+    const fs = require('node:fs');
+    const path = require('node:path');
+    const { phpOhneKommentare } = require('./lib/php-code');
+    const php = phpOhneKommentare(fs.readFileSync(path.join(__dirname, '..', '..', 'functions.php'), 'utf8'));
+    const m = php.match(/register_rest_route\(\s*'eventboerse\/v1',\s*'\/hq\/nicknames',\s*array\(([\s\S]*?)\)\s*\);/);
+    expect(m, 'die Route /hq/nicknames ist nicht registriert').not.toBeNull();
+    expect(m[1]).toMatch(/'methods'\s*=>\s*'GET'/);
+    expect(m[1]).toMatch(/'permission_callback'\s*=>\s*'eb_hq_verwaltung_darf'/);
+    expect(stand().probe.route).toBe(200);
+  });
+});

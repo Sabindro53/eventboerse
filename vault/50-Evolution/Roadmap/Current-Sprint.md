@@ -16,7 +16,7 @@ Zahlen ihrer Zeit — die sind Historie, kein Ist-Stand. Der Ensemble-Kontext
 liest diese Datei von oben; ein Modell, das „68 Tests" als aktuell meldet, hat
 einen alten Abschnitt gelesen und nicht diesen.
 
-- **Playwright-Suite: 1421 Tests in 94 Suiten**, blockierendes Gate in `pr-check.yml`.
+- **Playwright-Suite: 1430 Tests in 94 Suiten**, blockierendes Gate in `pr-check.yml`.
   Läuft seit dem Self-Hosting auch ohne Netzzugang vollständig durch
 
 ## Übergabe Codex → Claude Code: UX und Nicknames (15.10.2026)
@@ -39,6 +39,8 @@ einen alten Abschnitt gelesen und nicht diesen.
 **Claude Code, 15.10.2026 — Schritt 1 abgeschlossen:** Codex' Gesamtlauf (gestartet vor den letzten Korrekturen) endete 1377 grün / 12 rot. Zwei Ursachen lagen in dieser Änderung selbst: (a) der englische Kommentar „in-flight" in `60-freunde-gruppen.js` — `icons.mjs` sammelt jedes Wort, `flight` galt damit als benutztes, fehlendes Icon. Am Basisstand war das Tor grün; Kommentar auf Deutsch umgeschrieben, kein Icon nachgezogen. (b) Diese Übergabe stand ÜBER „Stand heute" und drückte den Ist-Stand aus den ersten 30 Zeilen (`kern.spec.js`, Ensemble-Kontext) — Abschnitt hierher verschoben. Rest ist Umgebung: `css-minify` an der kaputten lokalen `npx` (mit Shim auf `npx-cli.js` grün), `steuernummer-deploy` an BSD-`sed` (CI läuft auf Linux, Workflow in diesem Diff unberührt). Nachlauf: freunde-ansicht + icons + kern + css-minify **115/115**, `tore.mjs` **16/16 grün**. `assets/eb-auftragsstrom.json` wurde dabei aus dem aktuellen Journal neu erzeugt — gehört nicht zu dieser Änderung, nicht übernommen. Committet als `106d7c3` (ohne Push). `docs/ux-audit-2026-10-15/` bewusst NICHT committet: nennt den Inhaber mit Namen und Adminrechten, das Repo ist öffentlich.
 
 **Claude Code, 15.10.2026 — Schritt 2, erster Teil (Nicknames):** Auffindbarkeit getrennt vom Nickname (`eb_handle_auffindbar`), Nachtrag vergibt verborgen, ein Schreibweg unter `GET_LOCK`, Bremse auf Namenswechsel, offene Prüfroute `social/handle/frei` für die Registrierung, gemeinsamer Nickname-Kasten auf `/freunde` und in den Einstellungen, entprellte Prüfung im Registrierungsformular, sichtbarer Fehlschlag nach dem Anlegen. Details und Begründung: CLAUDE.md, Abschnitt „Nickname für alle". Nachweise: `social.spec.js` 61, `nickname-ansicht.spec.js` 19 (dreifach wiederholt stabil), 27 Mutationen rot. `EB_HANDLE_NACHTRAG` NICHT umgelegt, kein Rechtstext geändert. **Offen:** `GET_LOCK` auf IONOS live belegen; Migrations-Probelauf mit Zählung (N01); Suche nach öffentlichem Anzeigenamen; Hinweis beim nächsten Besuch; danach Schritt 3 (Seitenpakete).
+
+**Claude Code, 15.10.2026 — Probelauf (N01):** `GET /hq/nicknames` (nur Verwaltung) zählt, plant und schreibt nichts — Zustand vorher/nachher im Test verglichen. Nebenfund behoben: Leeren des Nicknames löschte den Schlüssel, der Nachtrag hätte Zurückgezogene doch erfasst; jetzt `''`. `social.spec.js` 70, 12 weitere Mutationen rot (zweimal gefahren). **Offen:** HQ-Knopf für den Probelauf; Probelauf einmal live ansehen, BEVOR `EB_HANDLE_NACHTRAG` gesetzt wird.
 
 **Betriebsgrenze:** Lokal weiterarbeiten; nicht pushen, mergen, deployen, echte Nachrichten senden oder reale Buchungen/Zahlungen auslösen. Der Nutzer möchte Fortschritt und eine Fortsetzung durch Claude Code, nicht eine ungeprüfte Live-Veröffentlichung. Kurze Chatmeldungen, Details in dieser kanonischen Übergabe fortschreiben. Noch kein PR geöffnet.
 

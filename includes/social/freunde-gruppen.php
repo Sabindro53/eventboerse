@@ -172,7 +172,22 @@ function eb_handle_vorschlag( $name ) {
  * ohne Ausstieg waere auf einem geteilten PHP-Pool genau die Sorte Last,
  * die am 22.08.2026 die Website haengen liess.
  */
-function eb_handle_freier( $wunsch, $user_id = 0 ) {
+function eb_handle_freier( $wunsch, $user_id = 0, $belegt = null, $mit_db = true ) {
+    // `$belegt` (Name => Konto) ist fuer den Probelauf: er schreibt nichts,
+    // also stehen seine eigenen Planungen nicht in der Datenbank — ohne die
+    // Liste bekaemen zwei „Max Mustermann" denselben Vorschlag, und der
+    // Probelauf meldete null Kollisionen fuer einen Lauf, der eine haette.
+    $frei = function ( $kandidat ) use ( $belegt, $mit_db, $user_id ) {
+        if ( is_array( $belegt ) && isset( $belegt[ $kandidat ] )
+            && (int) $belegt[ $kandidat ] !== (int) $user_id ) {
+            return false;
+        }
+        if ( ! $mit_db ) {
+            return true;
+        }
+        $besitzer = eb_handle_besitzer( $kandidat );
+        return ! $besitzer || (int) $besitzer === (int) $user_id;
+    };
     $basis = eb_handle_vorschlag( $wunsch );
     if ( strlen( $basis ) < 3 ) {
         $basis = 'eb.' . absint( $user_id );
@@ -189,8 +204,7 @@ function eb_handle_freier( $wunsch, $user_id = 0 ) {
         if ( eb_handle_reserviert( $kandidat ) ) {
             continue;
         }
-        $besitzer = eb_handle_besitzer( $kandidat );
-        if ( ! $besitzer || (int) $besitzer === (int) $user_id ) {
+        if ( $frei( $kandidat ) ) {
             return $kandidat;
         }
     }
@@ -199,8 +213,7 @@ function eb_handle_freier( $wunsch, $user_id = 0 ) {
     // sonst bliebe genau dieses Konto fuer immer ohne Nickname.
     $neutral = 'eventfan.' . absint( $user_id );
     if ( absint( $user_id ) && eb_handle_gueltig( $neutral ) && $neutral !== $basis ) {
-        $besitzer = eb_handle_besitzer( $neutral );
-        if ( ! $besitzer || (int) $besitzer === (int) $user_id ) {
+        if ( $frei( $neutral ) ) {
             return $neutral;
         }
     }
@@ -302,6 +315,137 @@ function eb_handles_nachtragen( $deckel = 200 ) {
         update_option( 'eb_handles_nachtrag_32', 'fertig' );
     }
     return $gesetzt;
+}
+
+/**
+ * Probelauf der Nickname-Vergabe — zählt, plant, SCHREIBT NICHTS.
+ *
+ * ── WARUM VOR DEM SCHALTER ──────────────────────────────────────────────
+ *
+ * Der Nachtrag (`eb_handles_nachtragen`) ist eine Änderung an echten
+ * Konten, und `EB_HANDLE_NACHTRAG` ist ein Schalter, den man umlegt, ohne
+ * vorher zu sehen, was er tut. Dieser Lauf beantwortet genau das:
+ * wie viele Konten haben einen gültigen Namen, wie viele keinen, wie
+ * viele einen ungültigen oder doppelten aus einer älteren Regel, und was
+ * bekämen die übrigen.
+ *
+ * ── WAS ER NICHT TUT ────────────────────────────────────────────────────
+ *
+ * Er ruft weder `update_user_meta` noch `update_option` noch die
+ * Namenssperre. Ein „Probelauf", der nebenbei eine Marke setzt oder eine
+ * Sperre hält, wäre keiner — der Test vergleicht deshalb den GESAMTEN
+ * Zustand vorher und nachher.
+ *
+ * ── WAS IM BERICHT STEHT ────────────────────────────────────────────────
+ *
+ * Zahlen, Konto-Kennungen und geplante Nicknames — keine E-Mail, kein
+ * Anzeigename. Der Vorschlag ist aus dem Anzeigenamen abgeleitet und damit
+ * so öffentlich wie dieser; die Vorschau ist trotzdem auf 20 gedeckelt.
+ * Die Route dazu ist Administratoren vorbehalten.
+ *
+ * `geleert` sind Konten, die ihren Namen SELBST zurückgezogen haben: der
+ * Schlüssel existiert, der Wert ist leer. Der Nachtrag lässt sie aus, und
+ * der Probelauf führt sie deshalb nicht unter „würde vergeben".
+ */
+function eb_handles_probelauf( $deckel = 5000 ) {
+    $deckel = max( 1, min( 20000, absint( $deckel ) ) );
+    $nutzer = get_users( array(
+        'number'  => $deckel + 1,
+        'fields'  => array( 'ID', 'display_name', 'user_login' ),
+        'orderby' => 'ID',
+        'order'   => 'ASC',
+    ) );
+    $abgeschnitten = count( $nutzer ) > $deckel;
+    if ( $abgeschnitten ) {
+        $nutzer = array_slice( $nutzer, 0, $deckel );
+    }
+
+    $z = array(
+        'konten' => count( $nutzer ), 'gueltig' => 0, 'auffindbar' => 0,
+        'verborgen' => 0, 'fehlt' => 0, 'geleert' => 0, 'ungueltig' => 0,
+        'doppelt' => 0, 'reserviert_bestand' => 0,
+    );
+    $belegt    = array();   // Name => Konto, Bestand UND Planung
+    $je_name   = array();   // Name => [Konten], für die Dopplungen
+    $fehlend   = array();
+    $ungueltig = array();
+
+    foreach ( $nutzer as $u ) {
+        $id  = (int) $u->ID;
+        $hat = metadata_exists( 'user', $id, 'eb_handle' );
+        $h   = $hat ? strtolower( trim( (string) get_user_meta( $id, 'eb_handle', true ) ) ) : '';
+        if ( ! $hat ) {
+            $z['fehlt']++;
+            $fehlend[] = $u;
+            continue;
+        }
+        if ( $h === '' ) {
+            $z['geleert']++;
+            continue;
+        }
+        if ( ! eb_handle_gueltig( $h ) ) {
+            $z['ungueltig']++;
+            $ungueltig[] = $id;
+            continue;
+        }
+        $z['gueltig']++;
+        $z[ eb_handle_auffindbar( $id ) ? 'auffindbar' : 'verborgen' ]++;
+        if ( eb_handle_reserviert( $h ) ) {
+            $z['reserviert_bestand']++;
+        }
+        $je_name[ $h ][] = $id;
+        $belegt[ $h ]    = $id;
+    }
+
+    $doppelt = array();
+    foreach ( $je_name as $name => $ids ) {
+        if ( count( $ids ) > 1 ) {
+            $z['doppelt']++;
+            $doppelt[] = $ids;
+        }
+    }
+
+    // Planung: dieselbe Ableitung wie der Nachtrag, gegen Bestand UND die
+    // bereits geplanten Namen. Die Datenbank wird nur gefragt, wenn der
+    // Bestand abgeschnitten ist — dann kennt `$belegt` nicht alle Namen.
+    $plan = array( 'wuerde_vergeben' => 0, 'davon_neutral' => 0, 'ohne_vorschlag' => 0 );
+    $vorschau = array();
+    foreach ( $fehlend as $u ) {
+        $name = trim( (string) $u->display_name );
+        if ( $name === '' ) {
+            $name = (string) $u->user_login;
+        }
+        $vorschlag = eb_handle_freier( $name, $u->ID, $belegt, $abgeschnitten );
+        if ( $vorschlag === '' ) {
+            $plan['ohne_vorschlag']++;
+            continue;
+        }
+        $belegt[ $vorschlag ] = (int) $u->ID;
+        $plan['wuerde_vergeben']++;
+        if ( strpos( $vorschlag, 'eventfan.' ) === 0 ) {
+            $plan['davon_neutral']++;
+        }
+        if ( count( $vorschau ) < 20 ) {
+            $vorschau[] = array( 'id' => (int) $u->ID, 'nickname' => $vorschlag );
+        }
+    }
+
+    return array(
+        'probelauf'     => true,
+        'abgeschnitten' => $abgeschnitten,
+        'zaehlung'      => $z,
+        'plan'          => $plan,
+        'ungueltig'     => array_slice( $ungueltig, 0, 50 ),
+        'doppelt'       => array_slice( $doppelt, 0, 50 ),
+        'vorschau'      => $vorschau,
+        'schalter'      => defined( 'EB_HANDLE_NACHTRAG' ) && EB_HANDLE_NACHTRAG,
+        'marke'         => get_option( 'eb_handles_nachtrag_32' ) === 'fertig',
+    );
+}
+
+/** REST: GET /hq/nicknames — der Probelauf, nur für Administratoren. */
+function eb_hq_nicknames_probelauf( $request ) {
+    return new WP_REST_Response( eb_handles_probelauf( 5000 ), 200 );
 }
 
 /** Wem gehört dieser Handle? 0 = niemandem. */

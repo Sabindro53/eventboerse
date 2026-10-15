@@ -104,6 +104,9 @@ function get_user_meta( $id, $key, $single = false ) {
 }
 function update_user_meta( $id, $key, $val ) { $GLOBALS['usermeta'][ (int) $id ][ $key ] = $val; }
 function delete_user_meta( $id, $key ) { unset( $GLOBALS['usermeta'][ (int) $id ][ $key ] ); }
+function metadata_exists( $typ, $id, $key ) {
+    return array_key_exists( $key, $GLOBALS['usermeta'][ (int) $id ] ?? array() );
+}
 function get_option( $name, $vorgabe = false ) {
     return $GLOBALS['optionen'][ $name ] ?? $vorgabe;
 }
@@ -122,8 +125,12 @@ function get_users( $args ) {
         }
         $raus = array();
         foreach ( $GLOBALS['nutzer'] as $uid => $d ) {
-            $hat = (string) ( $GLOBALS['usermeta'][ $uid ][ $mq['key'] ] ?? '' );
-            if ( $hat !== '' ) { continue; }
+            // NOT EXISTS heisst bei WordPress: der SCHLUESSEL fehlt — nicht
+            // „der Wert ist leer". Hier stand `$hat !== ''`, und damit sah ein
+            // bewusst geleerter Name fuer den Pruefstand aus wie keiner. Genau
+            // diese Verwechslung hatte die Route selbst (sie loeschte den
+            // Schluessel), und der Pruefstand konnte sie nicht sehen.
+            if ( array_key_exists( $mq['key'], $GLOBALS['usermeta'][ $uid ] ?? array() ) ) { continue; }
             $raus[] = (object) array(
                 'ID'           => (int) $uid,
                 'display_name' => $d['display_name'],
@@ -132,6 +139,22 @@ function get_users( $args ) {
             if ( count( $raus ) >= (int) ( $args['number'] ?? 100 ) ) { break; }
         }
         return $raus;
+    }
+    // Ohne jede Meta-Bedingung: alle Konten, nach Kennung — so fragt der
+    // Probelauf. Ein Stellvertreter, der hier „niemand" antwortete, liesse
+    // den Probelauf null Konten zaehlen und grün aussehen.
+    if ( ! isset( $args['meta_key'] ) ) {
+        $raus = array();
+        $ids  = array_keys( $GLOBALS['nutzer'] );
+        sort( $ids );
+        foreach ( $ids as $uid ) {
+            $raus[] = (object) array(
+                'ID'           => (int) $uid,
+                'display_name' => $GLOBALS['nutzer'][ $uid ]['display_name'],
+                'user_login'   => 'u' . $uid,
+            );
+        }
+        return array_slice( $raus, 0, (int) ( $args['number'] ?? 100 ) );
     }
     $key     = $args['meta_key'] ?? '';
     $wert    = (string) ( $args['meta_value'] ?? '' );
@@ -1045,5 +1068,37 @@ als( 999 );
 $n['frei_eigener']   = ruf( 'eb_social_handle_frei', array(), array( 'h' => 'lena' ) );
 
 $ergebnis['nick'] = $n;
+
+/* ══════════════════════════════════════════════════════════════════════
+   8 · DER PROBELAUF ZÄHLT UND PLANT — UND SCHREIBT NICHTS
+   ══════════════════════════════════════════════════════════════════════ */
+
+$p = array();
+// Leeren schreibt '' — der Schluessel bleibt, der Nachtrag laesst das Konto aus.
+als( 1010 ); nutzer_anlegen( 1010, 'Rueck Zug', 'rueck.zug' );
+$p['leeren'] = ruf( 'eb_social_handle_setzen', array( 'handle' => '' ) );
+$p['leeren_schluessel'] = metadata_exists( 'user', 1010, 'eb_handle' );
+
+nutzer_anlegen( 1000, 'Max Mustermann' );
+nutzer_anlegen( 1001, 'Max Mustermann' );          // gleicher Name, nichts geschrieben
+nutzer_anlegen( 1002, '' );                        // ohne Anzeigenamen
+nutzer_anlegen( 1003, 'Support Team' );            // nur reserviert ableitbar
+nutzer_anlegen( 1004, 'Alt Regel' );
+$GLOBALS['usermeta'][1004]['eb_handle'] = 'Alt Name!';   // aeltere, lockere Regel
+nutzer_anlegen( 1005, 'Doppel A', 'doppel' );
+nutzer_anlegen( 1006, 'Doppel B', 'doppel' );
+
+$vorher = json_encode( array( $GLOBALS['usermeta'], $GLOBALS['optionen'], $db->sperren ) );
+$log    = count( $db->sperr_log );
+$p['lauf'] = eb_handles_probelauf( 5000 );
+$p['unveraendert'] = $vorher === json_encode( array( $GLOBALS['usermeta'], $GLOBALS['optionen'], $db->sperren ) );
+$p['keine_sperre'] = count( $db->sperr_log ) === $log;
+$p['ohne_schluessel'] = count( array_filter( array_keys( $GLOBALS['nutzer'] ),
+    function ( $id ) { return ! metadata_exists( 'user', $id, 'eb_handle' ); } ) );
+$p['nutzer_gesamt'] = count( $GLOBALS['nutzer'] );
+$p['gedeckelt'] = eb_handles_probelauf( 3 );
+$p['route'] = eb_hq_nicknames_probelauf( new WP_REST_Request() )->status;
+
+$ergebnis['probe'] = $p;
 
 echo json_encode( $ergebnis, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES ), "\n";

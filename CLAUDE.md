@@ -2248,7 +2248,7 @@ Kategorie, `_feedRadarGruppen` ist Karten-Clustering, und `/collaborations`
 Dienstleister→Dienstleister, keine gemeinsame Planung.
 
 ```bash
-npx playwright test tests/e2e/social.spec.js           # 61 Tests, PHP wirklich ausgefuehrt
+npx playwright test tests/e2e/social.spec.js           # 70 Tests, PHP wirklich ausgefuehrt
 npx playwright test tests/e2e/freunde-ansicht.spec.js  # 23 Tests, echter Browser
 ```
 
@@ -2464,11 +2464,30 @@ eine Störung ist keine Absage. Scheitert der Nickname nach dem Anlegen,
 steht es jetzt da; vorher wurde das verschluckt, und das Konto blieb
 namenlos, ohne dass es jemand erfuhr.
 
-**Noch nicht gebaut:** Probelauf der Migration mit Zählung (Briefing N01),
-Suche nach öffentlichem Anzeigenamen, der Hinweis „Dein Nickname ist @…"
+**Der Probelauf steht vor dem Schalter** (Briefing N01): `GET /hq/nicknames`,
+nur Verwaltung (`eb_hq_verwaltung_darf`), ruft `eb_handles_probelauf()`. Er
+zählt jedes Konto in genau eine Spalte (gültig · fehlt · geleert ·
+ungültig), benennt doppelte und ungültige Altlasten mit Konto-Kennung und
+plant die Vergabe — gegen den Bestand **und** die eigenen Vorschläge: er
+schreibt nichts, also stünden seine Planungen sonst nirgends, und zwei „Max
+Mustermann" bekämen denselben Namen. Der Test vergleicht den **gesamten**
+Zustand vorher und nachher (Meta, Optionen, Sperren). Keine Anzeigenamen im
+Bericht, Vorschau auf 20 gedeckelt.
+
+**Dabei gefunden: der Rückzug war keiner.** Der Nachtrag sucht Konten, bei
+denen `eb_handle` **fehlt**, und sein Kommentar versprach seit dem
+15.09.2026, ein bewusst geleerter Name werde nie überschrieben. Die Route
+**löschte** den Schlüssel aber beim Leeren — für den Nachtrag sah das aus wie
+„hatte nie einen". Jetzt wird `''` geschrieben. Der Prüfstand hatte es nicht
+sehen können: seine `NOT EXISTS`-Nachbildung behandelte einen leeren Wert wie
+einen fehlenden Schlüssel, also genau wie die Route falsch herum. Ein
+Stellvertreter, der denselben Irrtum hat wie sein Subjekt, bestätigt ihn nur.
+
+**Noch nicht gebaut:** ein HQ-Knopf für den Probelauf (die Route braucht den
+`wp_rest`-Nonce, den das HQ injiziert), Suche nach öffentlichem Anzeigenamen, der Hinweis „Dein Nickname ist @…"
 beim nächsten Besuch, Profil-Links per Nickname.
 
-Siebenundzwanzig Mutationen über Server und Oberfläche, jede macht ihre
+Neununddreißig Mutationen über Server, Probelauf und Oberfläche, jede macht ihre
 Suite rot. Eine überlebte zuerst und hat ein Loch im Prüfstand gezeigt: die
 Besitzerprüfung der Vorschläge hatte kein Subjekt, weil der erste Vorschlag
 ohnehin frei war. Eine zweite war im ersten Lauf **scheinbar** rot — ein
@@ -5693,7 +5712,7 @@ npm run test:smoke      # nur Routen-Smoke-Tests
 npm run test:css        # CSS-Minify-Regression (Verlaufsschrift)
 ```
 
-1421 Tests in 94 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
+1430 Tests in 94 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
 Sätze), Gebühren (centgenau, JS↔PHP-Parität), Wissensbasis (Antworten +
 Leckage-Schutz), Zufluss (Quarantäne-Tor + Demo-Feed-Ehrlichkeit),
 Verbindungen (HQ-Zugang + Connector-Katalog), Auftragsstrom (Herkunft +
@@ -6149,7 +6168,7 @@ Push auf `main` → GitHub Actions (`.github/workflows/ionos-deploy.yml`) → SF
 | `app-shell.html` | **Einzige Quelle des SPA-Bodys** (PHP-frei). Body-Markup NUR hier editieren. |
 | `index.php` | WordPress-Template: PHP-Head (Per-Page-Meta) + `readfile(app-shell.html)` + `wp_footer()`. Body NICHT direkt editieren. |
 | `index.html` | Lokale Dev-Shell, **generiert** via `./build-index-html.sh` (= `index.local-head.html` + `app-shell.html` + `index.local-foot.html`). Nicht von Hand editieren. |
-| `functions.php` | WordPress-Theme: REST API (138 Routen), Asset-Registrierung — 23 davon in `includes/social/` (Freunde, Gruppen, gemeinsamer Plan), 2 in `includes/stimme/` (Sprachausgabe und -erkennung des Assistenten) |
+| `functions.php` | WordPress-Theme: REST API (139 Routen), Asset-Registrierung — 23 davon in `includes/social/` (Freunde, Gruppen, gemeinsamer Plan), 2 in `includes/stimme/` (Sprachausgabe und -erkennung des Assistenten) |
 | `webauthn.php` | Passkey/WebAuthn ohne Composer-Dependencies |
 
 **JS-Workflow (seit 2026-08, kein Drift):** Frontend-Änderungen NUR in `js/modules/**`,
@@ -6170,7 +6189,7 @@ Alle Navigation läuft über `navigateTo(page, data, skipHistory)`. Seiten-Token
 
 Base: `/wp-json/eventboerse/v1/`. Aufgebaut per `_apiUrl(endpoint)` (fällt auf relativen Pfad zurück wenn `eventboerseApi.restUrl` nicht gesetzt). Authentifizierung per WordPress-Nonce → `X-WP-Nonce` Header via `_apiHeaders()`.
 
-138 Route-Registrierungen (`register_rest_route`), grob gruppiert nach: Auth, Nutzer, WebAuthn, 2FA, Listings, Messaging, Reviews, Payments, Favoriten, Admin, Rechtsablage, **Freunde & Gruppen** (`includes/social/routen.php`), **gemeinsamer Plan** (`includes/social/plan-routen.php`), **PStTG-Angaben** (`includes/steuer/psttg-routen.php`), **Sprache des Assistenten** (`includes/stimme/routen.php`), Utilities.
+139 Route-Registrierungen (`register_rest_route`), grob gruppiert nach: Auth, Nutzer, WebAuthn, 2FA, Listings, Messaging, Reviews, Payments, Favoriten, Admin, Rechtsablage, **Freunde & Gruppen** (`includes/social/routen.php`), **gemeinsamer Plan** (`includes/social/plan-routen.php`), **PStTG-Angaben** (`includes/steuer/psttg-routen.php`), **Sprache des Assistenten** (`includes/stimme/routen.php`), Utilities.
 
 **Gezählt wird über alle PHP-Dateien, nicht nur `functions.php`.** Bis zum 09.09.2026 las `kontext.mjs` nur die eine Datei — und meldete „106 behauptet, 106 gemessen" für eine Anwendung mit 124 Routen, sobald die ersten ausgelagert waren. Ein Prüfer, der sein Subjekt nur zur Hälfte kennt, gibt eine Entwarnung, die er nicht decken kann.
 

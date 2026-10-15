@@ -10973,6 +10973,14 @@ add_action( 'rest_api_init', function () {
     // Nachruestung der WebP-Begleitdateien. Dieselbe Schranke wie beim
     // Demo-Import: angemeldeter Administrator, nicht blosser HQ-Zugang. Die
     // Route schreibt in wp-content/uploads.
+    // Probelauf der Nickname-Vergabe: zaehlt und plant, schreibt nichts.
+    // Trotzdem Verwaltung, nicht HQ-Zugang — der Bericht nennt Konten.
+    register_rest_route( 'eventboerse/v1', '/hq/nicknames', array(
+        'methods'             => 'GET',
+        'callback'            => 'eb_hq_nicknames_probelauf',
+        'permission_callback' => 'eb_hq_verwaltung_darf',
+    ) );
+
     register_rest_route( 'eventboerse/v1', '/hq/webp', array(
         'methods'             => 'GET, POST',
         'callback'            => 'eb_hq_webp_nachruesten',
