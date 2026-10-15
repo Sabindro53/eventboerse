@@ -755,10 +755,12 @@ test.describe('Nickname-Probelauf: erst sehen, dann umlegen', () => {
   });
 
   test('die Route ist nur für die Verwaltung, nur lesend', async () => {
-    const fs = require('node:fs');
     const path = require('node:path');
     const { phpOhneKommentare } = require('./lib/php-code');
-    const php = phpOhneKommentare(fs.readFileSync(path.join(__dirname, '..', '..', 'functions.php'), 'utf8'));
+    // Der Griff nimmt einen PFAD, nicht den Inhalt. Hier stand der Inhalt —
+    // auf macOS ging das durch, auf Linux scheiterte es an der Grenze von
+    // 128 KB je Argument (functions.php hat rund 600 KB). Erst CI hat es gezeigt.
+    const php = phpOhneKommentare(path.join(__dirname, '..', '..', 'functions.php'));
     const m = php.match(/register_rest_route\(\s*'eventboerse\/v1',\s*'\/hq\/nicknames',\s*array\(([\s\S]*?)\)\s*\);/);
     expect(m, 'die Route /hq/nicknames ist nicht registriert').not.toBeNull();
     expect(m[1]).toMatch(/'methods'\s*=>\s*'GET'/);
