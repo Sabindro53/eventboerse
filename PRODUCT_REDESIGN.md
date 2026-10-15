@@ -137,7 +137,7 @@ Nichts fällt weg. Jede Zeile ist entweder unverändert erreichbar oder an einem
 | Menü „Kontakt & Support" | Hilfe | Menü *Konto* → „Hilfe & Kontakt" |
 | Menü „Admin-Bereich" | Verwaltung | eigener Abschnitt, nur Admin (unverändert) |
 | Mobilleiste „Board" | Planungs-Board | „Planen" (Planer) bzw. „Aufträge" (Dienstleister); Planungs-Board für Dienstleister im Menü *Mein Event* |
-| `explore`, `aktuelles`, `browse`, `home` | Entdecken | **unverändert in dieser Stufe** — Zusammenlegung ist Stufe 2 und braucht eine Entscheidung (s. offene Fragen) |
+| `explore`, `aktuelles`, `browse`, `home` | Entdecken | **unverändert in dieser Stufe** — Zusammenlegung zu „Entdecken" ist Stufe 2 (entschieden, Q1) |
 | alle Rechtsseiten | Pflichtangaben | unverändert (Fußzeile, Routen) — die Pflichtseiten-Prüfung (`recht.mjs`) bleibt Maßstab |
 
 ---
@@ -180,11 +180,15 @@ Alle sind mit Browser-Tests abgesichert (`navigation-rollen.spec.js`), einschlie
 - A2 — Dienstleister öffnen die App unterwegs vor allem für Aufträge und Termine, nicht zum Planen. (**Nicht gemessen** — es gibt keine Nutzungsdaten im Repo.)
 - A3 — (zurückgezogen) Die Gesuche mit Anbieterpreis entstanden **nicht** über den voreingestellten Typ — die Rollen-Voreinstellung war schon richtig (siehe 1.3).
 
-**Offene Fragen an den Inhaber**
-- Q1 — Sollen `explore` und `aktuelles` zusammengelegt werden (Stufe 2)? Welcher Name: „Entdecken" oder „Feed"?
-- Q2 — „Favoriten" oder „Merkliste" — welcher Begriff gilt überall?
-- Q3 — Sollen bestehende Gesuche, die als „Angebot" gespeichert sind, umgestellt werden? Das wäre ein Eingriff in echte Daten und ist **nicht** Teil dieser Arbeit.
+**Fragen an den Inhaber — entschieden am 15.10.2026**
+- Q1 — Sollen `explore` und `aktuelles` zusammengelegt werden (Stufe 2)? Welcher Name?
+  → **Ja, zusammenlegen; der Name ist „Entdecken".** Auch „Feed" in der Mobilleiste wird „Entdecken".
+- Q2 — „Favoriten" oder „Merkliste"?
+  → **„Merkliste" gilt überall**, auch im Menü und im Seitentitel, wo heute „Favoriten" steht.
+- Q3 — Sollen bestehende Gesuche, die als „Angebot" gespeichert sind, umgestellt werden?
+  → **Nein.** Es gibt keinen Eingriff in echte Daten. Zuerst wird die Ursache von F01–F03 gemessen; eine Korrektur, falls nötig, erfolgt nur in der Darstellung.
 - Q4 — 3D: nach Stufe 2 ein Prototyp mit Messbudget, oder ganz verzichten?
+  → **Prototyp nach Stufe 2**, als Ersatz der Startseiten-Bühne und mit dem Budget aus Abschnitt 7. Vorher wird nichts gebaut.
 
 ## Quellen der Befunde F01–F32
 
