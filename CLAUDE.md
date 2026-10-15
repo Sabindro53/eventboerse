@@ -2483,11 +2483,20 @@ sehen können: seine `NOT EXISTS`-Nachbildung behandelte einen leeren Wert wie
 einen fehlenden Schlüssel, also genau wie die Route falsch herum. Ein
 Stellvertreter, der denselben Irrtum hat wie sein Subjekt, bestätigt ihn nur.
 
-**Noch nicht gebaut:** ein HQ-Knopf für den Probelauf (die Route braucht den
-`wp_rest`-Nonce, den das HQ injiziert), Suche nach öffentlichem Anzeigenamen, der Hinweis „Dein Nickname ist @…"
+**Im HQ unter „@ Nickname-Probelauf"** (nur Administratoren). Er läuft
+**erst auf Klick**, nicht beim Öffnen — er geht über alle Konten, und ein
+Blick ins HQ soll den PHP-Pool nicht jedes Mal so belasten. Der Bericht
+zeigt Bestand, Plan, Vorschau, Altlasten und den Schalterstand, alles über
+`textContent`. **Gehen die Spalten nicht auf, steht eine Warnung da statt
+„fertig"** — ebenso bei einem abgeschnittenen Lauf und bei einer Antwort, die
+sich nicht als Probelauf ausweist. Der Test schneidet Markup UND Skript aus
+`hq.html`, statt ein Gerüst nachzubauen; eine umbenannte Kennung bliebe sonst
+grün, und der echte Knopf wäre tot.
+
+**Noch nicht gebaut:** Suche nach öffentlichem Anzeigenamen, der Hinweis „Dein Nickname ist @…"
 beim nächsten Besuch, Profil-Links per Nickname.
 
-Neununddreißig Mutationen über Server, Probelauf und Oberfläche, jede macht ihre
+Neunundvierzig Mutationen über Server, Probelauf, HQ und Oberfläche, jede macht ihre
 Suite rot. Eine überlebte zuerst und hat ein Loch im Prüfstand gezeigt: die
 Besitzerprüfung der Vorschläge hatte kein Subjekt, weil der erste Vorschlag
 ohnehin frei war. Eine zweite war im ersten Lauf **scheinbar** rot — ein
@@ -2497,6 +2506,7 @@ Mutationen laufen deshalb zweimal.
 
 ```bash
 npx playwright test tests/e2e/nickname-ansicht.spec.js  # 19 Tests, echter Browser
+npx playwright test tests/e2e/hq-nickname.spec.js       # 8 Tests, echter Browser
 ```
 
 #### Die Rollen und was sie sehen
@@ -5712,7 +5722,7 @@ npm run test:smoke      # nur Routen-Smoke-Tests
 npm run test:css        # CSS-Minify-Regression (Verlaufsschrift)
 ```
 
-1430 Tests in 94 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
+1438 Tests in 95 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
 Sätze), Gebühren (centgenau, JS↔PHP-Parität), Wissensbasis (Antworten +
 Leckage-Schutz), Zufluss (Quarantäne-Tor + Demo-Feed-Ehrlichkeit),
 Verbindungen (HQ-Zugang + Connector-Katalog), Auftragsstrom (Herkunft +

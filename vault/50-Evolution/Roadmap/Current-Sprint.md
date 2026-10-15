@@ -16,7 +16,7 @@ Zahlen ihrer Zeit — die sind Historie, kein Ist-Stand. Der Ensemble-Kontext
 liest diese Datei von oben; ein Modell, das „68 Tests" als aktuell meldet, hat
 einen alten Abschnitt gelesen und nicht diesen.
 
-- **Playwright-Suite: 1430 Tests in 94 Suiten**, blockierendes Gate in `pr-check.yml`.
+- **Playwright-Suite: 1438 Tests in 95 Suiten**, blockierendes Gate in `pr-check.yml`.
   Läuft seit dem Self-Hosting auch ohne Netzzugang vollständig durch
 
 ## Übergabe Codex → Claude Code: UX und Nicknames (15.10.2026)
@@ -40,7 +40,9 @@ einen alten Abschnitt gelesen und nicht diesen.
 
 **Claude Code, 15.10.2026 — Schritt 2, erster Teil (Nicknames):** Auffindbarkeit getrennt vom Nickname (`eb_handle_auffindbar`), Nachtrag vergibt verborgen, ein Schreibweg unter `GET_LOCK`, Bremse auf Namenswechsel, offene Prüfroute `social/handle/frei` für die Registrierung, gemeinsamer Nickname-Kasten auf `/freunde` und in den Einstellungen, entprellte Prüfung im Registrierungsformular, sichtbarer Fehlschlag nach dem Anlegen. Details und Begründung: CLAUDE.md, Abschnitt „Nickname für alle". Nachweise: `social.spec.js` 61, `nickname-ansicht.spec.js` 19 (dreifach wiederholt stabil), 27 Mutationen rot. `EB_HANDLE_NACHTRAG` NICHT umgelegt, kein Rechtstext geändert. **Offen:** `GET_LOCK` auf IONOS live belegen; Migrations-Probelauf mit Zählung (N01); Suche nach öffentlichem Anzeigenamen; Hinweis beim nächsten Besuch; danach Schritt 3 (Seitenpakete).
 
-**Claude Code, 15.10.2026 — Probelauf (N01):** `GET /hq/nicknames` (nur Verwaltung) zählt, plant und schreibt nichts — Zustand vorher/nachher im Test verglichen. Nebenfund behoben: Leeren des Nicknames löschte den Schlüssel, der Nachtrag hätte Zurückgezogene doch erfasst; jetzt `''`. `social.spec.js` 70, 12 weitere Mutationen rot (zweimal gefahren). **Offen:** HQ-Knopf für den Probelauf; Probelauf einmal live ansehen, BEVOR `EB_HANDLE_NACHTRAG` gesetzt wird.
+**Claude Code, 15.10.2026 — Probelauf (N01):** `GET /hq/nicknames` (nur Verwaltung) zählt, plant und schreibt nichts — Zustand vorher/nachher im Test verglichen. Nebenfund behoben: Leeren des Nicknames löschte den Schlüssel, der Nachtrag hätte Zurückgezogene doch erfasst; jetzt `''`. `social.spec.js` 70, 12 weitere Mutationen rot (zweimal gefahren). **Offen:** Probelauf einmal live ansehen, BEVOR `EB_HANDLE_NACHTRAG` gesetzt wird.
+
+**Claude Code, 15.10.2026 — HQ-Knopf:** Block „@ Nickname-Probelauf" in `hq.html` (nur Admin, läuft erst auf Klick, Bericht über textContent, Warnung wenn Spalten nicht aufgehen / abgeschnitten / keine Probelauf-Bestätigung). `hq-nickname.spec.js` 8 Tests, 10 Mutationen zweimal rot. `hq-protected.php` neu erzeugt.
 
 **Betriebsgrenze:** Lokal weiterarbeiten; nicht pushen, mergen, deployen, echte Nachrichten senden oder reale Buchungen/Zahlungen auslösen. Der Nutzer möchte Fortschritt und eine Fortsetzung durch Claude Code, nicht eine ungeprüfte Live-Veröffentlichung. Kurze Chatmeldungen, Details in dieser kanonischen Übergabe fortschreiben. Noch kein PR geöffnet.
 
