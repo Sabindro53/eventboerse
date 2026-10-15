@@ -3749,11 +3749,14 @@ wandern zusammen.
 Vier Mutationen, jede macht die Suite rot: Knopf entfernt · Reiter nicht
 gesetzt · Untertitel zurück auf reinen Chat · Anmeldedialog statt Erklärung.
 
-**Die Mobilleiste ist bewusst NICHT angefasst.** Ihr Board-Slot führt laut
-Kommentar seit jeher zum Planungs-Board, *„das Auftragsboard erreichen
-Dienstleister über das Menü"* — eine dokumentierte Entscheidung, keine
-Nachlässigkeit. Fünf Plätze sind das Maximum einer solchen Leiste; sie
-umzuwidmen ist eine Produktentscheidung des Inhabers, keine Aufräumarbeit.
+**Die Mobilleiste war bewusst NICHT angefasst — bis zum 15.10.2026.** Ihr
+Board-Slot führte zum Planungs-Board, *„das Auftragsboard erreichen
+Dienstleister über das Menü"*. Sie umzuwidmen war eine Produktentscheidung
+des Inhabers; er hat sie mit dem Überarbeitungsauftrag getroffen. Seitdem
+heißt der dritte Platz für Dienstleister **„Aufträge"**, für alle anderen
+**„Planen"** (siehe „Navigation je Rolle" unten und `PRODUCT_REDESIGN.md`).
+Der Absatz bleibt stehen, damit niemand die alte Begründung für noch gültig
+hält.
 
 **Zwei tote Blöcke sind dabei herausgefallen.** `applyLogin()` und
 `applyLogout()` setzten Symbol und Text auf
@@ -3766,6 +3769,47 @@ in `30-auth.js` muss auch etwas treffen.
 
 ```bash
 npx playwright test tests/e2e/einstiege.spec.js   # 13 Tests, echte Klicks
+```
+
+### Navigation je Rolle — Stufe 1 der Überarbeitung
+
+Am 15.10.2026 auf Auftrag des Inhabers umgebaut. Konzept, Bestandsaufnahme
+und die Zuordnung „bisher → neuer Platz" stehen in **`PRODUCT_REDESIGN.md`**;
+hier nur, was beim Weiterbauen nicht vergessen werden darf.
+
+**Rollenweiche ist `_applyRoleNav()`, sonst nichts.** Hauptlink der Leiste
+(„Für Dienstleister" / „Mein Event" / „Mein Geschäft"), Menüabschnitte und
+dritter Platz der Mobilleiste werden dort gesetzt; `ebNavHauptweg()` fragt
+dieselbe Rolle. Beschriftung und Ziel wandern zusammen.
+
+**Kein Menüziel darf still verschwinden.** `navigation-rollen.spec.js`
+führt die Ziele von vor dem Umbau als feste Liste und verlangt, dass jedes
+für mindestens eine Rolle **sichtbar** erreichbar bleibt.
+
+**Ein versteckter Abschnitt ist kein Fokusziel.** Der erste Entwurf
+fokussierte beim Öffnen den ersten Knopf im DOM — beim Planer liegt der im
+versteckten „Mein Geschäft", und der Fokus blieb still am Avatar. Gefunden
+erst im Bildschirmfoto, nicht im Test; jetzt mutationsgeprüft.
+
+**Ein vermuteter Fehler, der keiner war.** Bei der Inventur sah es aus, als
+öffne die Inserat-Maske für Planer auf „Ich biete" — der Router setzt beim
+Öffnen `offer`. Aber `updateCreateFormForRole()` läuft danach und setzt
+Planer auf „Ich suche". Wer nur die eine Zeile liest, „behebt" etwas, das
+funktioniert. Neu ist nur die **ausdrückliche** Wahl über den Weg
+(`/create-listing/suche`), die nach der Rollen-Voreinstellung greift.
+
+**Symbole in Menü und Mobilleiste sind `aria-hidden`.** Vorher hieß jeder
+Knopf für einen Screenreader „view_kanban Planungs-Board".
+
+**Mutationsproben sichern AUSSERHALB des Projektordners.** Beim ersten
+Lauf verschwand eine Sicherungskopie (`*.mutbak`) mitten im Lauf aus dem
+Worktree auf dem Schreibtisch; eine Mutation blieb stehen und wurde erst am
+Abbruch bemerkt. Ursache nicht belegt (Vermutung: Schreibtisch-Synchronisierung).
+Seitdem liegen Sicherungen im Scratchpad, und der Lauf endet mit
+`git status --porcelain` gegen den Commit statt mit einem Dateivergleich.
+
+```bash
+npx playwright test tests/e2e/navigation-rollen.spec.js   # 18 Tests, 14 Mutationen
 ```
 
 #### Und der geteilte Link auf genau diese Seite endete auf der Fehlerseite
@@ -5722,7 +5766,7 @@ npm run test:smoke      # nur Routen-Smoke-Tests
 npm run test:css        # CSS-Minify-Regression (Verlaufsschrift)
 ```
 
-1439 Tests in 95 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
+1457 Tests in 96 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
 Sätze), Gebühren (centgenau, JS↔PHP-Parität), Wissensbasis (Antworten +
 Leckage-Schutz), Zufluss (Quarantäne-Tor + Demo-Feed-Ehrlichkeit),
 Verbindungen (HQ-Zugang + Connector-Katalog), Auftragsstrom (Herkunft +
