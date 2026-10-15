@@ -30638,6 +30638,8 @@ var _sozialAccount = null;
 var _sozialLadefolge = 0;
 var _sozialSuchfolge = 0;
 var _sozialLadePromise = null;
+var _sozialSuchtext = '';
+var _sozialSuchmeldung = '';
 
 /** Eine Antwort holen — Fehler enden IMMER sichtbar, nie in der Konsole. */
 function sozialRuf(pfad, methode, rumpf) {
@@ -30720,19 +30722,22 @@ function sozialHandleKasten() {
 
 function sozialFreundeAnsicht() {
   var s = _sozialStand || { friends: [], incoming: [], outgoing: [], blocked: [] };
-  var html = sozialHandleKasten();
+  var html = '';
 
   html += '<section class="soz-karte">'
     + '<h3><span class="material-icons-round">person_search</span> Freunde finden</h3>'
     + '<div class="soz-suche-zeile">'
-    + '<span class="soz-at">@</span>'
-    + '<input type="text" id="sozSuche" placeholder="Suchname eingeben" autocomplete="off" '
-    + 'spellcheck="false" aria-label="Nach Suchname suchen" '
+    + '<input type="search" id="sozSuche" placeholder="Nickname, z. B. @anna.b" autocomplete="off" '
+    + 'value="' + _escHtml(_sozialSuchtext) + '" '
+    + 'oninput="sozialSuchtextMerken(this.value)" '
+    + 'spellcheck="false" aria-label="Nach Nickname suchen" aria-describedby="sozSucheHinweis" '
     + 'onkeydown="if(event.key===\'Enter\'){event.preventDefault();sozialSuchen();}">'
     + '<button type="button" class="btn-primary" onclick="sozialSuchen()">Suchen</button>'
     + '</div>'
-    + '<div id="sozTreffer" class="soz-liste"></div>'
+    + '<p id="sozSucheHinweis" class="soz-hinweis">Mit oder ohne @ suchen. Ein Teil des Nicknames genügt (mindestens 3 Zeichen).</p>'
+    + '<div id="sozTreffer" class="soz-liste" role="status" aria-live="polite" aria-atomic="true"></div>'
     + '</section>';
+  html += sozialHandleKasten();
 
   if (s.incoming.length) {
     html += '<section class="soz-karte"><h3><span class="material-icons-round">mark_email_unread</span> '
@@ -30956,7 +30961,7 @@ function renderFreundePage() {
     + '</div>'
     + (_sozialReiter === 'freunde' ? sozialFreundeAnsicht() : sozialGruppenAnsicht());
 
-  if (_sozialReiter === 'freunde') sozialTrefferZeichnen();
+  if (_sozialReiter === 'freunde') sozialTrefferZeichnen(_sozialSuchmeldung);
   if (typeof sozialPlanungsEntwurfZeigen === 'function') sozialPlanungsEntwurfZeigen();
 }
 
@@ -31002,6 +31007,8 @@ function sozialZuruecksetzen() {
   _sozialStand = null;
   _sozialGruppen = null;
   _sozialTreffer = [];
+  _sozialSuchtext = '';
+  _sozialSuchmeldung = '';
   _sozialLaeuft = false;
   _sozialLadePromise = null;
   _sozialPlan = {};
@@ -31066,9 +31073,18 @@ function sozialHandleLoeschen() {
     .catch(sozialFehler);
 }
 
+// Wer weitertippt, verwirft jede noch laufende Antwort der alten Suche.
+function sozialSuchtextMerken(value) {
+  _sozialSuchtext = String(value || '');
+  _sozialSuchfolge++;
+  _sozialTreffer = [];
+  sozialTrefferZeichnen('');
+}
+
 function sozialSuchen() {
   var el = document.getElementById('sozSuche');
-  var q = el ? String(el.value || '').trim().toLowerCase().replace(/^@/, '') : '';
+  _sozialSuchtext = el ? String(el.value || '') : _sozialSuchtext;
+  var q = _sozialSuchtext.trim().toLowerCase().replace(/^@/, '');
   if (q.length < 3) {
     _sozialSuchfolge++;
     _sozialTreffer = [];
@@ -31083,12 +31099,17 @@ function sozialSuchen() {
     .then(function (d) {
       if (folge !== _sozialSuchfolge || !currentUser || currentUser.id !== uid) return;
       _sozialTreffer = d.results || [];
-      sozialTrefferZeichnen(_sozialTreffer.length ? '' : 'Niemand gefunden.');
+      sozialTrefferZeichnen(_sozialTreffer.length ? '' : 'Niemand gefunden. Prüfe den Nickname oder frage deine Freunde nach ihrem @Namen.');
     })
-    .catch(function (e) { sozialFehler(e); sozialTrefferZeichnen('Das hat nicht geklappt.'); });
+    .catch(function (e) {
+      if (folge !== _sozialSuchfolge || !currentUser || currentUser.id !== uid) return;
+      sozialFehler(e);
+      sozialTrefferZeichnen('Die Suche konnte nicht geladen werden. Bitte versuche es erneut.');
+    });
 }
 
 function sozialTrefferZeichnen(meldung) {
+  _sozialSuchmeldung = meldung || '';
   var el = document.getElementById('sozTreffer');
   if (!el) return;
   if (!_sozialTreffer.length) {
@@ -31098,8 +31119,10 @@ function sozialTrefferZeichnen(meldung) {
   el.innerHTML = _sozialTreffer.map(function (p) {
     var k;
     if (p.state === 'accepted') k = '<span class="soz-status">Befreundet</span>';
-    else if (p.state === 'pending') k = '<span class="soz-status">Anfrage läuft</span>';
-    else k = '<button type="button" class="btn-primary" onclick="sozialAnfragen(' + p.id + ')">Anfragen</button>';
+    else if (p.state === 'pending' && p.mine) k = '<span class="soz-status">Anfrage gesendet</span>';
+    else if (p.state === 'pending') k = '<button type="button" class="btn-primary" onclick="sozialAntwort(' + p.id + ',true)">Annehmen</button>'
+      + '<button type="button" class="btn-outline" onclick="sozialAntwort(' + p.id + ',false)">Ablehnen</button>';
+    else k = '<button type="button" class="btn-primary" onclick="sozialAnfragen(' + p.id + ')">Freundschaft anfragen</button>';
     return sozialPersonZeile(p, k);
   }).join('');
 }
@@ -31116,6 +31139,9 @@ function sozialAntwort(id, annehmen) {
     .then(function () {
       showToast(annehmen ? 'Ihr seid jetzt befreundet.' : 'Anfrage abgelehnt.', 'check_circle');
       return sozialLaden(true);
+    })
+    .then(function () {
+      if (_sozialSuchtext.trim().replace(/^@/, '').length >= 3) sozialSuchen();
     })
     .catch(sozialFehler);
 }
