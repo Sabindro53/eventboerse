@@ -174,6 +174,28 @@ test.describe('Nickname in den Einstellungen', () => {
     await expect(platz.getByRole('checkbox')).not.toBeChecked();
   });
 
+  // CodeQL (15.10.2026): der Platz-Wert kam aus dem DOM und wurde zu HTML.
+  // Ein unbekannter Ort zeichnet NICHTS — auch keiner, der ein gültiges Wort ist.
+  test('ein Platz mit fremdem Ort bleibt leer, der echte wird gezeichnet', async ({ page }) => {
+    await stellen(page, { ich: ICH('anna.b', true) });
+    const platz = await einstellungen(page);
+    await expect(platz.getByRole('textbox', { name: 'Nickname' })).toHaveValue('anna.b', { timeout: 8000 });
+    await page.evaluate(() => {
+      for (const wert of ["x');window.__boese=1;('", 'fremd']) {
+        const d = document.createElement('div');
+        d.className = 'fremder-platz';
+        d.setAttribute('data-nickname-kasten', wert);
+        document.body.appendChild(d);
+      }
+      sozialNicknameKaestenZeichnen();
+    });
+    for (const el of await page.locator('.fremder-platz').all()) {
+      await expect(el).toBeEmpty();
+    }
+    await expect(platz.getByRole('textbox', { name: 'Nickname' })).toHaveValue('anna.b');
+    expect(await page.evaluate(() => window.__boese)).toBeUndefined();
+  });
+
   test('eine Störung sagt es und bietet einen zweiten Versuch — kein leerer Kasten', async ({ page }) => {
     await stellen(page, { ich: null });
     const platz = await einstellungen(page);

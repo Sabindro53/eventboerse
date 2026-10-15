@@ -30806,10 +30806,12 @@ function sozialNickAusIch(d) {
  * Namen hatte, war auffindbar. Seit jedes Konto einen Nickname bekommen
  * kann, wäre das eine Einwilligung, die niemand gegeben hat.
  *
- * `ort` wird zu Kennungen und steht im onclick — deshalb nur feste Wörter.
+ * `ort` wird zu Kennungen und steht im onclick — deshalb nur die festen
+ * Orte aus `sozialNickOrt()`.
  */
 function sozialNicknameKasten(ort) {
-  if (!/^[a-z]+$/.test(String(ort || ''))) return '';
+  ort = sozialNickOrt(ort);
+  if (!ort) return '';
   var n = _sozialNick || { handle: '', auffindbar: false };
   var id = 'sozNick_' + ort;
   return '<section class="soz-karte soz-handle" data-nick-ort="' + ort + '">'
@@ -30837,11 +30839,26 @@ function sozialNicknameKasten(ort) {
     + '</section>';
 }
 
+/**
+ * Ein Platz-Attribut auf einen BEKANNTEN Ort abbilden — oder auf nichts.
+ *
+ * Der Wert landet in Kennungen und im onclick. Ein Muster („nur
+ * Kleinbuchstaben") liess jedes Wort durch, und CodeQL meldete am
+ * 15.10.2026 zu Recht, dass hier Text aus dem DOM zu HTML wird. Zurück
+ * kommt deshalb immer ein Literal aus diesem Code, nie der gelesene Text.
+ */
+function sozialNickOrt(roh) {
+  if (roh === 'einstellungen') return 'einstellungen';
+  if (roh === 'freunde') return 'freunde';
+  return '';
+}
+
 /** Jeden Platz `[data-nickname-kasten]` neu füllen (Einstellungen). */
 function sozialNicknameKaestenZeichnen() {
   var plaetze = document.querySelectorAll('[data-nickname-kasten]');
   for (var i = 0; i < plaetze.length; i++) {
-    plaetze[i].innerHTML = sozialNicknameKasten(plaetze[i].getAttribute('data-nickname-kasten'));
+    var ort = sozialNickOrt(plaetze[i].getAttribute('data-nickname-kasten'));
+    plaetze[i].innerHTML = ort ? sozialNicknameKasten(ort) : '';
   }
 }
 
