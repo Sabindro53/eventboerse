@@ -4102,6 +4102,7 @@ function performSearch() {
 }
 
 // ========== BROWSE PAGE ==========
+var EB_BROWSE_START = 9;
 var _browseGridPaging = {
   rows: [],
   visible: 0,
@@ -4227,7 +4228,11 @@ function renderBrowseGrid(listings) {
   var cols = _getBrowseGridColumnCount(grid);
   _browseGridPaging.rows = rows;
   _browseGridPaging.step = Math.max(6, cols * 3);
-  _browseGridPaging.visible = _alignBrowseCountToRow(Math.min(rows.length, cols * 5), rows.length, cols);
+  // Startmenge: genau EB_BROWSE_START Treffer (Entscheidung des Inhabers,
+  // 16.10.2026). Vorher fünf volle Reihen — bei drei Spalten 15, bei fünf
+  // 25, also je nach Bildschirm eine andere Seite. „Mehr anzeigen" richtet
+  // die folgenden Schritte weiter an den Reihen aus.
+  _browseGridPaging.visible = Math.min(rows.length, EB_BROWSE_START);
   _browseGridPaging.start = _browseGridPaging.visible;
   _renderBrowseGridPage();
 }

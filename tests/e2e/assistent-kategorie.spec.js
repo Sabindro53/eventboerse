@@ -541,6 +541,21 @@ test.describe('Die Trending-Leiste und der Filter, der stehenblieb', () => {
     });
   }
 
+  /**
+   * TREFFER, nicht Karten. Seit dem 16.10.2026 zeigt die Startseite nur die
+   * ersten 9 (EB_BROWSE_START) — ungefiltert und gefiltert stehen dann beide
+   * Male 9 Karten da, obwohl der Filter wirkt. Gezählt wird deshalb, was
+   * auch der Besucher liest: „N Services gefunden". Bei null Treffern ist
+   * der Grid versteckt, und dann gilt 0 (siehe sichtbareKarten).
+   */
+  async function treffer(page) {
+    return page.evaluate(() => {
+      const grid = document.getElementById('browseGrid');
+      if (!grid || getComputedStyle(grid).display === 'none') return 0;
+      return parseInt(document.getElementById('browseResultCount').textContent, 10) || 0;
+    });
+  }
+
   test('kein Trending-Link rennt mehr gegen den Grundaufbau an', () => {
     // Gemessen wird die BEDINGUNG: kein `onclick` in der Leiste darf einen
     // Zeitgeber starten oder ein Auswahlfeld von Hand beschreiben. Ein Test
@@ -562,7 +577,7 @@ test.describe('Die Trending-Leiste und der Filter, der stehenblieb', () => {
   test('„#Hochzeit" filtert wirklich — GEKLICKT, nicht aufgerufen', async ({ page }) => {
     await openApp(page);
     await warteAufAppBereit(page);
-    const alle = await sichtbareKarten(page);
+    const alle = await treffer(page);
     expect(alle, 'die Landeseite muss Inserate zeigen').toBeGreaterThan(2);
 
     // GEKLICKT wird der echte Link. Der erste Entwurf rief
@@ -597,7 +612,7 @@ test.describe('Die Trending-Leiste und der Filter, der stehenblieb', () => {
     // während gefiltert wird — Markierung und Inhalt wieder auseinander.
     expect(r.chipLabel, 'der Chip nennt den Anlass nicht').toMatch(/Hochzeit/);
     // Und es wird wirklich gefiltert, nicht nur markiert.
-    expect(await sichtbareKarten(page), 'nichts gefiltert — genau der alte Zustand')
+    expect(await treffer(page), 'nichts gefiltert — genau der alte Zustand')
       .toBeLessThan(alle);
   });
 

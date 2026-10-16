@@ -86,3 +86,21 @@ test.describe('Suchergebnisse: Weniger anzeigen', () => {
     await expect(weniger(page)).toBeHidden();
   });
 });
+
+test.describe('Startseite: zu Beginn genau 9 Treffer (Entscheidung 16.10.2026)', () => {
+  for (const [breite, name] of [[1280, 'Schreibtisch'], [390, 'Telefon'], [1700, 'breiter Bildschirm']]) {
+    test(`${name} (${breite} px): 9 Karten, unabhängig von der Spaltenzahl`, async ({ page }) => {
+      await suche(page, 60);
+      await page.setViewportSize({ width: breite, height: 900 });
+      await page.evaluate((rows) => renderBrowseGrid(rows), inserate(60));
+      expect(await karten(page)).toBe(9);
+      await expect(mehr(page)).toBeVisible();
+    });
+  }
+
+  test('Gegenprobe: weniger als 9 Treffer zeigen alle', async ({ page }) => {
+    await suche(page, 7);
+    expect(await karten(page)).toBe(7);
+  });
+});
+

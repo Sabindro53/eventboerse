@@ -3874,13 +3874,26 @@ der Mehrfachzeiten.
 **Der Fokus geht auf „Mehr anzeigen".** Der gedrückte Knopf verschwindet
 beim Einklappen, und ohne neues Ziel fiele der Fokus auf `<body>`.
 
+**Die Startmenge sind genau 9 Treffer** (`EB_BROWSE_START`, Entscheidung des
+Inhabers vom 16.10.2026). Vorher waren es fünf volle Reihen, also je nach
+Bildschirm 15, 20 oder 25: auf jedem Gerät eine andere Seite. „Mehr anzeigen"
+richtet die folgenden Schritte weiter an den Reihen aus.
+
+**Die Begrenzung hat einen fremden Test entwertet, nicht kaputtgemacht.**
+`assistent-kategorie.spec.js` belegte „#Hochzeit filtert wirklich" mit
+*weniger sichtbaren Karten*. Bei 9 Startkarten stehen ungefiltert und
+gefiltert beide Male 9 da, und der Test wurde rot, obwohl der Filter wirkt.
+Gemessen wird jetzt die Trefferzahl („N Services gefunden"). Die Gegenprobe
+gehört dazu: Mit abgeschaltetem Anlass-Filter wird genau diese Zusicherung
+rot.
+
 **Der Prüfstand muss auf `navigateTo('browse')` warten.** Der Router zeichnet
 nach `loadDbListings()` selbst; wer vorher sein Raster stellt, wird
 überschrieben und misst das Standardraster. So fiel der erste Lauf mit 15
 statt 3 Karten durch, aus einem Grund, der nichts mit dem Code zu tun hatte.
 
 ```bash
-npx playwright test tests/e2e/weniger-anzeigen.spec.js   # 5 Tests, 7 Mutationen
+npx playwright test tests/e2e/weniger-anzeigen.spec.js   # 9 Tests, 9 Mutationen
 ```
 
 #### Und der geteilte Link auf genau diese Seite endete auf der Fehlerseite
@@ -5837,7 +5850,7 @@ npm run test:smoke      # nur Routen-Smoke-Tests
 npm run test:css        # CSS-Minify-Regression (Verlaufsschrift)
 ```
 
-1471 Tests in 98 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
+1475 Tests in 98 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
 Sätze), Gebühren (centgenau, JS↔PHP-Parität), Wissensbasis (Antworten +
 Leckage-Schutz), Zufluss (Quarantäne-Tor + Demo-Feed-Ehrlichkeit),
 Verbindungen (HQ-Zugang + Connector-Katalog), Auftragsstrom (Herkunft +

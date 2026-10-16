@@ -203,7 +203,7 @@ Alle sind mit Browser-Tests abgesichert (`navigation-rollen.spec.js`), einschlie
 | Stufe | Inhalt | Befunde |
 |---|---|---|
 | 2 · Entdecken bündeln | **Plan steht in 6.1** (Besprechung vom 15.10.2026): ein Feed „Entdecken" mit zwei Sortierungen, „Jetzt" geht in „Radar" auf | F02, F22–F24 |
-| 3 · Planer-Event | eine Event-Erstellung mit Vorlage, Ladezustand ≠ Leerzustand. **Kanban: offen, siehe K1 in 6.1** (der Inhaber bevorzugt das gemeinsame Prozess-/Kanban-Board als Hauptansicht) | F10–F14, F18 |
+| 3 · Planer-Event | **Kanban-Board als Hauptansicht, die anderen Projekte links** (K1, entschieden), eine Event-Erstellung mit Vorlage, Ladezustand ≠ Leerzustand | F10–F14, F18 |
 | 4 · Dienstleister-Arbeitsplatz | Anfragen ≠ Aufträge, zustandsgerechte Leerzustände (Auszahlung einrichten), Cockpit nur Finanzen | F05, F07–F09, F19 |
 | 5 · Einheitliche Bausteine | „Noch keine Bewertungen", Preis mit Einheit, Vertrauensabzeichen nur bei belegten Kriterien | F04, F20, F21 |
 | 6 · App-Shell | kompakte Fußzeile auf Arbeitsseiten, echte `href` statt `href="#"` | F25, F26 |
@@ -240,12 +240,49 @@ Gründungsfragen gehören nicht in dieses öffentliche Repository.
 - Die Seitenleiste „Demnächst" liest denselben Bestand, und das muss so bleiben.
 - „Für dich" ist die einzige Stelle, die das Vorliebenprofil **liest**. Fällt sie ersatzlos weg, wird ein Profil gebildet, das niemand nutzt. Das ist ein Datenschutz-Befund, keine Aufräumarbeit (siehe S1).
 
-**Offen beim Inhaber**
-- **S1 — Was heißt „Relevanz"?** (a) *persönlich*: sortiert weiter nach dem gelernten Vorliebenprofil wie heute „Für dich". Cookie-Liste, Datenschutzerklärung und App-Store-Angaben bleiben dann unverändert. (b) *Beliebtheit für alle*: dann braucht das Vorliebenprofil keiner mehr. Es müsste entfernt und aus Cookie-Liste, Privacy-Manifest, App-Store-Tabelle und Datenschutzerklärung gestrichen werden. **Vorschlag: (a)**, weil es bei gleicher Oberfläche keine Rechtsänderung braucht.
-- **S2 — Bleiben „Gesuche" und „Events" eigene Reiter** oder werden sie Filter im Feed? Die Besprechung nennt sie nicht. **Vorschlag:** „Gesuche" bleibt ein eigener Kanal. Dort finden Dienstleister die Nachfrage, und F02 verlangt genau diese Trennung.
-- **S3 — Startseite:** Sollen zuerst nur wenige Beispielanbieter erscheinen und die vollen Ergebnisse erst nach Eingabe eines Suchkriteriums? Das ist eine Gestaltungsentscheidung, die Laufband und Suchmaske berührt.
-- **K1 — Kanban als Hauptansicht im Planungs-Board (Stufe 3):** Der Vorschlag in Abschnitt 6 sah Kanban als Nebenansicht vor (F13). Die Besprechung bevorzugt das frühere gemeinsame Prozess-/Kanban-Board, in dem Kategorien wie Location, Trauung oder DJ direkt bearbeitet und Dienstleister über „Hinzufügen" gewählt werden. Stufe 3 wird nach der Antwort neu geschnitten.
-- **E1 — Einladen ohne Konto** (per Link über WhatsApp oder E-Mail, direkt in ein gemeinsames Vorhaben). Ein Link mit dem vorhandenen Gruppen-Einladungscode speichert nichts über die eingeladene Person. Ein Versand per E-Mail an Nicht-Nutzer verarbeitet dagegen Daten Dritter und braucht einen Absatz in der Datenschutzerklärung. Konzept auf Wunsch, gebaut wird nichts ohne Entscheidung.
+**Entschieden vom Inhaber am 16.10.2026**
+- **S2 — „Gesuche" bleibt ein eigener Reiter.** Dort finden Dienstleister die Nachfrage, wie F02 es verlangt.
+- **S3 — Die Startseite zeigt zu Beginn 9 Treffer.** „Mehr anzeigen" und „Weniger anzeigen" bleiben.
+- **K1 — Das Planungs-Board ist ein Kanban-Board; die anderen Projekte stehen links.** Das ändert den Vorschlag für Stufe 3: Kanban ist die Hauptansicht, nicht die Nebenansicht.
+- **„Alles andere gut verteilen"** ist ein Auftrag an die Umsetzung. Mein Vorschlag dazu:
+  - **„Events"** (Ankündigungen von Veranstaltungen) geht in **Radar** auf, denn beides beantwortet „was ist in meiner Nähe los?".
+  - **„Relevanz" bleibt persönlich (S1, Variante a):** Sie sortiert wie heute „Für dich" nach dem gelernten Vorliebenprofil. Damit ändert sich an Cookie-Liste, Datenschutzerklärung und App-Store-Angaben nichts. *Bestätigung offen.*
+- **E1 — Einladen ohne Konto** soll neue Nutzer gewinnen können, per Link über WhatsApp, E-Mail und andere Wege. Der Ablauf muss in sich logisch und verständlich sein. Das Konzept steht in 6.2.
+
+**Neue Reiterleiste nach Stufe 2:** Entdecken (Sortierung: Relevanz · Neueste) · Gesuche · Radar (Karte, Jetzt, Events).
+
+### 6.2 Einladen ohne Konto — Konzept (E1)
+
+**Gemessen am 16.10.2026, Dev-Shell, Telefonbreite.** Den Einladungslink gibt es schon (`/freunde/einladung?einladung=CODE`, „Einladungslink kopieren" bei Gruppen-Admins). Was er heute auslöst:
+
+| Schritt | heute | Problem |
+|---|---|---|
+| Teilen | nur „Link kopieren" | kein direkter Weg zu WhatsApp, E-Mail oder anderen Apps |
+| Öffnen ohne Konto | „Dafür brauchst du ein Konto." und ein Knopf „Anmelden" | Wer einlädt und wozu, steht nirgends. Registrieren ist nicht angeboten, obwohl die eingeladene Person meist neu ist |
+| Nach der Registrierung | Der Code steht noch in der Adresse; die Seite lädt neu | Man muss Eingabefeld und „Beitreten" selbst finden. Dienstleister bekommen zuerst die Stripe-Einrichtung angeboten |
+
+**Ziel:** Ein Link holt auch Menschen ohne Konto in ein gemeinsames Vorhaben, mit so wenigen Schritten, dass niemand fragen muss, was als Nächstes kommt.
+
+**Ablauf beim Einladenden**
+1. Ein Knopf **„Freunde einladen"** an Gruppe und Plan öffnet eine Auswahl: **WhatsApp**, **E-Mail**, **SMS**, **Link kopieren**, und auf dem Telefon zusätzlich **„Teilen …"** (die Systemauswahl mit Signal, Telegram, Instagram und allen anderen Apps).
+2. Der Text ist vorbereitet und änderbar: *„{Name} lädt dich ein, „{Gruppe}" gemeinsam auf Eventbörse zu planen: {Link}"*.
+3. **Eventbörse verschickt dabei nichts.** WhatsApp, Mail und SMS öffnen die App des Einladenden (`wa.me`, `mailto:`, `sms:`). Die Nummer oder Adresse der eingeladenen Person erreicht unseren Server nie. Damit fällt keine Verarbeitung von Daten Dritter an, und die Datenschutzerklärung braucht dafür keinen neuen Absatz. Ein Versand durch Eventbörse selbst wäre der teurere Weg (Daten Dritter, Spam-Missbrauch, Werbe-E-Mail-Recht) und ist bewusst **nicht** vorgesehen.
+
+**Ablauf bei der eingeladenen Person**
+1. Der Link öffnet eine eigene Ansicht **„Du bist eingeladen"** statt der Kontosperre: wer einlädt, Name der Gruppe, Anlass, Datum, ein Satz dazu, was Eventbörse ist.
+2. Zwei Knöpfe: **„Kostenlos registrieren und mitplanen"** (Hauptknopf; die Registrierung ist auf „Event-Planer" voreingestellt) und **„Ich habe schon ein Konto"**.
+3. Nach Anmeldung oder Registrierung steht eine **Bestätigung**: *„„{Gruppe}" beitreten?"* mit einem Knopf. Danach öffnet sich der gemeinsame Plan. **Kein stilles Beitreten:** Der Klick ist die Zustimmung, wie beim Code heute.
+4. Ist jemand schon angemeldet, kommt sofort die Bestätigung.
+5. Ein abgelaufener oder falscher Link sagt beides gleich: *„Diese Einladung gilt nicht mehr. Bitte frag nach einem neuen Link."* Dazu ein Weg zu „Entdecken". Wer 404 von 403 unterscheiden kann, kann Gruppen zählen; diese Regel gilt schon heute.
+6. Der Code bleibt **nur in der Adresse**, ohne neuen Speicherschlüssel. Damit ändert sich nichts an der Cookie-Liste.
+
+**Eine Entscheidung des Inhabers ist nötig (E2).** Schritt 1 braucht Gruppenname, Anlass, Datum und den Namen des Einladenden, *bevor* die Person ein Konto hat. Dafür braucht es eine neue Route ohne Anmeldung, etwa `GET social/einladung/{code}`. Sie liefert nur diese vier Angaben, nie Mitglieder oder Plan, ist je Leitung gedeckelt und antwortet bei falschem und abgelaufenem Code gleich. Wer den Code hat, hat ihn vom Einladenden bekommen; das ist dieselbe Zustimmung wie heute beim Beitreten. Trotzdem ist es ein neuer unauthentifizierter Lesepunkt und damit eine Sicherheitsentscheidung. **Ohne E2** zeigt die Ansicht einen allgemeinen Text („Du wurdest eingeladen, gemeinsam ein Event zu planen") und erst nach der Anmeldung die Gruppe.
+
+**Vorschau in WhatsApp und Co.:** Die Linkvorschau (Titel und Beschreibung) bleibt allgemein. Gruppendaten in der serverseitigen Vorschau würden sie an jeden Dienst geben, der den Link abruft.
+
+**Bauplan**
+- **A** — ohne neue Route, sofort machbar: Teilen-Auswahl, Ansicht „Du bist eingeladen" (allgemein), Registrierung als Planer voreingestellt, Bestätigung „beitreten?", danach Sprung in den Plan, gleiche Meldung für falsch und abgelaufen. Tests messen den ganzen Weg im echten Browser, Mutationsproben wie üblich.
+- **B** — nach E2: Vorschau-Route mit PHP-Prüfstand (gleiche Antwort für falsch und abgelaufen, keine Mitglieder, Deckel), dazu Gruppenname und Einladender in der Ansicht.
 
 ## 7 · 3D-Szene — Bewertung
 
