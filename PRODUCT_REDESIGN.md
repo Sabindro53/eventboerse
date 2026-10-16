@@ -276,13 +276,15 @@ Gründungsfragen gehören nicht in dieses öffentliche Repository.
 5. Ein abgelaufener oder falscher Link sagt beides gleich: *„Diese Einladung gilt nicht mehr. Bitte frag nach einem neuen Link."* Dazu ein Weg zu „Entdecken". Wer 404 von 403 unterscheiden kann, kann Gruppen zählen; diese Regel gilt schon heute.
 6. Der Code bleibt **nur in der Adresse**, ohne neuen Speicherschlüssel. Damit ändert sich nichts an der Cookie-Liste.
 
-**Eine Entscheidung des Inhabers ist nötig (E2).** Schritt 1 braucht Gruppenname, Anlass, Datum und den Namen des Einladenden, *bevor* die Person ein Konto hat. Dafür braucht es eine neue Route ohne Anmeldung, etwa `GET social/einladung/{code}`. Sie liefert nur diese vier Angaben, nie Mitglieder oder Plan, ist je Leitung gedeckelt und antwortet bei falschem und abgelaufenem Code gleich. Wer den Code hat, hat ihn vom Einladenden bekommen; das ist dieselbe Zustimmung wie heute beim Beitreten. Trotzdem ist es ein neuer unauthentifizierter Lesepunkt und damit eine Sicherheitsentscheidung. **Ohne E2** zeigt die Ansicht einen allgemeinen Text („Du wurdest eingeladen, gemeinsam ein Event zu planen") und erst nach der Anmeldung die Gruppe.
+**E2 — entschieden am 16.10.2026: nein.** Eingeladene registrieren oder melden sich zuerst an, kostenlos; Gruppendaten gibt es erst danach. Teil B entfällt damit. Der folgende Absatz bleibt als Begründung stehen.
+
+**Damals offen (E2):** Schritt 1 braucht Gruppenname, Anlass, Datum und den Namen des Einladenden, *bevor* die Person ein Konto hat. Dafür braucht es eine neue Route ohne Anmeldung, etwa `GET social/einladung/{code}`. Sie liefert nur diese vier Angaben, nie Mitglieder oder Plan, ist je Leitung gedeckelt und antwortet bei falschem und abgelaufenem Code gleich. Wer den Code hat, hat ihn vom Einladenden bekommen; das ist dieselbe Zustimmung wie heute beim Beitreten. Trotzdem ist es ein neuer unauthentifizierter Lesepunkt und damit eine Sicherheitsentscheidung. **Ohne E2** zeigt die Ansicht einen allgemeinen Text („Du wurdest eingeladen, gemeinsam ein Event zu planen") und erst nach der Anmeldung die Gruppe.
 
 **Vorschau in WhatsApp und Co.:** Die Linkvorschau (Titel und Beschreibung) bleibt allgemein. Gruppendaten in der serverseitigen Vorschau würden sie an jeden Dienst geben, der den Link abruft.
 
 **Bauplan**
-- **A** — ohne neue Route, sofort machbar: Teilen-Auswahl, Ansicht „Du bist eingeladen" (allgemein), Registrierung als Planer voreingestellt, Bestätigung „beitreten?", danach Sprung in den Plan, gleiche Meldung für falsch und abgelaufen. Tests messen den ganzen Weg im echten Browser, Mutationsproben wie üblich.
-- **B** — nach E2: Vorschau-Route mit PHP-Prüfstand (gleiche Antwort für falsch und abgelaufen, keine Mitglieder, Deckel), dazu Gruppenname und Einladender in der Ansicht.
+- **A** — **gebaut am 16.10.2026** (`einladung.spec.js`, 14 Tests, 14 Mutationen), ohne neue Route: Teilen-Auswahl, Ansicht „Du bist eingeladen" (allgemein), Registrierung als Planer voreingestellt, Bestätigung „beitreten?", danach Sprung in den Plan, gleiche Meldung für falsch und abgelaufen. Tests messen den ganzen Weg im echten Browser, Mutationsproben wie üblich.
+- **B** — entfällt (E2 nein): Vorschau-Route mit PHP-Prüfstand (gleiche Antwort für falsch und abgelaufen, keine Mitglieder, Deckel), dazu Gruppenname und Einladender in der Ansicht.
 
 ## 7 · 3D-Szene — Bewertung
 

@@ -443,7 +443,8 @@ function sozialGruppenKarte(gr) {
       html += '<div class="soz-code">'
         + '<span class="soz-hinweis">Einladungscode</span>'
         + '<code>' + _escHtml(String(gr.inviteCode)) + '</code>'
-        + '<button type="button" class="btn-outline" onclick="sozialEinladungKopieren(' + gr.id + ')">Einladungslink kopieren</button>'
+        + '<button type="button" class="btn-primary" onclick="sozialEinladenDialog(' + gr.id + ', this)">'
+        + '<span class="material-icons-round" aria-hidden="true">share</span> Freunde einladen</button>'
         + '<button type="button" class="btn-outline" onclick="sozialCodeNeu(' + gr.id + ')">Code erneuern</button>'
         + '</div>';
     }
@@ -467,6 +468,12 @@ function renderFreundePage() {
   if (!el) return;
 
   if (!currentUser) {
+    // Über einen Einladungslink: sagen, dass man eingeladen ist, und den
+    // Weg zur kostenlosen Registrierung zeigen (PRODUCT_REDESIGN.md 6.2).
+    if (typeof ebEinladungsCode === 'function' && ebEinladungsCode()) {
+      el.innerHTML = ebEinladungOhneKontoHtml();
+      return;
+    }
     el.innerHTML = '<section class="soz-karte soz-leer-karte">'
       + '<span class="material-icons-round">lock</span>'
       + '<h3>Dafür brauchst du ein Konto.</h3>'
@@ -493,7 +500,8 @@ function renderFreundePage() {
 
   var anfragen = _sozialStand.incoming.length;
   var einladungen = (_sozialGruppen && _sozialGruppen.invitations.length) || 0;
-  el.innerHTML = '<div class="soz-reiter" role="tablist">'
+  el.innerHTML = (typeof ebEinladungsKarteHtml === 'function' ? ebEinladungsKarteHtml() : '')
+    + '<div class="soz-reiter" role="tablist">'
     + '<button type="button" role="tab" class="soz-reiter-knopf' + (_sozialReiter === 'freunde' ? ' aktiv' : '')
     + '" aria-selected="' + (_sozialReiter === 'freunde') + '" onclick="sozialReiter(\'freunde\')">'
     + '<span class="material-icons-round">group</span> Freunde'
