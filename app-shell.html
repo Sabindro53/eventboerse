@@ -1528,13 +1528,13 @@
             <div class="provider-stats-ring">
               <div class="stat-ring">
                 <strong id="providerListingCount">–</strong>
-                <span>Inserate</span>
+                <span id="providerListingCountLabel">Inserate</span>
               </div>
-              <div class="stat-ring">
+              <div class="stat-ring" data-profil-nur="anbieter">
                 <strong id="providerRating">–</strong>
                 <span>Bewertung</span>
               </div>
-              <div class="stat-ring">
+              <div class="stat-ring" data-profil-nur="anbieter">
                 <strong id="providerReviews">–</strong>
                 <span>Reviews</span>
               </div>
@@ -1567,16 +1567,16 @@
               </div>
             </div>
 
-            <!-- Highlights -->
-            <div class="provider-section">
+            <!-- Highlights — nur Anbieterprofil (PRODUCT_REDESIGN.md 1.5) -->
+            <div class="provider-section" data-profil-nur="anbieter">
               <h2><span class="material-icons-round">auto_awesome</span> Highlights</h2>
               <div class="provider-highlights" id="providerHighlights">
                 <!-- Filled by JS -->
               </div>
             </div>
 
-            <!-- Portfolio Gallery -->
-            <div class="provider-section">
+            <!-- Portfolio Gallery — nur Anbieterprofil -->
+            <div class="provider-section" data-profil-nur="anbieter">
               <h2><span class="material-icons-round">photo_library</span> Portfolio</h2>
               <div class="provider-portfolio" id="providerPortfolio">
                 <!-- Filled by JS -->
@@ -1594,8 +1594,8 @@
               </ul>
             </div>
 
-            <!-- Tags -->
-            <div class="provider-fact-card">
+            <!-- Tags — nur Anbieterprofil -->
+            <div class="provider-fact-card" data-profil-nur="anbieter">
               <h3>Spezialisierungen</h3>
               <div class="provider-spec-tags" id="providerSpecTags">
                 <!-- Filled by JS -->
@@ -1604,21 +1604,29 @@
           </div>
         </div>
 
-        <!-- Tabs: Inserate + Bewertungen + bestaetigte Partnerschaften -->
+        <!-- Tabs: Inserate + Gesuche + Bewertungen + bestaetigte Partnerschaften.
+             Ein Mitgliedsprofil zeigt nur „Gesuche"; ein Anbieterprofil zeigt
+             „Gesuche" nur, wenn es welche hat (PRODUCT_REDESIGN.md 1.5). -->
         <div class="provider-tabs">
-          <button class="tab active" onclick="switchProviderTab(this, 'inserate')">
+          <button class="tab active" data-profil-nur="anbieter" onclick="switchProviderTab(this, 'inserate')">
             <span class="material-icons-round">grid_on</span> Inserate
           </button>
-          <button class="tab" onclick="switchProviderTab(this, 'bewertungen')">
+          <button class="tab" id="providerTabGesuche" hidden onclick="switchProviderTab(this, 'gesuche')">
+            <span class="material-icons-round">campaign</span> Gesuche
+          </button>
+          <button class="tab" data-profil-nur="anbieter" onclick="switchProviderTab(this, 'bewertungen')">
             <span class="material-icons-round">star</span> Bewertungen
           </button>
-          <button class="tab" onclick="switchProviderTab(this, 'partnerschaften')">
+          <button class="tab" data-profil-nur="anbieter" onclick="switchProviderTab(this, 'partnerschaften')">
             <span class="material-icons-round">handshake</span> Arbeitet zusammen mit
           </button>
         </div>
         <div class="provider-content">
           <div id="provider-tab-inserate" class="provider-tab-content active">
             <div class="listing-grid" id="providerListings"></div>
+          </div>
+          <div id="provider-tab-gesuche" class="provider-tab-content">
+            <div class="listing-grid" id="providerGesuche"></div>
           </div>
           <div id="provider-tab-bewertungen" class="provider-tab-content">
             <div id="providerReviewsList"></div>

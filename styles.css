@@ -3434,6 +3434,10 @@ body.dark-mode .ai-sug-chip:hover { background: rgba(255,56,92,0.15); }
 .listing-card-rating .material-icons-round { font-size: 16px; color: var(--dark); }
 /* Ein Gesuch nennt seine Art statt einer Bewertung (F02). --primary-text,
    nicht --primary: die Markenfarbe als Text verfehlt 4,5 : 1 auf Weiß. */
+/* Profilarten: Bereiche mit eigener display-Angabe (.stat-ring, .tab)
+   ignorieren [hidden] sonst und stünden leer da. */
+#page-provider [hidden] { display: none !important; }
+
 .listing-card-art {
   flex-shrink: 0;
   font-size: 0.78rem;

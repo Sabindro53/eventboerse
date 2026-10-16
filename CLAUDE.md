@@ -3858,6 +3858,56 @@ Die Probe bestand, ohne die Maskierung je zu erreichen.
 npx playwright test tests/e2e/gesuch-darstellung.spec.js   # 9 Tests, 10 Mutationen
 ```
 
+### Profilarten — das Profil las sein erstes Inserat
+
+F01 des Live-Audits, gebaut am 16.10.2026 nach den Entscheidungen P1–P3 des
+Inhabers (`PRODUCT_REDESIGN.md` 1.5). `loadProvider()` kannte keine
+Profilart: Unterzeile, Preis, Highlights und Spezialisierungen kamen aus dem
+**ersten Inserat**. Wer nur Gesuche hatte, bekam ein Anbieterprofil mit
+„DJ & Musik · Köln" und „ab 200€ / Event". Das Konto aus F01 heißt live
+**„Admin"** — eine Weiche nur über die Rolle hätte es verfehlt.
+
+**Die Art kommt aus den Inhalten, die Rolle ist Zusatz** (`ebProfilArt()`):
+Anbieterprofil bei mindestens einem Angebot ODER Rolle Dienstleister, sonst
+Mitgliedsprofil. Kopf, Preis, Highlights und Spezialisierungen kommen nur
+aus einem **Angebot**, nie aus einem Gesuch. Das Mitgliedsprofil zeigt
+Unterzeile, Ort, Über mich und den Reiter „Gesuche" — ohne Bewertung,
+Portfolio und Partnerschaften. Mischkonten bekommen einen zweiten Reiter.
+
+**Eine Eingabe, die nie erschien.** Die Unterzeile lässt sich im eigenen
+Profil bearbeiten, wird als `tagline` gespeichert und mit „Tagline
+gespeichert!" quittiert — angezeigt wurde sie nie, das erste Inserat
+überschrieb sie beim nächsten Laden. Sie gilt jetzt für alle Profile (P2).
+
+**Die Rolle kommt spät.** Bei Inseraten im Speicher wird der Kopf gezeichnet,
+bevor die Profil-Route antwortet; `_profilAnsichtZeichnen()` läuft deshalb
+ein zweites Mal mit Rolle, Ort und Unterzeile aus der Antwort. Eine Antwort
+für ein schon verlassenes Profil darf nicht hineinzeichnen
+(`_profilKontext`).
+
+**Gemessen wird, was ein Besucher sieht** (`offsetParent`), nicht das
+Markup. `.stat-ring` und `.tab` tragen eigene `display`-Angaben und
+ignorierten `[hidden]` — `#page-provider [hidden]` hält das; ohne die Regel
+werden fünf Tests rot.
+
+**Drei Mutationen überlebten die erste Fassung der Tests**, und jede zeigte
+eine Lücke: kein Konto mit Angebot, aber ohne Rolle Dienstleister · kein
+Dienstleister mit nur Gesuchen (die Rolle kommt dann allein aus der späten
+Antwort) · kein schneller Wechsel zwischen zwei Profilen. Alle drei Fälle
+haben jetzt einen Test.
+
+**Und eine Mutation blieb im Code stehen.** Ein abgebrochener Mutationslauf
+hinterließ „Kopf aus dem ersten Inserat" im uncommitteten Arbeitsstand; der
+nächste Lauf maß gegen diesen Stand und lieferte falsche Zahlen. Gefunden
+erst, weil ein Anker nicht mehr passte. Das Mutationsskript prüft seitdem
+**vor** dem Lauf, dass der Grundstand grün ist, und **nach** jeder Probe
+per Prüfsumme, dass die Datei wieder das Original ist. Ein abgebrochener
+Lauf ist nicht „nie gelaufen".
+
+```bash
+npx playwright test tests/e2e/profil-arten.spec.js   # 14 Tests, 15 Mutationen
+```
+
 #### Und der geteilte Link auf genau diese Seite endete auf der Fehlerseite
 
 Gemeldet am 13.09.2026 aus einer Live-Prüfung: *„Freunde funktionieren über
@@ -5812,7 +5862,7 @@ npm run test:smoke      # nur Routen-Smoke-Tests
 npm run test:css        # CSS-Minify-Regression (Verlaufsschrift)
 ```
 
-1466 Tests in 97 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
+1480 Tests in 98 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
 Sätze), Gebühren (centgenau, JS↔PHP-Parität), Wissensbasis (Antworten +
 Leckage-Schutz), Zufluss (Quarantäne-Tor + Demo-Feed-Ehrlichkeit),
 Verbindungen (HQ-Zugang + Connector-Katalog), Auftragsstrom (Herkunft +

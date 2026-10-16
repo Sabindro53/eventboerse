@@ -93,7 +93,7 @@ dieses Repositorys (`app-shell.html`, `js/modules/**`) und das Live-Audit vom
 
 **Nebenbefund 2: Sicherheit, nicht Gestaltung.** Die öffentliche Route `provider/{id}` nennt ohne Anmeldung die Rolle `Admin`. Damit ist von außen abfragbar, welche Nutzer-ID Verwaltungsrechte hat. Das gehört nicht in diese Überarbeitung, sondern ist eine eigene Entscheidung des Inhabers (Auth-Nähe, `AGENTS.md` Abschnitt 6).
 
-**Vorschlag (entschieden, noch nicht gebaut).**
+**Vorschlag (entschieden, gebaut am 16.10.2026 — `profil-arten.spec.js`).**
 
 1. **Profilart aus den Inhalten, mit der Rolle als Zusatz.** *Anbieterprofil*, wenn das Konto mindestens ein Angebot hat (`ebIstGesuch()` ist falsch) oder die Rolle „Dienstleister" ist; sonst *Mitgliedsprofil*. Damit werden das Admin-Konto aus F01 und jeder Planer richtig eingeordnet, ohne Datenänderung.
 2. **Der Kopf liest das Profil, nicht ein Inserat.** Die Unterzeile ist die gespeicherte `tagline`. Ist keine gesetzt, gilt für Anbieter wie heute Kategorie · Ort, aber aus dem ersten **Angebot**, nie aus einem Gesuch; für Mitglieder nur der Ort.
