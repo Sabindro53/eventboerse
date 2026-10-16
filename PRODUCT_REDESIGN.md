@@ -63,8 +63,15 @@ dieses Repositorys (`app-shell.html`, `js/modules/**`) und das Live-Audit vom
 - Storno-Entscheidungen mit 72-h-Frist stehen auf `auftraege` — erreichbar nur über das Menü.
 
 **Ein vermuteter Fehler, der keiner war**
-- Bei der Inventur sah es so aus, als öffne die Inserat-Maske für Planer immer auf „Ich biete" — der Router setzt beim Öffnen `_clSetType('offer')`. **Widerlegt:** `updateCreateFormForRole()` läuft danach und stellt Planer bereits auf „Ich suche". Ein Test hält das jetzt fest. Die Ursache von F01–F03 (Gesuche mit Anbieterpreis in der Dienstleistersuche) liegt also **nicht** hier und ist weiter offen — vermutlich in der Darstellung von Gesuchen in Suche und Profil, nicht beim Anlegen.
+- Bei der Inventur sah es so aus, als öffne die Inserat-Maske für Planer immer auf „Ich biete" — der Router setzt beim Öffnen `_clSetType('offer')`. **Widerlegt:** `updateCreateFormForRole()` läuft danach und stellt Planer bereits auf „Ich suche". Ein Test hält das jetzt fest. Die Ursache von F01–F03 (Gesuche mit Anbieterpreis in der Dienstleistersuche) liegt also **nicht** hier — siehe 1.4.
 - Was wirklich fehlte: eine **ausdrückliche** Wahl über den Weg. Ein Dienstleister, der selbst ein Gesuch aufgeben will, landete auf „Ich biete".
+
+### 1.4 Ursache von F01–F03 (gemessen am 16.10.2026)
+
+- **Daten:** Die öffentliche Inserate-Route der Live-Seite liefert beide Gesuche aus F02 mit `listingType: "offer"`, „ab … € / Event" und Bewertung 0. Angelegt im März, vor Migration 2.3 (Juli). Deren Nachmarkierung über den Titel lief nie: sie steht in `if ( ! $tcol )`, und `eb_create_tables()` legt die Spalte vorher per dbDelta selbst an.
+- **Darstellung:** Keine Karte (Suche, Laufband, Meine Inserate) las den Typ; `listingType` wurde nur in Board-Auswahl, Assistent und Bearbeiten gelesen.
+- **Umgesetzt (Q3: nur Darstellung):** eine Erkennung `ebIstGesuch()` mit der Titelregel als Rückfall; Gesuche zeigen „Gesuch" und „Budget: …", unter „Meine Inserate" ohne Bewertung und ohne „Verfügbarkeit". Gesuche bleiben in der Suche; ein eigener Kanal ist Stufe 2.
+- **Offen:** F01 (Planer-Profil mit Anbieter-Spezialisierung) liegt in der Profilansicht. Die Migration bleibt kaputt; sie zu reparieren hieße, echte Zeilen umzuschreiben (Entscheidung des Inhabers).
 
 ---
 

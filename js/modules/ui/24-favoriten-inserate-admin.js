@@ -1,4 +1,18 @@
 // ========== MY LISTINGS ==========
+
+/** Kennzahlen einer Karte unter „Meine Inserate". Ein Gesuch wird nicht
+ *  bewertet — „0,0/5" und „0 Bewertungen" daran sind ein falscher
+ *  Erfolgsmaßstab (F03). Es trägt stattdessen seine Art. */
+function _meinInseratKennzahlen(l) {
+  if (ebIstGesuch(l)) {
+    return '<div class="my-listing-stats"><span><span class="material-icons-round" aria-hidden="true">campaign</span> Gesuch</span></div>';
+  }
+  return '<div class="my-listing-stats">' +
+    '<span><span class="material-icons-round">star</span> ' + (parseFloat(l.rating) || 0).toFixed(1) + '/5</span>' +
+    '<span><span class="material-icons-round">rate_review</span> ' + (parseInt(l.reviewCount, 10) || 0) + ' Bewertungen</span>' +
+  '</div>';
+}
+
 function renderMyListings() {
   var grid = document.getElementById('myListingsGrid');
   var emptyState = document.getElementById('myListingsEmpty');
@@ -61,7 +75,8 @@ function renderMyListings() {
               providerImg: l.providerImg,
               providerSince: l.providerSince,
               providerRole: l.providerRole,
-              baseRole: l.baseRole
+              baseRole: l.baseRole,
+              listingType: l.listingType
             };
           });
           renderEventGrid(myEvents);
@@ -99,11 +114,8 @@ function renderMyListings() {
                 '<h3>' + _escHtml(evt.title) + '</h3>' +
                 _aiDisclosureLabelsHtml(evt, 'ai-disclosure-admin') +
                 '<p>' + _escHtml(evt.categoryLabel) + ' · ' + _escHtml(evt.location) + '</p>' +
-                '<p class="my-listing-price">' + _escHtml(evt.priceLabel) + '</p>' +
-                '<div class="my-listing-stats">' +
-                  '<span><span class="material-icons-round">star</span> ' + (evt.rating || 0).toFixed(1) + '/5</span>' +
-                  '<span><span class="material-icons-round">rate_review</span> ' + (evt.reviewCount || 0) + ' Bewertungen</span>' +
-                '</div>' +
+                '<p class="my-listing-price">' + _escHtml(ebIstGesuch(evt) ? ebGesuchBudgetText(evt) : evt.priceLabel) + '</p>' +
+                _meinInseratKennzahlen(evt) +
               '</div>' +
               '<div class="my-listing-actions">' +
                 '<button class="btn-outline btn-sm" onclick="navigateTo(\'detail\', ' + evt.id + ')">' +
@@ -170,8 +182,7 @@ function renderMyListings() {
         grid.style.display = '';
         emptyState.style.display = 'none';
         grid.innerHTML = myListings.map(function(l) {
-          var rating = l.rating || 0;
-          var reviewCount = l.reviewCount || 0;
+          var gesuch = ebIstGesuch(l);
           return '<div class="my-listing-card">' +
             '<div class="my-listing-img"' + _aiDisclosureAttrs(l) + '>' +
               '<img src="' + _escHtml(l.image) + '" alt="' + _escHtml(l.title) + '" />' +
@@ -181,11 +192,8 @@ function renderMyListings() {
               '<h3>' + _escHtml(l.title) + '</h3>' +
               _aiDisclosureLabelsHtml(l, 'ai-disclosure-admin') +
               '<p>' + _escHtml(l.categoryLabel) + ' · ' + _escHtml(l.location) + '</p>' +
-              '<p class="my-listing-price">' + _escHtml(l.priceLabel) + '</p>' +
-              '<div class="my-listing-stats">' +
-                '<span><span class="material-icons-round">star</span> ' + rating.toFixed(1) + '/5</span>' +
-                '<span><span class="material-icons-round">rate_review</span> ' + reviewCount + ' Bewertungen</span>' +
-              '</div>' +
+              '<p class="my-listing-price">' + _escHtml(gesuch ? ebGesuchBudgetText(l) : l.priceLabel) + '</p>' +
+              _meinInseratKennzahlen(l) +
             '</div>' +
             '<div class="my-listing-actions">' +
               '<button class="btn-outline btn-sm" onclick="navigateTo(\'detail\', ' + l.id + ')">' +
@@ -194,9 +202,11 @@ function renderMyListings() {
               '<button class="btn-outline btn-sm" onclick="editListing(' + l.id + ')">' +
                 '<span class="material-icons-round">edit</span> Bearbeiten' +
               '</button>' +
+              // Verfügbarkeit ist eine Frage an den Anbieter, nicht an ein Gesuch (F03).
+              (gesuch ? '' :
               '<button class="btn-outline btn-sm" onclick="openAvailabilityModal(' + (l._dbId || l.id) + ')">' +
                 '<span class="material-icons-round">event_busy</span> Verfügbarkeit' +
-              '</button>' +
+              '</button>') +
               '<button class="btn-outline btn-sm btn-danger-outline" onclick="deleteListing(' + l.id + ')">' +
                 '<span class="material-icons-round">delete</span> Löschen' +
               '</button>' +
@@ -249,7 +259,8 @@ function renderMyListings() {
               providerImg: l.providerImg,
               providerSince: l.providerSince,
               providerRole: l.providerRole,
-              baseRole: l.baseRole
+              baseRole: l.baseRole,
+              listingType: l.listingType
             };
           });
           renderMyGrid(myListings);

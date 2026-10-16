@@ -3812,6 +3812,52 @@ Seitdem liegen Sicherungen im Scratchpad, und der Lauf endet mit
 npx playwright test tests/e2e/navigation-rollen.spec.js   # 18 Tests, 14 Mutationen
 ```
 
+### Gesuche sahen aus wie Angebote — und die Migration dafür lief nie
+
+Befunde F01–F03 des Live-Audits vom 15.10.2026, am 16.10.2026 gemessen. An
+der öffentlichen Inserate-Route der Live-Seite tragen *„Suche DJ für 28.
+Geburtstag"* und *„Klavierspieler für Events gesucht"* beide
+`listingType: "offer"`, `priceLabel: "ab … € / Event"` und `rating: 0`.
+
+**Zwei Ursachen, und keine davon liegt beim Anlegen.**
+
+1. **Die Nachmarkierung aus Migration 2.3 konnte nie laufen.** Sie steht in
+   `if ( ! $tcol )` — aber `eb_create_tables()` legt die Spalte
+   `listing_type` unmittelbar davor per dbDelta selbst an. Die Frage „fehlt
+   die Spalte?" ist also immer schon mit Nein beantwortet, und jede alte
+   Zeile trägt den Vorgabewert `'offer'`. Beide Gesuche stammen aus dem März,
+   die Migration aus dem Juli. **Dieselbe Klasse wie bei 2.8:** ein Zweig,
+   den die eigene Vorbereitung unerreichbar macht.
+2. **Keine Karte las den Typ.** Suche, Laufband und „Meine Inserate" zeigten
+   Stern, Bewertung, Anbieterpreis und „Verfügbarkeit" für alles.
+   `listingType` wurde an genau drei Stellen gelesen, zwei davon mit je
+   eigener Erkennung — und die Abbildung unter „Meine Inserate" warf das
+   Feld beim Übernehmen sogar weg.
+
+**Behoben in der Darstellung, nicht in den Daten** (Entscheidung Q3 des
+Inhabers). `ebIstGesuch()` in `core/00-basis.js` ist die **eine** Erkennung;
+`listingType: 'offer'` gilt dort nicht als Aussage, weil es der Vorgabewert
+ist, und die Titelregel der Migration bleibt als Rückfall. Ein Test verbietet
+eine zweite Fassung der Regel in irgendeinem Modul.
+
+Ein Gesuch zeigt **„Gesuch" statt Stern** und **„Budget: …" statt „ab …"**;
+ein schon als Budget gespeicherter Text bleibt. Unter „Meine Inserate" fallen
+Bewertung und „Verfügbarkeit" weg. **Gesuche bleiben in der Suche** —
+Dienstleister sollen sie finden; ein eigener Kanal gehört zu Stufe 2.
+
+**Offen:** F01, das Profil eines Planers mit Anbieter-Spezialisierung, liegt
+in der Profilansicht und ist hier nicht angefasst. Die Migration 2.3 selbst
+bleibt kaputt; sie zu reparieren hiesse, echte Zeilen umzuschreiben.
+
+**Eine Mutation überlebte zuerst**, und der Grund ist lehrreich: der
+Maskierungstest gab dem Gesuch einen Preistext mit Markup — den der
+Gesuch-Zweig gar nicht zeigt, weil er alte Texte durch das Budget ersetzt.
+Die Probe bestand, ohne die Maskierung je zu erreichen.
+
+```bash
+npx playwright test tests/e2e/gesuch-darstellung.spec.js   # 9 Tests, 10 Mutationen
+```
+
 #### Und der geteilte Link auf genau diese Seite endete auf der Fehlerseite
 
 Gemeldet am 13.09.2026 aus einer Live-Prüfung: *„Freunde funktionieren über
@@ -5766,7 +5812,7 @@ npm run test:smoke      # nur Routen-Smoke-Tests
 npm run test:css        # CSS-Minify-Regression (Verlaufsschrift)
 ```
 
-1457 Tests in 96 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
+1466 Tests in 97 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
 Sätze), Gebühren (centgenau, JS↔PHP-Parität), Wissensbasis (Antworten +
 Leckage-Schutz), Zufluss (Quarantäne-Tor + Demo-Feed-Ehrlichkeit),
 Verbindungen (HQ-Zugang + Connector-Katalog), Auftragsstrom (Herkunft +

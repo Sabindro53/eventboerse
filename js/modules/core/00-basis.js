@@ -208,6 +208,36 @@ function _ebBewegungQuelle() {
   return _ebBewegungMql;
 }
 
+/* ── Gesuch oder Angebot ────────────────────────────────────────────────
+ * Die EINE Erkennung für alle Stellen (Karten, Laufband, Meine Inserate,
+ * Board-Auswahl, Assistent). Vorher hatten zwei Stellen je eine eigene
+ * Fassung und alle Karten gar keine — Gesuche erschienen mit Stern und
+ * Anbieterpreis in der Suche (F01–F03, 15.10.2026).
+ *
+ * `listingType: 'offer'` ist KEINE Aussage: es ist der Vorgabewert der
+ * Spalte. Die Nachmarkierung alter Gesuche in Migration 2.3 lief nie, weil
+ * dbDelta die Spalte vorher selbst anlegt und `if ( ! $tcol )` danach nie
+ * wahr ist. Deshalb gilt die Titelregel der Migration hier als Rückfall.
+ * Daten werden dafür nicht umgeschrieben (Entscheidung Q3 des Inhabers). */
+function ebIstGesuch(l) {
+  if (!l) return false;
+  var t = String(l.listingType || l.kind || l.type || '').toLowerCase();
+  if (t === 'search' || t === 'gesuch' || t === 'such' || t.indexOf('suche') === 0) return true;
+  var titel = String(l.title || '').toLowerCase();
+  var kat = String(l.categoryLabel || l.category || '').toLowerCase();
+  return /\bgesucht\b/.test(titel) || /\bgesucht\b/.test(kat) || /^\s*suche\s/.test(titel);
+}
+
+/** Preiszeile eines Gesuchs: ein Budget, kein „ab … € / Event".
+ *  Ein schon als Budget gespeicherter Text bleibt; alte Zeilen tragen den
+ *  Anbieter-Text der Maske von damals und bekommen ihn aus dem Betrag. */
+function ebGesuchBudgetText(l) {
+  var label = String((l && l.priceLabel) || '');
+  if (/^\s*budget/i.test(label)) return label;
+  var betrag = parseInt(l && l.price, 10) || 0;
+  return betrag > 0 ? 'Budget: ' + betrag.toLocaleString('de-DE') + ' €' : 'Budget nach Absprache';
+}
+
 /** true, wenn der Nutzer weniger Bewegung wünscht. */
 function ebBewegungReduziert() {
   var q = _ebBewegungQuelle();

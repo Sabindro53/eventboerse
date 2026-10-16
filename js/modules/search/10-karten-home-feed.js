@@ -3,8 +3,15 @@ function renderListingCard(listing) {
   const isFav = favorites.has(listing.id);
   var imgs = Array.isArray(listing.images) && listing.images.length ? listing.images : [listing.image];
   var galleryId = 'gridGallery_' + listing.id;
+  // Ein Gesuch hat keine Bewertung und keinen Anbieterpreis — es nennt ein
+  // Budget. Stern und „ab … €" machten aus Nachfrage ein Angebot (F02).
+  var gesuch = ebIstGesuch(listing);
+  var kopfRechts = gesuch
+    ? '<span class="listing-card-art">Gesuch</span>'
+    : '<span class="listing-card-rating"><span class="material-icons-round">star</span> ' + (listing.rating || 0) + '</span>';
+  var preisText = gesuch ? ebGesuchBudgetText(listing) : listing.priceLabel;
   return `
-    <div class="listing-card" data-listing-id="${listing.id}"${_aiDisclosureAttrs(listing)}>
+    <div class="listing-card${gesuch ? ' is-gesuch' : ''}" data-listing-id="${listing.id}"${_aiDisclosureAttrs(listing)}>
       <div class="listing-card-img">
         <div class="grid-gallery-track" id="${galleryId}" tabindex="0" role="region" aria-label="Bildergalerie: ${_escHtml(listing.title)} – ${listing.id}">
           ${imgs.map(function(img, i) { return '<div class="grid-gallery-slide"><img src="' + _escHtml(img) + '" alt="' + _escHtml(listing.title) + '"' + window.EB_IMG_LAZY_ATTR + window.EB_IMG_ERR_ATTR + ' /></div>'; }).join('')}
@@ -19,16 +26,14 @@ function renderListingCard(listing) {
       <div class="listing-card-body">
         <div class="listing-card-top">
           <span class="listing-card-title">${_escHtml(listing.title)}</span>
-          <span class="listing-card-rating">
-            <span class="material-icons-round">star</span> ${listing.rating || 0}
-          </span>
+          ${kopfRechts}
         </div>
         ${_aiDisclosureLabelsHtml(listing, 'ai-disclosure-card')}
         <div class="listing-card-category">${_escHtml(listing.categoryLabel)}</div>
         <div class="listing-card-location">
           <span class="material-icons-round">location_on</span> ${_escHtml(listing.location)}
         </div>
-        <div class="listing-card-price">${_escHtml(listing.priceLabel)}</div>
+        <div class="listing-card-price">${_escHtml(preisText)}</div>
       </div>
     </div>
   `;
@@ -81,7 +86,9 @@ function renderHeroMarquees() {
       '<img src="' + _escHtml(l.image) + '" alt="' + _escHtml(l.title) + '"' + (priority ? window.EB_IMG_EAGER_ATTR : window.EB_IMG_LAZY_ATTR) + window.EB_IMG_ERR_ATTR + ' />' +
       '<div class="hero-marquee-card-info">' +
         '<h4>' + _escHtml(l.title) + '</h4>' +
-        '<span>' + _escHtml(l.priceLabel) + ' · ★ ' + (l.rating || 0) + '</span>' +
+        '<span>' + (ebIstGesuch(l)
+          ? 'Gesuch · ' + _escHtml(ebGesuchBudgetText(l))
+          : _escHtml(l.priceLabel) + ' · ★ ' + (l.rating || 0)) + '</span>' +
         _aiDisclosureLabelsHtml(l, 'ai-disclosure-marquee') +
       '</div></a>';
   }

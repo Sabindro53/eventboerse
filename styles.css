@@ -3432,6 +3432,17 @@ body.dark-mode .ai-sug-chip:hover { background: rgba(255,56,92,0.15); }
   flex-shrink: 0;
 }
 .listing-card-rating .material-icons-round { font-size: 16px; color: var(--dark); }
+/* Ein Gesuch nennt seine Art statt einer Bewertung (F02). --primary-text,
+   nicht --primary: die Markenfarbe als Text verfehlt 4,5 : 1 auf Weiß. */
+.listing-card-art {
+  flex-shrink: 0;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--primary-text);
+  border: 1px solid currentColor;
+  border-radius: 999px;
+  padding: 1px 8px;
+}
 .listing-card-category {
   font-size: 0.85rem;
   color: var(--text-light);

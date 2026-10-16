@@ -633,9 +633,7 @@ function _aiCreateFromDraft() {
 }
 
 function _aiIsSearch(l) {
-  var t = (l.listingType || l.kind || l.type || '').toString().toLowerCase();
-  if (t === 'search' || t === 'gesuch' || t.indexOf('suche') === 0) return true;
-  return /\bgesucht\b/i.test(l.title || '') || /^\s*suche\s/i.test(l.title || '');
+  return ebIstGesuch(l);
 }
 
 function _aiAnswerCategory(catKey) {

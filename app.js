@@ -208,6 +208,36 @@ function _ebBewegungQuelle() {
   return _ebBewegungMql;
 }
 
+/* ── Gesuch oder Angebot ────────────────────────────────────────────────
+ * Die EINE Erkennung für alle Stellen (Karten, Laufband, Meine Inserate,
+ * Board-Auswahl, Assistent). Vorher hatten zwei Stellen je eine eigene
+ * Fassung und alle Karten gar keine — Gesuche erschienen mit Stern und
+ * Anbieterpreis in der Suche (F01–F03, 15.10.2026).
+ *
+ * `listingType: 'offer'` ist KEINE Aussage: es ist der Vorgabewert der
+ * Spalte. Die Nachmarkierung alter Gesuche in Migration 2.3 lief nie, weil
+ * dbDelta die Spalte vorher selbst anlegt und `if ( ! $tcol )` danach nie
+ * wahr ist. Deshalb gilt die Titelregel der Migration hier als Rückfall.
+ * Daten werden dafür nicht umgeschrieben (Entscheidung Q3 des Inhabers). */
+function ebIstGesuch(l) {
+  if (!l) return false;
+  var t = String(l.listingType || l.kind || l.type || '').toLowerCase();
+  if (t === 'search' || t === 'gesuch' || t === 'such' || t.indexOf('suche') === 0) return true;
+  var titel = String(l.title || '').toLowerCase();
+  var kat = String(l.categoryLabel || l.category || '').toLowerCase();
+  return /\bgesucht\b/.test(titel) || /\bgesucht\b/.test(kat) || /^\s*suche\s/.test(titel);
+}
+
+/** Preiszeile eines Gesuchs: ein Budget, kein „ab … € / Event".
+ *  Ein schon als Budget gespeicherter Text bleibt; alte Zeilen tragen den
+ *  Anbieter-Text der Maske von damals und bekommen ihn aus dem Betrag. */
+function ebGesuchBudgetText(l) {
+  var label = String((l && l.priceLabel) || '');
+  if (/^\s*budget/i.test(label)) return label;
+  var betrag = parseInt(l && l.price, 10) || 0;
+  return betrag > 0 ? 'Budget: ' + betrag.toLocaleString('de-DE') + ' €' : 'Budget nach Absprache';
+}
+
 /** true, wenn der Nutzer weniger Bewegung wünscht. */
 function ebBewegungReduziert() {
   var q = _ebBewegungQuelle();
@@ -2246,8 +2276,15 @@ function renderListingCard(listing) {
   const isFav = favorites.has(listing.id);
   var imgs = Array.isArray(listing.images) && listing.images.length ? listing.images : [listing.image];
   var galleryId = 'gridGallery_' + listing.id;
+  // Ein Gesuch hat keine Bewertung und keinen Anbieterpreis — es nennt ein
+  // Budget. Stern und „ab … €" machten aus Nachfrage ein Angebot (F02).
+  var gesuch = ebIstGesuch(listing);
+  var kopfRechts = gesuch
+    ? '<span class="listing-card-art">Gesuch</span>'
+    : '<span class="listing-card-rating"><span class="material-icons-round">star</span> ' + (listing.rating || 0) + '</span>';
+  var preisText = gesuch ? ebGesuchBudgetText(listing) : listing.priceLabel;
   return `
-    <div class="listing-card" data-listing-id="${listing.id}"${_aiDisclosureAttrs(listing)}>
+    <div class="listing-card${gesuch ? ' is-gesuch' : ''}" data-listing-id="${listing.id}"${_aiDisclosureAttrs(listing)}>
       <div class="listing-card-img">
         <div class="grid-gallery-track" id="${galleryId}" tabindex="0" role="region" aria-label="Bildergalerie: ${_escHtml(listing.title)} – ${listing.id}">
           ${imgs.map(function(img, i) { return '<div class="grid-gallery-slide"><img src="' + _escHtml(img) + '" alt="' + _escHtml(listing.title) + '"' + window.EB_IMG_LAZY_ATTR + window.EB_IMG_ERR_ATTR + ' /></div>'; }).join('')}
@@ -2262,16 +2299,14 @@ function renderListingCard(listing) {
       <div class="listing-card-body">
         <div class="listing-card-top">
           <span class="listing-card-title">${_escHtml(listing.title)}</span>
-          <span class="listing-card-rating">
-            <span class="material-icons-round">star</span> ${listing.rating || 0}
-          </span>
+          ${kopfRechts}
         </div>
         ${_aiDisclosureLabelsHtml(listing, 'ai-disclosure-card')}
         <div class="listing-card-category">${_escHtml(listing.categoryLabel)}</div>
         <div class="listing-card-location">
           <span class="material-icons-round">location_on</span> ${_escHtml(listing.location)}
         </div>
-        <div class="listing-card-price">${_escHtml(listing.priceLabel)}</div>
+        <div class="listing-card-price">${_escHtml(preisText)}</div>
       </div>
     </div>
   `;
@@ -2324,7 +2359,9 @@ function renderHeroMarquees() {
       '<img src="' + _escHtml(l.image) + '" alt="' + _escHtml(l.title) + '"' + (priority ? window.EB_IMG_EAGER_ATTR : window.EB_IMG_LAZY_ATTR) + window.EB_IMG_ERR_ATTR + ' />' +
       '<div class="hero-marquee-card-info">' +
         '<h4>' + _escHtml(l.title) + '</h4>' +
-        '<span>' + _escHtml(l.priceLabel) + ' · ★ ' + (l.rating || 0) + '</span>' +
+        '<span>' + (ebIstGesuch(l)
+          ? 'Gesuch · ' + _escHtml(ebGesuchBudgetText(l))
+          : _escHtml(l.priceLabel) + ' · ★ ' + (l.rating || 0)) + '</span>' +
         _aiDisclosureLabelsHtml(l, 'ai-disclosure-marquee') +
       '</div></a>';
   }
@@ -12920,6 +12957,20 @@ function renderFavorites() {
   }
 }
 // ========== MY LISTINGS ==========
+
+/** Kennzahlen einer Karte unter „Meine Inserate". Ein Gesuch wird nicht
+ *  bewertet — „0,0/5" und „0 Bewertungen" daran sind ein falscher
+ *  Erfolgsmaßstab (F03). Es trägt stattdessen seine Art. */
+function _meinInseratKennzahlen(l) {
+  if (ebIstGesuch(l)) {
+    return '<div class="my-listing-stats"><span><span class="material-icons-round" aria-hidden="true">campaign</span> Gesuch</span></div>';
+  }
+  return '<div class="my-listing-stats">' +
+    '<span><span class="material-icons-round">star</span> ' + (parseFloat(l.rating) || 0).toFixed(1) + '/5</span>' +
+    '<span><span class="material-icons-round">rate_review</span> ' + (parseInt(l.reviewCount, 10) || 0) + ' Bewertungen</span>' +
+  '</div>';
+}
+
 function renderMyListings() {
   var grid = document.getElementById('myListingsGrid');
   var emptyState = document.getElementById('myListingsEmpty');
@@ -12982,7 +13033,8 @@ function renderMyListings() {
               providerImg: l.providerImg,
               providerSince: l.providerSince,
               providerRole: l.providerRole,
-              baseRole: l.baseRole
+              baseRole: l.baseRole,
+              listingType: l.listingType
             };
           });
           renderEventGrid(myEvents);
@@ -13020,11 +13072,8 @@ function renderMyListings() {
                 '<h3>' + _escHtml(evt.title) + '</h3>' +
                 _aiDisclosureLabelsHtml(evt, 'ai-disclosure-admin') +
                 '<p>' + _escHtml(evt.categoryLabel) + ' · ' + _escHtml(evt.location) + '</p>' +
-                '<p class="my-listing-price">' + _escHtml(evt.priceLabel) + '</p>' +
-                '<div class="my-listing-stats">' +
-                  '<span><span class="material-icons-round">star</span> ' + (evt.rating || 0).toFixed(1) + '/5</span>' +
-                  '<span><span class="material-icons-round">rate_review</span> ' + (evt.reviewCount || 0) + ' Bewertungen</span>' +
-                '</div>' +
+                '<p class="my-listing-price">' + _escHtml(ebIstGesuch(evt) ? ebGesuchBudgetText(evt) : evt.priceLabel) + '</p>' +
+                _meinInseratKennzahlen(evt) +
               '</div>' +
               '<div class="my-listing-actions">' +
                 '<button class="btn-outline btn-sm" onclick="navigateTo(\'detail\', ' + evt.id + ')">' +
@@ -13091,8 +13140,7 @@ function renderMyListings() {
         grid.style.display = '';
         emptyState.style.display = 'none';
         grid.innerHTML = myListings.map(function(l) {
-          var rating = l.rating || 0;
-          var reviewCount = l.reviewCount || 0;
+          var gesuch = ebIstGesuch(l);
           return '<div class="my-listing-card">' +
             '<div class="my-listing-img"' + _aiDisclosureAttrs(l) + '>' +
               '<img src="' + _escHtml(l.image) + '" alt="' + _escHtml(l.title) + '" />' +
@@ -13102,11 +13150,8 @@ function renderMyListings() {
               '<h3>' + _escHtml(l.title) + '</h3>' +
               _aiDisclosureLabelsHtml(l, 'ai-disclosure-admin') +
               '<p>' + _escHtml(l.categoryLabel) + ' · ' + _escHtml(l.location) + '</p>' +
-              '<p class="my-listing-price">' + _escHtml(l.priceLabel) + '</p>' +
-              '<div class="my-listing-stats">' +
-                '<span><span class="material-icons-round">star</span> ' + rating.toFixed(1) + '/5</span>' +
-                '<span><span class="material-icons-round">rate_review</span> ' + reviewCount + ' Bewertungen</span>' +
-              '</div>' +
+              '<p class="my-listing-price">' + _escHtml(gesuch ? ebGesuchBudgetText(l) : l.priceLabel) + '</p>' +
+              _meinInseratKennzahlen(l) +
             '</div>' +
             '<div class="my-listing-actions">' +
               '<button class="btn-outline btn-sm" onclick="navigateTo(\'detail\', ' + l.id + ')">' +
@@ -13115,9 +13160,11 @@ function renderMyListings() {
               '<button class="btn-outline btn-sm" onclick="editListing(' + l.id + ')">' +
                 '<span class="material-icons-round">edit</span> Bearbeiten' +
               '</button>' +
+              // Verfügbarkeit ist eine Frage an den Anbieter, nicht an ein Gesuch (F03).
+              (gesuch ? '' :
               '<button class="btn-outline btn-sm" onclick="openAvailabilityModal(' + (l._dbId || l.id) + ')">' +
                 '<span class="material-icons-round">event_busy</span> Verfügbarkeit' +
-              '</button>' +
+              '</button>') +
               '<button class="btn-outline btn-sm btn-danger-outline" onclick="deleteListing(' + l.id + ')">' +
                 '<span class="material-icons-round">delete</span> Löschen' +
               '</button>' +
@@ -13170,7 +13217,8 @@ function renderMyListings() {
               providerImg: l.providerImg,
               providerSince: l.providerSince,
               providerRole: l.providerRole,
-              baseRole: l.baseRole
+              baseRole: l.baseRole,
+              listingType: l.listingType
             };
           });
           renderMyGrid(myListings);
@@ -25051,18 +25099,9 @@ window.addChecklistItem = addChecklistItem;
 
 function openAddProviderModal(defaultStage) {
   // Nur Dienstleister-Inserate (Angebote) anzeigen, KEINE Such-Inserate.
-  // Filter:
-  //  1. Explizites Feld (zukuenftig): listingType / kind / type === 'search' | 'gesuch' | 'suche-dienstleister' → ausblenden
-  //  2. Heuristik fuer Legacy-Daten: Titel/Kategorie enthaelt "gesucht" / beginnt mit "Suche " → Such-Inserat
+  // Die Erkennung steht EINMAL in ebIstGesuch() (core/00-basis.js).
   function _isSearchListing(l) {
-    if (!l) return true;
-    var t = (l.listingType || l.kind || l.type || '').toString().toLowerCase();
-    if (t === 'search' || t === 'gesuch' || t === 'such' || t.indexOf('suche') === 0) return true;
-    var title = (l.title || '').toString().toLowerCase();
-    var cat   = (l.categoryLabel || l.category || '').toString().toLowerCase();
-    if (/\bgesucht\b/.test(title) || /\bgesucht\b/.test(cat)) return true;
-    if (/^\s*suche\s/.test(title)) return true;
-    return false;
+    return !l || ebIstGesuch(l);
   }
   // Basis: BROWSE-PARITÄT — der Picker zeigt exakt das, was auch die Suche
   // zeigt: alle DB-Inserate PLUS Demo-Inserate, sofern sie nicht per
@@ -29675,9 +29714,7 @@ function _aiCreateFromDraft() {
 }
 
 function _aiIsSearch(l) {
-  var t = (l.listingType || l.kind || l.type || '').toString().toLowerCase();
-  if (t === 'search' || t === 'gesuch' || t.indexOf('suche') === 0) return true;
-  return /\bgesucht\b/i.test(l.title || '') || /^\s*suche\s/i.test(l.title || '');
+  return ebIstGesuch(l);
 }
 
 function _aiAnswerCategory(catKey) {

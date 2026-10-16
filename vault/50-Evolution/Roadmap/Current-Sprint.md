@@ -16,8 +16,18 @@ Zahlen ihrer Zeit — die sind Historie, kein Ist-Stand. Der Ensemble-Kontext
 liest diese Datei von oben; ein Modell, das „68 Tests" als aktuell meldet, hat
 einen alten Abschnitt gelesen und nicht diesen.
 
-- **Playwright-Suite: 1457 Tests in 96 Suiten**, blockierendes Gate in `pr-check.yml`.
+- **Playwright-Suite: 1466 Tests in 97 Suiten**, blockierendes Gate in `pr-check.yml`.
   Läuft seit dem Self-Hosting auch ohne Netzzugang vollständig durch
+
+## Gesuche als Gesuche zeigen — F01–F03 (16.10.2026)
+
+**Wer:** claude, Branch `claude/plattform-redesign`.
+
+**Befund:** Live gemessen, beide Gesuche aus F02 tragen `listingType: offer`. Die Nachmarkierung aus Migration 2.3 (`functions.php`, `if ( ! $tcol )`) lief nie, weil dbDelta die Spalte vorher anlegt. Keine Karte las den Typ.
+
+**Umgesetzt (nur Darstellung, Q3):** `ebIstGesuch()` / `ebGesuchBudgetText()` in `core/00-basis.js`; Karte, Laufband und „Meine Inserate" zeigen „Gesuch" und Budget statt Stern und „ab …". `gesuch-darstellung.spec.js`: 9 Tests, 10 Mutationen.
+
+**Nächster Schritt:** F01 (Planer-Profil zeigt Anbieter-Spezialisierung), Profilansicht `search/12-detail-provider.js`. Datenkorrektur nur nach Entscheidung des Inhabers.
 
 ## Übergabe Codex → Claude Code: UX und Nicknames (15.10.2026)
 
