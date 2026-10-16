@@ -202,11 +202,50 @@ Alle sind mit Browser-Tests abgesichert (`navigation-rollen.spec.js`), einschlie
 
 | Stufe | Inhalt | Befunde |
 |---|---|---|
-| 2 · Entdecken bündeln | `explore` in `aktuelles` aufgehen lassen, „Feed" → „Entdecken", eine Ergebnisansicht mit Gesuchen als eigenem Kanal | F02, F22–F24 |
-| 3 · Planer-Event | eine Event-Erstellung mit Vorlage, Kanban als Nebenansicht, Ladezustand ≠ Leerzustand | F10–F14, F18 |
+| 2 · Entdecken bündeln | **Plan steht in 6.1** (Besprechung vom 15.10.2026): ein Feed „Entdecken" mit zwei Sortierungen, „Jetzt" geht in „Radar" auf | F02, F22–F24 |
+| 3 · Planer-Event | eine Event-Erstellung mit Vorlage, Ladezustand ≠ Leerzustand. **Kanban: offen, siehe K1 in 6.1** (der Inhaber bevorzugt das gemeinsame Prozess-/Kanban-Board als Hauptansicht) | F10–F14, F18 |
 | 4 · Dienstleister-Arbeitsplatz | Anfragen ≠ Aufträge, zustandsgerechte Leerzustände (Auszahlung einrichten), Cockpit nur Finanzen | F05, F07–F09, F19 |
 | 5 · Einheitliche Bausteine | „Noch keine Bewertungen", Preis mit Einheit, Vertrauensabzeichen nur bei belegten Kriterien | F04, F20, F21 |
 | 6 · App-Shell | kompakte Fußzeile auf Arbeitsseiten, echte `href` statt `href="#"` | F25, F26 |
+
+### 6.1 Stufe 2 — Plan aus der Besprechung vom 15.10.2026
+
+Grundlage ist eine KI-erzeugte Besprechungsnotiz. Hier stehen nur die
+Produktentscheidungen, in eigenen Worten. Personen, Finanzen und
+Gründungsfragen gehören nicht in dieses öffentliche Repository.
+
+**Entschieden**
+- „Entdecken" ist der wichtigste Einstieg für alle, die noch nicht wissen, *was* sie planen wollen. Es wird **ein Feed** mit Beiträgen der Plattform, in der Art von Pinterest oder Instagram.
+- **Zwei Sortierungen statt eigener Reiter:** „Relevanz" und „Neueste". Weitere Filter kommen erst, wenn die Nutzung zeigt, dass sie gebraucht werden.
+- **„Jetzt" geht in „Radar" auf.** Radar zeigt, was gerade in der Umgebung los ist, möglichst mit Karte, auch Einträge, an denen keine Provision hängt.
+- **Es entfallen die Reiter** „Für dich", „Neueste" und „Beliebt".
+- **Suchergebnisse lassen sich wieder einklappen** („Weniger anzeigen"). Das wird vorab gebaut, siehe unten.
+
+**Zuordnung „bisher → neuer Platz"** (Seiten `explore` und `aktuelles` tragen heute dieselben acht Reiter)
+
+| Bisher | Funktion | Neuer Platz |
+|---|---|---|
+| Reiter „Entdecken" (`explore`) | Einstieg ohne Ziel | **Entdecken** (Hauptseite des Bereichs) |
+| Reiter „Für dich" | Feed, sortiert nach gelerntem Vorliebenprofil (`eb_taste_v1`) | Entdecken, Sortierung „Relevanz" (siehe S1) |
+| Reiter „Neueste" | Feed nach Erstellzeit | Entdecken, Sortierung „Neueste" |
+| Reiter „Beliebt" | Feed nach Beliebtheit | Entdecken, Sortierung „Relevanz" (siehe S1) |
+| Reiter „Jetzt" (`/aktuelles/jetzt`) | Aktivitäten-Bestand: „Demnächst" und „Jederzeit" | **Radar**, als Teil derselben Ansicht |
+| Reiter „Radar" | Karte, Umkreis | **Radar** |
+| Reiter „Gesuche", „Events" | eigene Kanäle | offen, siehe S2 |
+| Mobilleiste „Feed", Seitentitel „Aktuelles" | dieselbe Seite | „Entdecken" (Q1) |
+| Deep-Links `/aktuelles/jetzt`, `/aktuelles/radar`, `/explore` | geteilte Adressen | leiten weiter, nichts endet auf 404 (`seitenrouten.spec.js`) |
+
+**Was dabei nicht verloren gehen darf (gemessen, nicht vermutet)**
+- Die vier leeren Zustände der Jetzt-Ansicht (Störung, nie abgerufen, Gegend nicht erfasst, nichts im Umkreis) und ihre Tests (`jetzt-ansicht.spec.js`).
+- Die Seitenleiste „Demnächst" liest denselben Bestand, und das muss so bleiben.
+- „Für dich" ist die einzige Stelle, die das Vorliebenprofil **liest**. Fällt sie ersatzlos weg, wird ein Profil gebildet, das niemand nutzt. Das ist ein Datenschutz-Befund, keine Aufräumarbeit (siehe S1).
+
+**Offen beim Inhaber**
+- **S1 — Was heißt „Relevanz"?** (a) *persönlich*: sortiert weiter nach dem gelernten Vorliebenprofil wie heute „Für dich". Cookie-Liste, Datenschutzerklärung und App-Store-Angaben bleiben dann unverändert. (b) *Beliebtheit für alle*: dann braucht das Vorliebenprofil keiner mehr. Es müsste entfernt und aus Cookie-Liste, Privacy-Manifest, App-Store-Tabelle und Datenschutzerklärung gestrichen werden. **Vorschlag: (a)**, weil es bei gleicher Oberfläche keine Rechtsänderung braucht.
+- **S2 — Bleiben „Gesuche" und „Events" eigene Reiter** oder werden sie Filter im Feed? Die Besprechung nennt sie nicht. **Vorschlag:** „Gesuche" bleibt ein eigener Kanal. Dort finden Dienstleister die Nachfrage, und F02 verlangt genau diese Trennung.
+- **S3 — Startseite:** Sollen zuerst nur wenige Beispielanbieter erscheinen und die vollen Ergebnisse erst nach Eingabe eines Suchkriteriums? Das ist eine Gestaltungsentscheidung, die Laufband und Suchmaske berührt.
+- **K1 — Kanban als Hauptansicht im Planungs-Board (Stufe 3):** Der Vorschlag in Abschnitt 6 sah Kanban als Nebenansicht vor (F13). Die Besprechung bevorzugt das frühere gemeinsame Prozess-/Kanban-Board, in dem Kategorien wie Location, Trauung oder DJ direkt bearbeitet und Dienstleister über „Hinzufügen" gewählt werden. Stufe 3 wird nach der Antwort neu geschnitten.
+- **E1 — Einladen ohne Konto** (per Link über WhatsApp oder E-Mail, direkt in ein gemeinsames Vorhaben). Ein Link mit dem vorhandenen Gruppen-Einladungscode speichert nichts über die eingeladene Person. Ein Versand per E-Mail an Nicht-Nutzer verarbeitet dagegen Daten Dritter und braucht einen Absatz in der Datenschutzerklärung. Konzept auf Wunsch, gebaut wird nichts ohne Entscheidung.
 
 ## 7 · 3D-Szene — Bewertung
 
