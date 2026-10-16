@@ -240,7 +240,7 @@ $eb_stand = eb_shell_stand();
     <link rel="preload" as="font" type="font/woff2" crossorigin
           href="<?php echo get_template_directory_uri(); ?>/assets/fonts/inter-latin-wght-normal.woff2">
     <link rel="preload" as="font" type="font/woff2" crossorigin
-          href="<?php echo get_template_directory_uri(); ?>/assets/fonts/material-icons-round.woff2?v=c4009c6a108c">
+          href="<?php echo get_template_directory_uri(); ?>/assets/fonts/material-icons-round.woff2?v=b82625d7af96">
 
     <!-- ── fonts.css und styles.css stehen NICHT hier ──
          Sie werden in eventboerse_enqueue_assets() eingebunden und landen ueber

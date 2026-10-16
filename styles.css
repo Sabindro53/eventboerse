@@ -4119,6 +4119,8 @@ body.dark-mode .ai-sug-chip:hover { background: rgba(255,56,92,0.15); }
 
 .browse-load-more-wrap {
   display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
   justify-content: center;
   padding: 28px 0 6px;
 }
@@ -4128,6 +4130,9 @@ body.dark-mode .ai-sug-chip:hover { background: rgba(255,56,92,0.15); }
   align-items: center;
   gap: 8px;
 }
+/* Mit eigener display-Angabe ignoriert der Knopf [hidden] sonst — dann
+   stünde „Weniger anzeigen" auch eingeklappt da. */
+.browse-load-more-btn[hidden] { display: none; }
 
 /* ── Filter chips ── */
 .filter-chip {
@@ -17895,6 +17900,30 @@ body.dark-mode .akt-karte { background: var(--bg-alt); }
   padding: .4rem .5rem; border: 1px solid var(--border);
   border-radius: var(--radius-sm); background: var(--bg); color: var(--text); font-size: .82rem;
 }
+/* Einladen ohne Konto (PRODUCT_REDESIGN.md 6.2) */
+.soz-einladung-karte { border-color: var(--primary); }
+.soz-einladung-knoepfe { display: flex; flex-wrap: wrap; gap: .6rem; justify-content: center; margin: .4rem 0 .8rem; }
+.soz-einladung-karte:not(.soz-leer-karte) .soz-einladung-knoepfe { justify-content: flex-start; }
+.soz-einladen-huelle {
+  position: fixed; inset: 0; z-index: 10050; display: flex; align-items: flex-end; justify-content: center;
+  background: rgba(0,0,0,.45); padding: 16px;
+}
+.soz-einladen-dialog {
+  width: 100%; max-width: 440px; background: var(--bg); color: var(--text);
+  border-radius: var(--radius-lg); padding: 1.2rem; box-shadow: 0 12px 40px rgba(0,0,0,.25);
+}
+@media (min-width: 640px) { .soz-einladen-huelle { align-items: center; } }
+.soz-einladen-dialog h3 { margin: 0 0 .4rem; font-size: 1.05rem; }
+.soz-einladen-dialog > p { margin: 0 0 1rem; font-size: .86rem; color: var(--text-light); line-height: 1.5; }
+.soz-teilen-wege { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: .5rem; margin-bottom: 1rem; }
+.soz-teilen-weg {
+  display: flex; align-items: center; gap: .5rem; min-height: 44px; padding: .55rem .75rem;
+  border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--bg);
+  color: var(--text); font: inherit; font-size: .9rem; text-decoration: none; cursor: pointer;
+}
+.soz-teilen-weg:hover, .soz-teilen-weg:focus-visible { border-color: var(--primary); }
+.soz-teilen-weg .material-icons-round { font-size: 20px; color: var(--primary-text); }
+.soz-einladen-zu { width: 100%; }
 .soz-code { display: flex; flex-wrap: wrap; align-items: center; gap: .45rem; margin-top: .5rem; }
 .soz-code code {
   padding: .3rem .55rem; border-radius: var(--radius-sm);

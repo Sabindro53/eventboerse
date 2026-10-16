@@ -3908,6 +3908,91 @@ Lauf ist nicht „nie gelaufen".
 npx playwright test tests/e2e/profil-arten.spec.js   # 14 Tests, 15 Mutationen
 ```
 
+### Suchergebnisse lassen sich wieder einklappen
+
+Aus der Besprechung vom 15.10.2026 (`PRODUCT_REDESIGN.md` 6.1). Mit „Mehr
+anzeigen" ließen sich Treffer nur aufklappen; zurück ging es allein durch
+Hochscrollen. „Weniger anzeigen" setzt auf die **Startmenge** zurück, die
+`renderBrowseGrid()` beim ersten Zeichnen wählt (`_browseGridPaging.start`).
+Eine feste Zahl wäre falsch, weil die Startmenge an der Spaltenzahl hängt.
+
+**`.browse-load-more-btn` trägt `display: inline-flex`** und ignoriert
+`[hidden]` deshalb ohne eigene Regel. Ohne sie stünde „Weniger anzeigen"
+auch im eingeklappten Zustand da. Es ist dieselbe Falle wie beim Warnkasten
+der Mehrfachzeiten.
+
+**Der Fokus geht auf „Mehr anzeigen".** Der gedrückte Knopf verschwindet
+beim Einklappen, und ohne neues Ziel fiele der Fokus auf `<body>`.
+
+**Die Startmenge sind genau 9 Treffer** (`EB_BROWSE_START`, Entscheidung des
+Inhabers vom 16.10.2026). Vorher waren es fünf volle Reihen, also je nach
+Bildschirm 15, 20 oder 25: auf jedem Gerät eine andere Seite. „Mehr anzeigen"
+richtet die folgenden Schritte weiter an den Reihen aus.
+
+**Die Begrenzung hat einen fremden Test entwertet, nicht kaputtgemacht.**
+`assistent-kategorie.spec.js` belegte „#Hochzeit filtert wirklich" mit
+*weniger sichtbaren Karten*. Bei 9 Startkarten stehen ungefiltert und
+gefiltert beide Male 9 da, und der Test wurde rot, obwohl der Filter wirkt.
+Gemessen wird jetzt die Trefferzahl („N Services gefunden"). Die Gegenprobe
+gehört dazu: Mit abgeschaltetem Anlass-Filter wird genau diese Zusicherung
+rot.
+
+**Der Prüfstand muss auf `navigateTo('browse')` warten.** Der Router zeichnet
+nach `loadDbListings()` selbst; wer vorher sein Raster stellt, wird
+überschrieben und misst das Standardraster. So fiel der erste Lauf mit 15
+statt 3 Karten durch, aus einem Grund, der nichts mit dem Code zu tun hatte.
+
+```bash
+npx playwright test tests/e2e/weniger-anzeigen.spec.js   # 9 Tests, 9 Mutationen
+```
+
+### Einladen ohne Konto — ein Link, den man versteht
+
+Gemessen am 16.10.2026, gebaut nach `PRODUCT_REDESIGN.md` 6.2 (Teil A). Den
+Einladungslink (`/freunde/einladung?einladung=CODE`) gab es schon. Wer ihn
+**ohne Konto** öffnete, sah „Dafür brauchst du ein Konto." und „Anmelden":
+keinen Hinweis, dass er eingeladen ist, und keine Registrierung, obwohl
+Eingeladene meist neu sind. Nach der Anmeldung musste er Code-Feld und
+„Beitreten" selbst finden.
+
+**Jetzt:** Der Einladende teilt über **WhatsApp, E-Mail, SMS, Link kopieren**
+und auf dem Telefon über „Teilen …". Die eingeladene Person sieht **„Du
+bist eingeladen!"** mit „Kostenlos registrieren" (auf Eventplaner
+voreingestellt) und „Ich habe schon ein Konto". Nach der Anmeldung steht
+eine Bestätigung „Gruppe beitreten", danach öffnet sich der gemeinsame Plan.
+
+**Eventbörse verschickt nichts.** `wa.me`, `mailto:` und `sms:` öffnen die
+App des Einladenden; Nummer oder Adresse der eingeladenen Person erreichen
+den Server nie. Damit verarbeiten wir keine Daten Dritter und verschicken
+keine Werbe-E-Mails. Ein Test hält fest, dass beim Teilen keine Anfrage an
+unsere API geht. Wer das ändern will, braucht vorher einen Absatz in der
+Datenschutzerklärung.
+
+**Gruppendaten erst nach der Anmeldung** (Entscheidung E2 des Inhabers):
+Die Ansicht für Gäste nennt keine Gruppe. Deshalb gibt es **keinen neuen
+unauthentifizierten Lesepunkt**.
+
+**Kein stilles Beitreten.** Erst der Klick schickt den Code, wie beim Code-Feld
+bisher. Falsch und abgelaufen sagen dasselbe; der Code verschwindet danach
+aus der Adresse, damit ein Neuladen nicht dieselbe Absage wiederholt.
+
+**Der Code lebt nur in der Adresse**, es gibt keinen neuen Speicherschlüssel und
+damit keine Änderung an der Cookie-Liste. Das trägt, weil ein geöffneter Link
+mit `navigateTo(…, true)` startet und die Adresse nicht neu schreibt.
+
+**Drei Prüfstandsfehler, alle an derselben Stelle gelernt:**
+- Ohne das dritte Argument von `navigateTo()` ersetzt `pushState` den Pfad
+  **samt Code**. Der Test mäße einen Weg, den kein Besucher nimmt.
+- **Der Cookie-Banner trägt `role="dialog"`.** Wer „den Dialog" zählt, zählt
+  ihn mit; gesucht wird deshalb über den Namen.
+- „Der Fokus kehrt zurück" prüfte den Text des aktiven Elements. Fällt der
+  Fokus auf `<body>`, steht der Text dort auch, und die Mutation
+  „Fokus nicht zurückgeben" überlebte. Geprüft wird jetzt das Element.
+
+```bash
+npx playwright test tests/e2e/einladung.spec.js   # 14 Tests, 14 Mutationen
+```
+
 #### Und der geteilte Link auf genau diese Seite endete auf der Fehlerseite
 
 Gemeldet am 13.09.2026 aus einer Live-Prüfung: *„Freunde funktionieren über
@@ -5862,7 +5947,7 @@ npm run test:smoke      # nur Routen-Smoke-Tests
 npm run test:css        # CSS-Minify-Regression (Verlaufsschrift)
 ```
 
-1480 Tests in 98 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
+1503 Tests in 100 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
 Sätze), Gebühren (centgenau, JS↔PHP-Parität), Wissensbasis (Antworten +
 Leckage-Schutz), Zufluss (Quarantäne-Tor + Demo-Feed-Ehrlichkeit),
 Verbindungen (HQ-Zugang + Connector-Katalog), Auftragsstrom (Herkunft +
@@ -6186,7 +6271,7 @@ WordPress-Mediathek ist der richtige, weil die Bilder dort dieselbe Behandlung
 bekommen wie ein Nutzer-Upload. **Das Skript nicht mehr benutzen.**
 
 **Die Icon-Schrift ist zugeschnitten.** Material Icons Round trug 2200 Symbole
-und 170 KB; benutzt werden 402. Die ausgelieferte Datei ist **34 KB**, die
+und 170 KB; benutzt werden 403. Die ausgelieferte Datei ist **34 KB**, die
 Quelle liegt unter `scripts/lib/` und wird nie ausgeliefert (`^scripts/` ist im
 Deploy ausgeschlossen).
 
