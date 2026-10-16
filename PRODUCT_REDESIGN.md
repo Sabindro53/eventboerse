@@ -313,6 +313,25 @@ Gründungsfragen gehören nicht in dieses öffentliche Repository.
 - Q4 — 3D: nach Stufe 2 ein Prototyp mit Messbudget, oder ganz verzichten?
   → **Prototyp nach Stufe 2**, als Ersatz der Startseiten-Bühne und mit dem Budget aus Abschnitt 7. Vorher wird nichts gebaut.
 
+## 9 · Durchgang als Dienstleister auf der Live-Seite (16.10.2026)
+
+Mit einem echten Dienstleister-Konto im Browser durchgegangen, ohne etwas abzusenden. **Live läuft der Stand von `main`**: Navigation je Rolle, Profilarten und Gesuch-Anzeige dieses Branches sind dort noch nicht zu sehen. Gezählt wird deshalb nur, was auch auf dem Branch noch offen ist.
+
+**Sicherheit und Datenschutz**
+- **N01 (hoch): Die Profil-Route lässt sich ohne Anmeldung aufzählen.** `GET provider/{id}` antwortet für fortlaufende IDs mit Name, Rolle, Ort, Bio und Galerie, auch für Konten ohne ein einziges Inserat. Zwei Folgen: (a) Die Rolle `Admin` ist für jedes Konto abfragbar; ein Angreifer findet so die Verwaltungskonten, ohne zu raten (das ist P4, aber schärfer als dort beschrieben). (b) Event-Planer, die nie etwas veröffentlicht haben, haben trotzdem ein öffentliches Profil. Das widerspricht der eigenen Regel „keine Nutzer-Aufzählung" (Freunde & Gruppen, Entscheidung 1) und ist ein Datenschutzthema. Gemessen an den ersten 20 IDs; Namen wurden nicht ausgelesen. Welche Konten betroffen sind, steht bewusst **nicht** in diesem öffentlichen Dokument.
+- Geprüft und in Ordnung: `my-listings` und `social/ich` antworten ohne Anmeldung mit 401, `stripe/refund` existiert nicht als offene Route.
+
+**Gestaltung**
+- **N02:** Auf dem Telefon liegt der Assistenten-Knopf (`#qaLauncher`) über dem rechten Rand der Auftragskarte unter „Aufträge". Er verdeckt Inhalt auf einer Arbeitsseite.
+- F20 bestätigt: „Meine Inserate" zeigt bei einem Angebot ohne Bewertung „0.0/5 · 0 Bewertungen" (Stufe 5).
+
+**Bereits auf dem Branch erledigt (live noch alt):** Mobilleiste „Board" statt „Aufträge" (Stufe 1), Seitentitel „Auftragsboard" (Stufe 1), Gesuch-Karten (F02/F03), Profilkopf aus dem ersten Inserat (F01).
+
+**Vorschlag zu N01 (Entscheidung des Inhabers, Auth-Nähe):**
+1. Die Route gibt öffentlich nie `Admin` aus, sondern nur „Dienstleister" oder „Event-Planer" (P4).
+2. Ein Profil ist öffentlich nur, wenn es etwas Öffentliches hat: ein veröffentlichtes Inserat oder Gesuch, eine abgegebene Bewertung oder einen gesetzten Suchnamen. Sonst antwortet die Route mit 404, wie bei einer nicht existierenden ID. 404 und „nicht öffentlich" sehen dann gleich aus, damit niemand Konten zählen kann.
+3. Ein PHP-Prüfstand führt den Handler wirklich aus: Admin-Rolle nie in der Ausgabe, ein Konto ohne öffentliche Inhalte gibt 404, ein Konto mit Inserat 200, und das eigene Profil sieht man angemeldet weiterhin.
+
 ## Quellen der Befunde F01–F32
 
 Live-Audit vom 15.10.2026 (Codex), Datei `docs/ux-audit-2026-10-15/AUDIT-UND-ABDECKUNG.md`
