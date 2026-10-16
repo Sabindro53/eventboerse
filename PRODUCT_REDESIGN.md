@@ -73,6 +73,44 @@ dieses Repositorys (`app-shell.html`, `js/modules/**`) und das Live-Audit vom
 - **Umgesetzt (Q3: nur Darstellung):** eine Erkennung `ebIstGesuch()` mit der Titelregel als Rückfall; Gesuche zeigen „Gesuch" und „Budget: …", unter „Meine Inserate" ohne Bewertung und ohne „Verfügbarkeit". Gesuche bleiben in der Suche; ein eigener Kanal ist Stufe 2.
 - **Offen:** F01 (Planer-Profil mit Anbieter-Spezialisierung) liegt in der Profilansicht. Die Migration bleibt kaputt; sie zu reparieren hieße, echte Zeilen umzuschreiben (Entscheidung des Inhabers).
 
+### 1.5 F01 — das Profil eines Planers (gemessen am 16.10.2026, Vorschlag)
+
+**Messung.** Ein Profil, dessen beide Inserate die zwei Gesuche aus F02 sind, im echten Browser geöffnet (Dev-Shell, API-Antwort in der Gestalt der Live-Route `provider/1`):
+
+| Bereich | angezeigt | Herkunft |
+|---|---|---|
+| Unterzeile im Kopf | „DJ & Musik · Köln" | Kategorie und Ort des **ersten Inserats** |
+| Kennzahlen | 2 Inserate · Bewertung „–" · 0 Reviews | Inserate |
+| Auf einen Blick | „ab 200€ / Event", „Termin und Verfügbarkeit im Chat klären" | Preis des ersten Inserats |
+| Highlights / Spezialisierungen | „Individuelle Absprache" / Hochzeit, Geburtstag, Firmenfeier | `features` / `tags` des ersten Inserats |
+| Reiter | Inserate · Bewertungen · „Arbeitet zusammen mit" | fest im Markup |
+| Bewertungen leer | „Dieser Anbieter ist neu auf Eventbörse." | fest im Code |
+| Inserat-Karten | „Gesuch" und „Budget: …" | seit `2af8195` richtig |
+
+**Ursache.** `loadProvider()` (`search/12-detail-provider.js`) kennt keine Profilart. Den Kopf baut es aus dem **ersten Inserat**: Unterzeile, Preis, Highlights und Spezialisierungen sind dessen Felder. Hat jemand nur Gesuche, sieht sein Profil aus wie das eines Anbieters. Die Rolle hilft dabei nicht: Das Konto aus F01 hat live die Rolle **„Admin"**, nicht „Event-Planer". Eine Weiche nur über die Rolle würde es verfehlen. Messbar ist dagegen: **jedes Inserat dieses Profils ist ein Gesuch.**
+
+**Nebenbefund 1: eine Eingabe, die nie erscheint.** Der Inhaber eines Profils kann die Unterzeile direkt bearbeiten (`_provSaveTagline()`); der Text wird als `tagline` gespeichert, und die API liefert ihn aus. Angezeigt wird er auf dem Profil **nie**. Sobald es ein Inserat gibt, überschreibt Zeile 509 die Unterzeile mit Kategorie und Ort. Gespeichert und gemeldet („Tagline gespeichert!") wird also eine Angabe, die nach dem Neuladen verschwunden ist.
+
+**Nebenbefund 2: Sicherheit, nicht Gestaltung.** Die öffentliche Route `provider/{id}` nennt ohne Anmeldung die Rolle `Admin`. Damit ist von außen abfragbar, welche Nutzer-ID Verwaltungsrechte hat. Das gehört nicht in diese Überarbeitung, sondern ist eine eigene Entscheidung des Inhabers (Auth-Nähe, `AGENTS.md` Abschnitt 6).
+
+**Vorschlag (nicht umgesetzt).**
+
+1. **Profilart aus den Inhalten, mit der Rolle als Zusatz.** *Anbieterprofil*, wenn das Konto mindestens ein Angebot hat (`ebIstGesuch()` ist falsch) oder die Rolle „Dienstleister" ist; sonst *Mitgliedsprofil*. Damit werden das Admin-Konto aus F01 und jeder Planer richtig eingeordnet, ohne Datenänderung.
+2. **Der Kopf liest das Profil, nicht ein Inserat.** Die Unterzeile ist die gespeicherte `tagline`. Ist keine gesetzt, gilt für Anbieter wie heute Kategorie · Ort, aber aus dem ersten **Angebot**, nie aus einem Gesuch; für Mitglieder nur der Ort.
+3. **Das Mitgliedsprofil zeigt, was ein Planer hat:** Avatar, Name, Unterzeile, „Mitglied seit", Über mich und einen Reiter **„Gesuche"** mit den Gesuch-Karten. **Ohne** Bewertungs-Kennzahlen, Preis, „Termin und Verfügbarkeit", Highlights, Spezialisierungen und Portfolio. Der Reiter „Arbeitet zusammen mit" fällt ebenfalls weg, denn er ist eine Liste von Dienstleister zu Dienstleister. Aktionen bleiben: Nachricht senden, Folgen, Teilen.
+4. **Mischkonten** (ein Dienstleister mit eigenen Gesuchen) bleiben Anbieterprofile. Kopf, Preis und Spezialisierungen kommen nur aus Angeboten; Gesuche stehen in einem zweiten Reiter „Gesuche" statt zwischen den Angeboten.
+5. **Texte:** Der Leerzustand der Bewertungen sagt „Dieses Profil ist neu …" statt „Dieser Anbieter ist neu …".
+
+**Was dabei nicht wegfällt:** Für Anbieterprofile ändert sich nur die Unterzeile, und auch die nur, wenn eine `tagline` gespeichert ist (Punkt 2). Kein Bereich verschwindet für Anbieter, und kein Inserat wird irgendwo ausgeblendet.
+
+**Messbar machen, bevor gebaut wird:** Ein Test öffnet je ein Profil der drei Arten (nur Gesuche, nur Angebote, gemischt) und prüft je Bereich, ob er da ist oder fehlt. Dazu kommt ein Test, der die gespeicherte `tagline` nach dem Neuladen wiederfindet.
+
+**Fragen an den Inhaber**
+- P1: Gilt das Kriterium „Inhalte, Rolle als Zusatz" (Punkt 1)?
+- P2: Soll die gespeicherte Unterzeile auch bei **Anbietern** den Kopf bestimmen? Das ändert das Aussehen bestehender Anbieterprofile, sofern sie eine gesetzt haben.
+- P3: Mischkonten mit zwei Reitern (Punkt 4): ja oder nein?
+- P4 (getrennt, Sicherheit): Soll die öffentliche Profil-Route die Rolle „Admin" weiter preisgeben?
+
 ---
 
 ## 2 · Die zwei Abläufe

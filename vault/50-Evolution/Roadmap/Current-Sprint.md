@@ -27,7 +27,7 @@ einen alten Abschnitt gelesen und nicht diesen.
 
 **Umgesetzt (nur Darstellung, Q3):** `ebIstGesuch()` / `ebGesuchBudgetText()` in `core/00-basis.js`; Karte, Laufband und „Meine Inserate" zeigen „Gesuch" und Budget statt Stern und „ab …". `gesuch-darstellung.spec.js`: 9 Tests, 10 Mutationen.
 
-**Nächster Schritt:** F01 (Planer-Profil zeigt Anbieter-Spezialisierung), Profilansicht `search/12-detail-provider.js`. Datenkorrektur nur nach Entscheidung des Inhabers.
+**Nächster Schritt:** F01 ist gemessen; der Vorschlag steht in `PRODUCT_REDESIGN.md` Abschnitt 1.5 und wartet auf die Antworten P1–P4. Der Profilkopf kommt aus dem ersten Inserat; das Konto aus F01 hat live die Rolle „Admin"; die gespeicherte `tagline` wird nie angezeigt. Datenkorrektur nur nach Entscheidung des Inhabers.
 
 ## Übergabe Codex → Claude Code: UX und Nicknames (15.10.2026)
 
