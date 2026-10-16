@@ -3908,6 +3908,52 @@ Lauf ist nicht „nie gelaufen".
 npx playwright test tests/e2e/profil-arten.spec.js   # 14 Tests, 15 Mutationen
 ```
 
+### Die Profil-Route zählte jedes Konto auf — und nannte die Admins
+
+Beim Durchgang als Dienstleister auf der Live-Seite gefunden (N01,
+`PRODUCT_REDESIGN.md` Abschnitt 9), am 16.10.2026 behoben. `GET provider/{id}`
+antwortete **ohne Anmeldung** für jede fortlaufende ID mit Name, Rolle, Ort
+und Bio. Zwei Folgen: die Rolle **„Admin"** war für jedes Konto abfragbar,
+und Event-Planer, die nie etwas veröffentlicht haben, standen mit Namen im
+Netz. Das widersprach der eigenen Regel „keine Nutzer-Aufzählung" (Freunde &
+Gruppen, Entscheidung 1).
+
+**Öffentlich ist nur die Basisrolle** — `eventboerse_base_role()`, also
+„Dienstleister" oder „Event-Planer", nie „Admin".
+
+**Öffentlich ist ein Profil nur mit öffentlichem Inhalt:** Basisrolle
+Dienstleister, ein aktives Inserat oder Gesuch, oder eine abgegebene
+Bewertung (dort steht der Name ohnehin). Sonst sehen es nur das Konto selbst,
+Admins und der Gesprächspartner aus dem Chat. Alle anderen bekommen
+**dieselbe 404 wie für eine ID, die es nicht gibt** — eine eigene Absage
+(„privat") ließe weiter zählen.
+
+**Der Suchname zählt bewusst nicht.** Er ist seit dem 15.09.2026 Pflicht bei
+der Registrierung und damit keine Einwilligung mehr; als Kriterium hätte er
+fast jedes neue Konto wieder öffentlich gemacht.
+
+**Ein zweites Leck lag daneben:** `eb_collaboration_partner()` lieferte die
+Partner in derselben öffentlichen Antwort mit interner Rolle. Geprüft wird
+deshalb die **Bedingung**: jeder Aufruf von `eventboerse_map_role()` steht in
+einer Funktion, die nur dem eigenen Konto oder Admins antwortet (Liste im
+Test, mit Grund je Eintrag). Ein neuer öffentlicher Aufruf macht ihn rot.
+
+**Der Handler steht jetzt in `includes/profil/profil-route.php`**, damit der
+Prüfstand ihn im Original ausführt. Er wurde zuerst **unverändert**
+verschoben: mit dem alten Handler fielen genau die sechs Tests durch, die den
+Befund beschreiben — der Beleg, dass der Prüfstand das Loch sieht und nicht
+nur die Reparatur.
+
+Die Profilseite zeigt bei 404 jetzt „Dieses Profil ist nicht verfügbar",
+statt im Ladezustand stehen zu bleiben.
+
+**Offen beim Inhaber:** ob die Datenschutzerklärung die Sichtbarkeit von
+Profilen beschreibt — ein Modell schreibt hier keinen Rechtstext.
+
+```bash
+npx playwright test tests/e2e/profil-oeffentlich.spec.js   # 16 Tests, 14 Mutationen
+```
+
 ### Suchergebnisse lassen sich wieder einklappen
 
 Aus der Besprechung vom 15.10.2026 (`PRODUCT_REDESIGN.md` 6.1). Mit „Mehr
@@ -5947,7 +5993,7 @@ npm run test:smoke      # nur Routen-Smoke-Tests
 npm run test:css        # CSS-Minify-Regression (Verlaufsschrift)
 ```
 
-1503 Tests in 100 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
+1519 Tests in 101 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
 Sätze), Gebühren (centgenau, JS↔PHP-Parität), Wissensbasis (Antworten +
 Leckage-Schutz), Zufluss (Quarantäne-Tor + Demo-Feed-Ehrlichkeit),
 Verbindungen (HQ-Zugang + Connector-Katalog), Auftragsstrom (Herkunft +

@@ -327,7 +327,7 @@ Mit einem echten Dienstleister-Konto im Browser durchgegangen, ohne etwas abzuse
 
 **Bereits auf dem Branch erledigt (live noch alt):** Mobilleiste „Board" statt „Aufträge" (Stufe 1), Seitentitel „Auftragsboard" (Stufe 1), Gesuch-Karten (F02/F03), Profilkopf aus dem ersten Inserat (F01).
 
-**Vorschlag zu N01 (Entscheidung des Inhabers, Auth-Nähe):**
+**Vorschlag zu N01 — entschieden und gebaut am 16.10.2026** (`profil-oeffentlich.spec.js`). Abweichung vom Vorschlag: der Suchname zählt **nicht** als öffentlicher Inhalt, weil er seit dem 15.09.2026 Pflicht ist; dafür sind Dienstleister immer öffentlich, und der Chat-Partner sieht das Profil. Mitbehoben: die Partnerliste im Profil trug die interne Rolle ebenfalls.
 1. Die Route gibt öffentlich nie `Admin` aus, sondern nur „Dienstleister" oder „Event-Planer" (P4).
 2. Ein Profil ist öffentlich nur, wenn es etwas Öffentliches hat: ein veröffentlichtes Inserat oder Gesuch, eine abgegebene Bewertung oder einen gesetzten Suchnamen. Sonst antwortet die Route mit 404, wie bei einer nicht existierenden ID. 404 und „nicht öffentlich" sehen dann gleich aus, damit niemand Konten zählen kann.
 3. Ein PHP-Prüfstand führt den Handler wirklich aus: Admin-Rolle nie in der Ausgabe, ein Konto ohne öffentliche Inhalte gibt 404, ein Konto mit Inserat 200, und das eigene Profil sieht man angemeldet weiterhin.

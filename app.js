@@ -5904,7 +5904,9 @@ function loadProvider(providerId) {
       fetch(_apiUrl('provider/' + pid) + '?_t=' + Date.now(), { credentials: 'same-origin', headers: _apiHeaders() })
         .then(function(r) { return r.json(); })
         .then(function(data) {
-          if (!data || data.message) return;
+          // 404 heißt seit N01 auch „nicht öffentlich“: die Seite sagt das,
+          // statt im Ladezustand stehen zu bleiben.
+          if (!data || data.message) { _showProviderNotFound(pid); return; }
           if (data.listings && data.listings.length > 0) {
             _mergeDbListingsIntoCache(data.listings);
           } else {
