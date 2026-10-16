@@ -3954,6 +3954,66 @@ Profilen beschreibt — ein Modell schreibt hier keinen Rechtstext.
 npx playwright test tests/e2e/profil-oeffentlich.spec.js   # 16 Tests, 14 Mutationen
 ```
 
+### Der Assistent hat ein Gesicht — wählbar, statt des Roboters
+
+Auftrag des Inhabers vom 16.10.2026. Zehn Event-Assistenten-Figuren
+(`assets/avatare/avatar-01.webp` … `-10`) ersetzen den gezeichneten Roboter;
+beim ersten Öffnen erscheint „Wähle deinen Event-Assistenten", Vorgabe ist
+Figur 1, gewechselt wird jederzeit über „face" im Kopf des Panels.
+**Nutzungsrechte vom Inhaber am 16.10.2026 bestätigt** — das Bildpaket selbst
+nannte weder Urheber noch Lizenz (`assets/avatare/README.md`).
+
+**Ausgeliefert werden 160 × 240 px, je 5–8 KB**, nicht die freigestellten
+512 × 768 px (45–53 KB): der Knopf ist 64 × 80 px groß. Beim Start lädt nur
+die gewählte Figur, die übrigen erst mit der Auswahl (`loading="lazy"`).
+Archiv, Übersichtsbild und Arbeitsnotizen bleiben draußen; ein Test lässt im
+Ordner nur die zehn Bilder und die README zu.
+
+**Die Adresse setzt das Modul**, nicht das Markup: `ebAssetUrl()` kennt die
+Theme-Basis, ein relativer Pfad wäre live falsch. Ein gespeicherter Wert wird
+gegen die Liste `01`–`10` geprüft und nie in eine Adresse eingesetzt.
+
+**Gespeichert nur mit Einwilligung** (`eb_assistent_figur_v1`, funktional,
+Cookie-Liste) — ohne sie gilt die Wahl für die Sitzung. Dieselbe Lehre wie
+beim Sprachschalter.
+
+**Drei Funde beim Einbau, zwei davon nur im Bild:**
+- Das Panel war ein Raster mit **vier festen Zeilen**. Die Auswahl als
+  fünftes Kind schob den Nachrichtenbereich über „Später" — der Knopf war
+  nicht klickbar. Jetzt eine Flex-Spalte, in der nur die Nachrichten
+  nachgeben.
+- Danach stauchte die offene Auswahl die Vorschlagsleiste; die Knöpfe waren
+  unten abgeschnitten. **Gesehen im Bildschirmfoto, kein Test hatte es
+  bemerkt** — jetzt misst einer die volle Höhe.
+- Der Knopf nahm bei `:focus-visible` den Fokusrahmen weg. Wer mit der
+  Tastatur bedient, sah nicht, wo er steht.
+
+**Gestaucht wird nur auf kleinen Telefonen.** Der Test dazu lief zuerst bei
+390 × 844 px und überlebte die Mutation „Stauchen erlaubt": dort reicht der
+Platz für alles. Gemessen wird jetzt bei 375 × 667 px.
+
+**Zwei Wachen sind ein Paar:** die Prüfung des gespeicherten Werts und die der
+Adresse. Jede einzeln entfernt überlebt, weil die andere den Fall noch fängt;
+beide zusammen machen die Suite rot.
+
+**Die volle Suite fand zwei Fehler, die die eigene nicht sah:** ein
+erfundenes Token (`var(--bg-gray, #f4f4f6)` auf einer Fläche, `design-system.spec.js`
+— der Rückfallwert hätte in beiden Farbmodi gegolten) und die erzeugte
+`eb-rechtsunterlagen.json`, die die Modulzahl mitträgt (32 → 33,
+`node scripts/rechtsunterlagen.mjs`). Ein neues Modul heißt: diese Datei neu
+erzeugen.
+
+**N02 ist NICHT behoben, und das war zuerst anders gemeldet.** Der erste
+Versuch reservierte unten Platz für den Knopf. Unter jeder Seite steht aber
+die Fußzeile — am Seitenende liegt nie Inhalt unter dem Knopf, die Überdeckung
+passiert **beim Scrollen mittendrin**. Die Regel erzeugte nur Weißraum, und
+die Mutation „Abstand weg" überlebte. Sie ist wieder draußen; die Lösung ist
+eine Gestaltungsfrage (siehe `PRODUCT_REDESIGN.md` 9).
+
+```bash
+npx playwright test tests/e2e/assistent-figur.spec.js   # 14 Tests, 14 Mutationen
+```
+
 ### Suchergebnisse lassen sich wieder einklappen
 
 Aus der Besprechung vom 15.10.2026 (`PRODUCT_REDESIGN.md` 6.1). Mit „Mehr
@@ -5993,7 +6053,7 @@ npm run test:smoke      # nur Routen-Smoke-Tests
 npm run test:css        # CSS-Minify-Regression (Verlaufsschrift)
 ```
 
-1519 Tests in 101 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
+1533 Tests in 102 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
 Sätze), Gebühren (centgenau, JS↔PHP-Parität), Wissensbasis (Antworten +
 Leckage-Schutz), Zufluss (Quarantäne-Tor + Demo-Feed-Ehrlichkeit),
 Verbindungen (HQ-Zugang + Connector-Katalog), Auftragsstrom (Herkunft +
@@ -6444,7 +6504,7 @@ Push auf `main` → GitHub Actions (`.github/workflows/ionos-deploy.yml`) → SF
 | Datei | Inhalt |
 |-------|--------|
 | `app.js` | **Generiert** aus `js/modules/**` via `./build-app-js.sh` — nie von Hand editieren |
-| `js/modules/` | Quelle des Frontends: 32 Module in `core/`, `search/`, `chat/`, `payments/`, `board/`, `ai/`, `ui/`, `social/` (Reihenfolge: `modules.list`) |
+| `js/modules/` | Quelle des Frontends: 33 Module in `core/`, `search/`, `chat/`, `payments/`, `board/`, `ai/`, `ui/`, `social/` (Reihenfolge: `modules.list`) |
 | `styles.css` | ~17 900 Zeilen CSS, mobile-first |
 | `app-shell.html` | **Einzige Quelle des SPA-Bodys** (PHP-frei). Body-Markup NUR hier editieren. |
 | `index.php` | WordPress-Template: PHP-Head (Per-Page-Meta) + `readfile(app-shell.html)` + `wp_footer()`. Body NICHT direkt editieren. |

@@ -974,6 +974,8 @@ var EB_SPEICHER_KLASSEN = {
   // Der Sprachausgabe-Schalter des Assistenten. Funktional, nicht
   // profilbildend: er hält eine Bedieneinstellung, kein Verhalten.
   eb_assistent_stimme_v1: 'funktional',
+  // Die gewählte Figur des Event-Assistenten — nur '01' … '10'.
+  eb_assistent_figur_v1: 'funktional',
   eb_radar_ort: 'funktional',
 
   eb_kb_misses: 'profil',

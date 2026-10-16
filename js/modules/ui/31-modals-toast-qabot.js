@@ -618,7 +618,13 @@ function openQaBot() {
     ]);
     _qaBotOpenedOnce = true;
   }
-  setTimeout(function() { if (input) input.focus(); }, 80);
+  // Beim ersten Öffnen ohne Wahl erscheint die Figurenauswahl (ui/33). Dann
+  // gehört der Fokus ihr, nicht dem Eingabefeld.
+  if (typeof ebAssistentFigurBeimOeffnen === 'function') ebAssistentFigurBeimOeffnen();
+  setTimeout(function() {
+    var wahl = document.getElementById('qaFigurWahl');
+    if (input && (!wahl || wahl.hidden)) input.focus();
+  }, 80);
 }
 
 function closeQaBot() {

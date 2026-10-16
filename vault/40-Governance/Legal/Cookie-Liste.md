@@ -61,6 +61,7 @@ Die gemessene Lage steht in [[40-Governance/Legal/Rechtliche-Lage]].
 | `eb_ai_chat_v1_<userId\|gast>` | funktional | **Gesprächsverlauf** mit dem Planungs-Assistenten, letzte 60 Nachrichten | `ai/50-planungs-assistent.js` |
 | `eb_radar_ort` | funktional | **Standort** (Koordinaten + Herkunft: Geolocation oder Adresse) | `search/13-event-radar.js` |
 | `eb_assistent_stimme_v1` | funktional | **Sprachausgabe an/aus** beim Planungs-Assistenten — nur `'1'` oder `'0'` | `ai/53-assistent-stimme.js` |
+| `eb_assistent_figur_v1` | funktional | **gewählte Figur** des Event-Assistenten — nur `'01'` bis `'10'` | `ui/33-assistent-figur.js` |
 | `eb_kb_misses` | profilbildend | unbeantwortete Fragen an den KI-Bot; Export von Hand über das HQ | `ui/31-modals-toast-qabot.js` |
 | `eb_taste_v1` | profilbildend | **abgeleitetes Präferenzprofil** aus Such- und Klickverhalten | `search/11-suche-ki.js` |
 

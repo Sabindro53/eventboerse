@@ -810,8 +810,14 @@ body.dark-mode .nav-clear-search:hover { background: var(--border-light); }
 .eb-qa-launcher::before,
 .eb-qa-launcher::after { content: none; }
 .eb-qa-launcher:focus,
-.eb-qa-launcher:focus-visible,
 .eb-qa-launcher:active { outline: 0; box-shadow: none; background: transparent; }
+/* Tastatur: sichtbarer Ring. Vorher stand hier auch :focus-visible auf
+   outline 0 — wer mit der Tastatur bedient, sah nicht, wo er steht. */
+.eb-qa-launcher:focus-visible {
+  outline: 3px solid var(--primary-text);
+  outline-offset: 3px;
+  border-radius: 18px;
+}
 .eb-qa-launcher > span {
   position: relative;
   z-index: 1;
@@ -831,138 +837,78 @@ body.dark-mode .nav-clear-search:hover { background: var(--border-light); }
   justify-content: center;
   flex-shrink: 0;
 }
-.eb-qa-icon-svg {
+/* ── Assistenten-Figur (ui/33-assistent-figur.js, assets/avatare) ── */
+.eb-qa-launcher .eb-qa-figur {
   width: 100%;
   height: 100%;
-  overflow: visible;
+  object-fit: cover;
+  object-position: center top;
+  border-radius: 18px 18px 22px 22px;
 }
-.eb-qa-icon-svg path,
-.eb-qa-icon-svg circle {
-  vector-effect: non-scaling-stroke;
+.eb-qa-head-avatar { overflow: hidden; }
+.eb-qa-head-avatar .eb-qa-figur {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center top;
 }
-.eb-qa-icon-svg .qa-body-shape {
-  fill: #2A3140;
-  stroke: #2a3140;
-  stroke-width: 1.6;
+.eb-qa-figur-wahl {
+  padding: 14px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg);
 }
-.eb-qa-icon-svg .qa-neck {
-  fill: #4a5263;
-  stroke: #2a3140;
-  stroke-width: 1.6;
+.eb-qa-figur-wahl[hidden] { display: none; }
+.eb-qa-figur-wahl h3 {
+  margin: 0 0 10px;
+  font-size: 0.95rem;
+  color: var(--dark);
 }
-.eb-qa-icon-svg .qa-earcup {
-  fill: #1f2632;
-  stroke: #2a3140;
-  stroke-width: 1.6;
+.eb-qa-figur-raster {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 8px;
 }
-.eb-qa-icon-svg .qa-head-main {
-  fill: #F2F4F8;
-  stroke: #2a3140;
-  stroke-width: 2.2;
+.eb-qa-figur-wahl-knopf {
+  aspect-ratio: 2 / 3;
+  padding: 0;
+  border: 2px solid var(--border);
+  border-radius: 12px;
+  background: var(--bg-alt);
+  overflow: hidden;
+  cursor: pointer;
 }
-.eb-qa-icon-svg .qa-visor {
-  fill: #1a1f2b;
-  stroke: #1a1f2b;
-  stroke-width: 1.6;
+.eb-qa-figur-wahl-knopf img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center top;
+  display: block;
 }
-.eb-qa-icon-svg .qa-eye {
-  fill: var(--accent);
-  filter: drop-shadow(0 0 2px rgba(0,226,197,0.7));
+.eb-qa-figur-wahl-knopf:hover { border-color: var(--primary); }
+.eb-qa-figur-wahl-knopf.is-aktiv { border-color: var(--primary); box-shadow: 0 0 0 2px var(--primary); }
+.eb-qa-figur-wahl-knopf:focus-visible { outline: 3px solid var(--primary-text); outline-offset: 2px; }
+.eb-qa-figur-spaeter {
+  margin-top: 10px;
+  padding: 6px 10px;
+  border: 0;
+  background: transparent;
+  color: var(--primary-text);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
 }
-.eb-qa-icon-svg .qa-eye-glow {
-  fill: #fff;
-}
-.eb-qa-icon-svg .qa-mouth-smile {
-  fill: none;
-  stroke: #2a3140;
-  stroke-width: 3;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
-/* Alte Mund-Elemente: falls noch im DOM, dezent ausblenden */
-.eb-qa-icon-svg .qa-mouth,
-.eb-qa-icon-svg .qa-mouth-line { display: none; }
-.eb-qa-icon-svg .qa-antenna-rod {
-  stroke: #2a3140;
-  stroke-width: 2.2;
-  stroke-linecap: round;
-}
-.eb-qa-icon-svg .qa-antenna-tip {
-  fill: var(--primary);
-  stroke: #2a3140;
-  stroke-width: 1.6;
-}
-.eb-qa-icon-svg .qa-mic-dot {
-  fill: var(--primary);
-  stroke: #2a3140;
-  stroke-width: 1.6;
-}
-.eb-qa-icon-svg .qa-mic-arm {
-  fill: none;
-  stroke: #2a3140;
-  stroke-width: 3.5;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
-/* Partyhut: gestreift + Bommel */
-.eb-qa-icon-svg .qa-hat-fill {
-  fill: var(--primary);
-}
-.eb-qa-icon-svg--mini .qa-hat-fill {
-  fill: #fff;
-}
-.eb-qa-icon-svg .qa-hat-stripe-a {
-  fill: #FFC857;
-}
-.eb-qa-icon-svg .qa-hat-stripe-b {
-  fill: var(--accent);
-}
-.eb-qa-icon-svg--mini .qa-hat-stripe-a { fill: var(--primary); }
-.eb-qa-icon-svg--mini .qa-hat-stripe-b { fill: var(--accent); }
-.eb-qa-icon-svg .qa-hat-stroke {
-  fill: none;
-  stroke: #2a3140;
-  stroke-width: 2.2;
-  stroke-linejoin: round;
-  stroke-linecap: round;
-}
-.eb-qa-icon-svg .qa-hat-brim {
-  fill: #fff;
-  stroke: #2a3140;
-  stroke-width: 1.8;
-}
-.eb-qa-icon-svg--mini .qa-hat-brim { fill: #fff; }
-.eb-qa-icon-svg .qa-hat-pom {
-  fill: #FFC857;
-  stroke: #2a3140;
-  stroke-width: 1.6;
-}
-.eb-qa-icon-svg .qa-hat-pom-shadow {
-  fill: rgba(0,0,0,0.12);
-  stroke: none;
-}
-.eb-qa-icon-svg--mini .qa-hat-pom { fill: var(--primary); }
-.eb-qa-icon-svg .qa-spark {
-  fill: none;
-  stroke: #FFC857;
-  stroke-width: 2.2;
-  stroke-linecap: round;
-}
-.eb-qa-icon-svg .qa-spark-alt {
-  stroke: var(--accent);
-  stroke-width: 2;
-}
-.eb-qa-launcher .qa-body-shape {
-  filter: none;
-}
+
 .eb-qa-status {
   display: none;
 }
 .eb-qa-panel {
   width: min(370px, calc(100vw - 24px));
   max-height: min(620px, calc(100vh - var(--nav-height) - var(--mobile-nav-height) - 38px));
-  display: grid;
-  grid-template-rows: auto minmax(170px, 1fr) auto auto;
+  /* Spalte statt Raster: die Figurenauswahl ist mal da, mal nicht. Ein
+     festes Raster mit vier Zeilen schob sie über den Nachrichtenbereich,
+     und „Später" war nicht mehr klickbar. */
+  display: flex;
+  flex-direction: column;
   background: rgba(255,255,255,0.96);
   color: var(--text);
   border: 1px solid rgba(255,56,92,0.14);
@@ -979,7 +925,7 @@ body.dark-mode .nav-clear-search:hover { background: var(--border-light); }
 }
 .eb-qa-head {
   display: grid;
-  grid-template-columns: 42px 1fr 34px;
+  grid-template-columns: 42px 1fr 34px 34px;
   align-items: center;
   gap: 10px;
   padding: 14px;
@@ -996,10 +942,6 @@ body.dark-mode .nav-clear-search:hover { background: var(--border-light); }
   background: #fff;
   border: 1px solid rgba(255,255,255,0.28);
   box-shadow: 0 8px 22px rgba(34,34,34,0.18);
-}
-.eb-qa-icon-svg--mini {
-  width: 31px;
-  height: 38px;
 }
 .eb-qa-head strong {
   display: block;
@@ -1023,7 +965,16 @@ body.dark-mode .nav-clear-search:hover { background: var(--border-light); }
   transition: background 0.16s ease;
 }
 .eb-qa-close:hover { background: rgba(255,255,255,0.16); }
+/* Nur der Nachrichtenbereich gibt nach. Ohne flex-shrink: 0 stauchte die
+   offene Figurenauswahl die Vorschlagsleiste, und die Knöpfe waren unten
+   abgeschnitten (im Bildschirmfoto gesehen, nicht im Test). */
+.eb-qa-head,
+.eb-qa-figur-wahl,
+.eb-qa-suggestions,
+.eb-qa-form { flex-shrink: 0; }
 .eb-qa-messages {
+  flex: 1 1 auto;
+  min-height: 96px;
   padding: 14px;
   overflow-y: auto;
   background:
@@ -1165,7 +1116,7 @@ body.dark-mode .eb-qa-action {
     max-height: calc(100vh - var(--nav-height) - var(--mobile-nav-height) - 34px);
   }
   .eb-qa-head {
-    grid-template-columns: 38px 1fr 34px;
+    grid-template-columns: 38px 1fr 34px 34px;
     padding: 12px;
   }
   .eb-qa-bubble { max-width: 96%; }

@@ -322,7 +322,7 @@ Mit einem echten Dienstleister-Konto im Browser durchgegangen, ohne etwas abzuse
 - Geprüft und in Ordnung: `my-listings` und `social/ich` antworten ohne Anmeldung mit 401, `stripe/refund` existiert nicht als offene Route.
 
 **Gestaltung**
-- **N02:** Auf dem Telefon liegt der Assistenten-Knopf (`#qaLauncher`) über dem rechten Rand der Auftragskarte unter „Aufträge". Er verdeckt Inhalt auf einer Arbeitsseite.
+- **N02:** Auf dem Telefon liegt der Assistenten-Knopf (`#qaLauncher`) über dem rechten Rand der Auftragskarte unter „Aufträge". Er verdeckt Inhalt auf einer Arbeitsseite. **Noch offen.** Ein erster Versuch (Platz unten reservieren) half nicht: unter jeder Seite steht die Fußzeile, die Überdeckung passiert beim Scrollen mittendrin. Vorschlag zur Wahl: (a) der Knopf schrumpft beim Scrollen zu einem kleinen runden Kopf, (b) er blendet sich beim Herunterscrollen aus und beim Hochscrollen wieder ein, (c) auf Arbeitsseiten (Aufträge, Meine Inserate, Cockpit, Board) wandert er in die obere Leiste.
 - F20 bestätigt: „Meine Inserate" zeigt bei einem Angebot ohne Bewertung „0.0/5 · 0 Bewertungen" (Stufe 5).
 
 **Bereits auf dem Branch erledigt (live noch alt):** Mobilleiste „Board" statt „Aufträge" (Stufe 1), Seitentitel „Auftragsboard" (Stufe 1), Gesuch-Karten (F02/F03), Profilkopf aus dem ersten Inserat (F01).
