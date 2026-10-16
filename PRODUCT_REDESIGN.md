@@ -93,7 +93,7 @@ dieses Repositorys (`app-shell.html`, `js/modules/**`) und das Live-Audit vom
 
 **Nebenbefund 2: Sicherheit, nicht Gestaltung.** Die öffentliche Route `provider/{id}` nennt ohne Anmeldung die Rolle `Admin`. Damit ist von außen abfragbar, welche Nutzer-ID Verwaltungsrechte hat. Das gehört nicht in diese Überarbeitung, sondern ist eine eigene Entscheidung des Inhabers (Auth-Nähe, `AGENTS.md` Abschnitt 6).
 
-**Vorschlag (nicht umgesetzt).**
+**Vorschlag (entschieden, noch nicht gebaut).**
 
 1. **Profilart aus den Inhalten, mit der Rolle als Zusatz.** *Anbieterprofil*, wenn das Konto mindestens ein Angebot hat (`ebIstGesuch()` ist falsch) oder die Rolle „Dienstleister" ist; sonst *Mitgliedsprofil*. Damit werden das Admin-Konto aus F01 und jeder Planer richtig eingeordnet, ohne Datenänderung.
 2. **Der Kopf liest das Profil, nicht ein Inserat.** Die Unterzeile ist die gespeicherte `tagline`. Ist keine gesetzt, gilt für Anbieter wie heute Kategorie · Ort, aber aus dem ersten **Angebot**, nie aus einem Gesuch; für Mitglieder nur der Ort.
@@ -105,11 +105,11 @@ dieses Repositorys (`app-shell.html`, `js/modules/**`) und das Live-Audit vom
 
 **Messbar machen, bevor gebaut wird:** Ein Test öffnet je ein Profil der drei Arten (nur Gesuche, nur Angebote, gemischt) und prüft je Bereich, ob er da ist oder fehlt. Dazu kommt ein Test, der die gespeicherte `tagline` nach dem Neuladen wiederfindet.
 
-**Fragen an den Inhaber**
-- P1: Gilt das Kriterium „Inhalte, Rolle als Zusatz" (Punkt 1)?
-- P2: Soll die gespeicherte Unterzeile auch bei **Anbietern** den Kopf bestimmen? Das ändert das Aussehen bestehender Anbieterprofile, sofern sie eine gesetzt haben.
-- P3: Mischkonten mit zwei Reitern (Punkt 4): ja oder nein?
-- P4 (getrennt, Sicherheit): Soll die öffentliche Profil-Route die Rolle „Admin" weiter preisgeben?
+**Entschieden vom Inhaber am 16.10.2026**
+- P1: Kriterium „Inhalte, Rolle als Zusatz" → **ja** (Punkt 1 wie vorgeschlagen).
+- P2: Die gespeicherte Unterzeile bestimmt den Kopf **für alle Profile**, auch für Anbieter.
+- P3: Mischkonten bekommen einen **zweiten Reiter „Gesuche"**.
+- P4: Die öffentliche Profil-Route soll die Rolle „Admin" **nicht mehr preisgeben**, öffentlich also nur Planer oder Dienstleister. Das wird eine eigene, kleine Änderung mit Test, getrennt vom Profilumbau.
 
 ---
 
