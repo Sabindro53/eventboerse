@@ -1035,7 +1035,10 @@ function performSearch() {
 var _browseGridPaging = {
   rows: [],
   visible: 0,
-  step: 0
+  step: 0,
+  // Startmenge des ersten Zeichnens — dorthin klappt „Weniger anzeigen"
+  // zurück. Keine feste Zahl: sie hängt an der Spaltenzahl des Rasters.
+  start: 0
 };
 
 function _getBrowseGridColumnCount(grid) {
@@ -1085,7 +1088,20 @@ function _ensureBrowseLoadMoreUi() {
     wrap.appendChild(btn);
   }
 
-  return { wrap: wrap, btn: btn };
+  // Gegenfunktion (Besprechung 15.10.2026): aufgeklappte Treffer ließen sich
+  // nicht wieder einklappen — zurück ging es nur durch Hochscrollen.
+  var less = document.getElementById('browseShowLessBtn');
+  if (!less) {
+    less = document.createElement('button');
+    less.id = 'browseShowLessBtn';
+    less.type = 'button';
+    less.className = 'btn-outline browse-load-more-btn';
+    less.innerHTML = '<span class="material-icons-round" aria-hidden="true">expand_less</span> Weniger anzeigen';
+    less.addEventListener('click', browseShowLessResults);
+    wrap.appendChild(less);
+  }
+
+  return { wrap: wrap, btn: btn, less: less };
 }
 
 function _renderBrowseGridPage() {
@@ -1102,12 +1118,25 @@ function _renderBrowseGridPage() {
   if (!ui) return;
 
   var remaining = total - _browseGridPaging.visible;
+  var aufgeklappt = _browseGridPaging.visible > _browseGridPaging.start;
+  ui.btn.hidden = remaining <= 0;
+  ui.less.hidden = !aufgeklappt;
   if (remaining > 0) {
-    ui.wrap.style.display = '';
     var nextCount = Math.min(remaining, _browseGridPaging.step || remaining);
     ui.btn.innerHTML = '<span class="material-icons-round">expand_more</span> Mehr anzeigen (' + nextCount + ')';
-  } else {
-    ui.wrap.style.display = 'none';
+  }
+  ui.wrap.style.display = (remaining > 0 || aufgeklappt) ? '' : 'none';
+}
+
+function browseShowLessResults() {
+  _browseGridPaging.visible = _browseGridPaging.start;
+  _renderBrowseGridPage();
+  // Der gedrückte Knopf verschwindet; ohne neues Ziel fiele der Fokus auf
+  // <body>, und wer mit der Tastatur arbeitet, stünde wieder am Seitenanfang.
+  var btn = document.getElementById('browseLoadMoreBtn');
+  if (btn && !btn.hidden) {
+    btn.focus({ preventScroll: true });
+    btn.scrollIntoView({ block: 'center' });
   }
 }
 
@@ -1129,6 +1158,7 @@ function renderBrowseGrid(listings) {
   _browseGridPaging.rows = rows;
   _browseGridPaging.step = Math.max(6, cols * 3);
   _browseGridPaging.visible = _alignBrowseCountToRow(Math.min(rows.length, cols * 5), rows.length, cols);
+  _browseGridPaging.start = _browseGridPaging.visible;
   _renderBrowseGridPage();
 }
 

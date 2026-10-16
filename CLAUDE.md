@@ -3858,6 +3858,31 @@ Die Probe bestand, ohne die Maskierung je zu erreichen.
 npx playwright test tests/e2e/gesuch-darstellung.spec.js   # 9 Tests, 10 Mutationen
 ```
 
+### Suchergebnisse lassen sich wieder einklappen
+
+Aus der Besprechung vom 15.10.2026 (`PRODUCT_REDESIGN.md` 6.1). Mit „Mehr
+anzeigen" ließen sich Treffer nur aufklappen; zurück ging es allein durch
+Hochscrollen. „Weniger anzeigen" setzt auf die **Startmenge** zurück, die
+`renderBrowseGrid()` beim ersten Zeichnen wählt (`_browseGridPaging.start`).
+Eine feste Zahl wäre falsch, weil die Startmenge an der Spaltenzahl hängt.
+
+**`.browse-load-more-btn` trägt `display: inline-flex`** und ignoriert
+`[hidden]` deshalb ohne eigene Regel. Ohne sie stünde „Weniger anzeigen"
+auch im eingeklappten Zustand da. Es ist dieselbe Falle wie beim Warnkasten
+der Mehrfachzeiten.
+
+**Der Fokus geht auf „Mehr anzeigen".** Der gedrückte Knopf verschwindet
+beim Einklappen, und ohne neues Ziel fiele der Fokus auf `<body>`.
+
+**Der Prüfstand muss auf `navigateTo('browse')` warten.** Der Router zeichnet
+nach `loadDbListings()` selbst; wer vorher sein Raster stellt, wird
+überschrieben und misst das Standardraster. So fiel der erste Lauf mit 15
+statt 3 Karten durch, aus einem Grund, der nichts mit dem Code zu tun hatte.
+
+```bash
+npx playwright test tests/e2e/weniger-anzeigen.spec.js   # 5 Tests, 7 Mutationen
+```
+
 #### Und der geteilte Link auf genau diese Seite endete auf der Fehlerseite
 
 Gemeldet am 13.09.2026 aus einer Live-Prüfung: *„Freunde funktionieren über
@@ -5812,7 +5837,7 @@ npm run test:smoke      # nur Routen-Smoke-Tests
 npm run test:css        # CSS-Minify-Regression (Verlaufsschrift)
 ```
 
-1466 Tests in 97 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
+1471 Tests in 98 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
 Sätze), Gebühren (centgenau, JS↔PHP-Parität), Wissensbasis (Antworten +
 Leckage-Schutz), Zufluss (Quarantäne-Tor + Demo-Feed-Ehrlichkeit),
 Verbindungen (HQ-Zugang + Connector-Katalog), Auftragsstrom (Herkunft +
