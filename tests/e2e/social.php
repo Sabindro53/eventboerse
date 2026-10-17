@@ -104,6 +104,9 @@ function get_user_meta( $id, $key, $single = false ) {
 }
 function update_user_meta( $id, $key, $val ) { $GLOBALS['usermeta'][ (int) $id ][ $key ] = $val; }
 function delete_user_meta( $id, $key ) { unset( $GLOBALS['usermeta'][ (int) $id ][ $key ] ); }
+function metadata_exists( $typ, $id, $key ) {
+    return array_key_exists( $key, $GLOBALS['usermeta'][ (int) $id ] ?? array() );
+}
 function get_option( $name, $vorgabe = false ) {
     return $GLOBALS['optionen'][ $name ] ?? $vorgabe;
 }
@@ -122,8 +125,12 @@ function get_users( $args ) {
         }
         $raus = array();
         foreach ( $GLOBALS['nutzer'] as $uid => $d ) {
-            $hat = (string) ( $GLOBALS['usermeta'][ $uid ][ $mq['key'] ] ?? '' );
-            if ( $hat !== '' ) { continue; }
+            // NOT EXISTS heisst bei WordPress: der SCHLUESSEL fehlt — nicht
+            // „der Wert ist leer". Hier stand `$hat !== ''`, und damit sah ein
+            // bewusst geleerter Name fuer den Pruefstand aus wie keiner. Genau
+            // diese Verwechslung hatte die Route selbst (sie loeschte den
+            // Schluessel), und der Pruefstand konnte sie nicht sehen.
+            if ( array_key_exists( $mq['key'], $GLOBALS['usermeta'][ $uid ] ?? array() ) ) { continue; }
             $raus[] = (object) array(
                 'ID'           => (int) $uid,
                 'display_name' => $d['display_name'],
@@ -132,6 +139,22 @@ function get_users( $args ) {
             if ( count( $raus ) >= (int) ( $args['number'] ?? 100 ) ) { break; }
         }
         return $raus;
+    }
+    // Ohne jede Meta-Bedingung: alle Konten, nach Kennung — so fragt der
+    // Probelauf. Ein Stellvertreter, der hier „niemand" antwortete, liesse
+    // den Probelauf null Konten zaehlen und grün aussehen.
+    if ( ! isset( $args['meta_key'] ) ) {
+        $raus = array();
+        $ids  = array_keys( $GLOBALS['nutzer'] );
+        sort( $ids );
+        foreach ( $ids as $uid ) {
+            $raus[] = (object) array(
+                'ID'           => (int) $uid,
+                'display_name' => $GLOBALS['nutzer'][ $uid ]['display_name'],
+                'user_login'   => 'u' . $uid,
+            );
+        }
+        return array_slice( $raus, 0, (int) ( $args['number'] ?? 100 ) );
     }
     $key     = $args['meta_key'] ?? '';
     $wert    = (string) ( $args['meta_value'] ?? '' );
@@ -342,7 +365,43 @@ class EB_Fake_WPDB {
     public function get_results( $sql, $out = null ) {
         return $this->projizieren( $sql, $this->zeilen( $sql ) );
     }
+    /*
+     * Die Namenssperre (GET_LOCK) als ECHTE Sperre mit Zustand, nicht als
+     * „immer 1". Nur so laesst sich der Wettlauf nachstellen: wer die Sperre
+     * haelt, wenn ein zweiter kommt, bekommt sie, der zweite nicht. Ein
+     * Stellvertreter, der jede Sperre gewaehrt, belegte „atomar" fuer Code,
+     * der gar nicht sperrt.
+     *
+     * `$GLOBALS['sperre_kaputt']` stellt eine Datenbank nach, die GET_LOCK
+     * nicht beantwortet (Zeitlimit, Galera): dann kommt NULL zurueck.
+     */
+    public $sperren = array();
+    public $sperr_log = array();
+    private function sperre( $sql ) {
+        if ( preg_match( "/^SELECT GET_LOCK\('([^']+)', *(\d+)\)$/", trim( $sql ), $m ) ) {
+            $this->sperr_log[] = 'hole:' . $m[1];
+            if ( ! empty( $GLOBALS['sperre_kaputt'] ) ) { return array( true, null ); }
+            if ( isset( $this->sperren[ $m[1] ] ) ) { return array( true, '0' ); }
+            $this->sperren[ $m[1] ] = true;
+            return array( true, '1' );
+        }
+        if ( preg_match( "/^SELECT RELEASE_LOCK\('([^']+)'\)$/", trim( $sql ), $m ) ) {
+            $this->sperr_log[] = 'frei:' . $m[1];
+            $war = isset( $this->sperren[ $m[1] ] );
+            unset( $this->sperren[ $m[1] ] );
+            return array( true, $war ? '1' : '0' );
+        }
+        return array( false, null );
+    }
+    public function query( $sql ) {
+        list( $ist, $wert ) = $this->sperre( $sql );
+        if ( $ist ) { return 1; }
+        $this->unbekannt( $sql );
+    }
+
     public function get_var( $sql ) {
+        list( $ist, $wert ) = $this->sperre( $sql );
+        if ( $ist ) { return $wert; }
         $r = $this->projizieren( $sql, $this->zeilen( $sql ) );
         if ( ! $r ) { return null; }
         $erste = $r[0];
@@ -909,5 +968,137 @@ $ergebnis['nachtrag_marke']        = get_option( 'eb_handles_nachtrag_32' );
 // Zweiter Lauf: die Marke steht, also passiert nichts mehr. Ohne diese
 // Zusicherung liefe ein `get_users` ueber alle Konten bei jedem Aufruf.
 $ergebnis['nachtrag_zweiter_lauf'] = eb_handles_nachtragen( 50 );
+
+/* ══════════════════════════════════════════════════════════════════════
+   7 · NICKNAME FÜR ALLE — AUFFINDBAR NUR MIT ZUSTIMMUNG (15.10.2026)
+   ══════════════════════════════════════════════════════════════════════
+
+   Jeder Fall wird AUSGEFÜHRT. Die Sperre ist im Prüfstand eine echte
+   Sperre mit Zustand (siehe EB_Fake_WPDB::sperre): ein Wettlauf wird
+   nachgestellt, indem ein „anderer Prozess" sie gerade hält.
+   ══════════════════════════════════════════════════════════════════════ */
+
+$n = array();
+$db = $GLOBALS['wpdb'];
+
+// Der Nachtrag vergibt Namen, aber VERBORGEN.
+$n['nachtrag_auffindbar'] = array(
+    get_user_meta( 900, 'eb_handle_auffindbar', true ),
+    get_user_meta( 901, 'eb_handle_auffindbar', true ),
+);
+als( 1 );
+$n['suche_nachtrag_teil']  = ruf( 'eb_social_suche', array(), array( 'q' => 'grossmann' ) );
+$n['suche_nachtrag_genau'] = ruf( 'eb_social_suche', array(), array( 'q' => (string) get_user_meta( 900, 'eb_handle', true ) ) );
+
+// Selbst einschalten macht auffindbar — und kostet keinen Namenswechsel.
+als( 900 );
+$rl_vorher = count( array_filter( $GLOBALS['rl_aufrufe'], function ( $a ) { return $a['action'] === 'social_handle'; } ) );
+$n['einschalten'] = ruf( 'eb_social_handle_setzen', array(
+    'handle' => (string) get_user_meta( 900, 'eb_handle', true ), 'auffindbar' => true ) );
+$n['einschalten_bremse'] = count( array_filter( $GLOBALS['rl_aufrufe'], function ( $a ) { return $a['action'] === 'social_handle'; } ) ) - $rl_vorher;
+als( 1 );
+$n['suche_nach_einschalten'] = ruf( 'eb_social_suche', array(), array( 'q' => 'grossmann' ) );
+als( 900 );
+$n['ich_900'] = ruf( 'eb_social_ich' );
+
+// Ein Namenswechsel OHNE Angabe laesst die Einwilligung, wie sie ist.
+als( 901 );
+$n['wechsel_901']         = ruf( 'eb_social_handle_setzen', array( 'handle' => 'bo.neu' ) );
+$n['wechsel_901_bleibt']  = get_user_meta( 901, 'eb_handle_auffindbar', true );
+$n['wechsel_901_bremse']  = end( $GLOBALS['rl_aufrufe'] );
+
+// @ und Grossschreibung werden normalisiert.
+als( 950 ); nutzer_anlegen( 950, 'Neu Mensch' );
+$n['mit_at'] = ruf( 'eb_social_handle_setzen', array( 'handle' => '@Neu.Mensch' ) );
+
+// Reservierte Varianten.
+$n['res_support'] = ruf( 'eb_social_handle_setzen', array( 'handle' => 'eventboerse.support' ) );
+$n['res_admin']   = ruf( 'eb_social_handle_setzen', array( 'handle' => 'admin_team' ) );
+$n['res_frei']    = ruf( 'eb_social_handle_setzen', array( 'handle' => 'adminah' ) );
+
+// Wettlauf: ein anderer Prozess haelt gerade die Sperre auf „zwilling".
+nutzer_anlegen( 951, 'Zwilling Eins' );
+nutzer_anlegen( 952, 'Zwilling Zwei' );
+$db->sperren[ eb_handle_sperrname( 'zwilling' ) ] = true;
+als( 952 );
+$n['wettlauf_zweiter']       = ruf( 'eb_social_handle_setzen', array( 'handle' => 'zwilling' ) );
+$n['wettlauf_zweiter_name']  = eb_handle_von( 952 );
+unset( $db->sperren[ eb_handle_sperrname( 'zwilling' ) ] );
+als( 951 );
+$n['wettlauf_erster']        = ruf( 'eb_social_handle_setzen', array( 'handle' => 'zwilling' ) );
+als( 952 );
+$n['wettlauf_danach']        = ruf( 'eb_social_handle_setzen', array( 'handle' => 'zwilling' ) );
+$n['wettlauf_besitzer']      = eb_handle_besitzer( 'zwilling' );
+$n['sperren_offen']          = count( $db->sperren );
+
+// Antwortet die Datenbank nicht auf GET_LOCK, ist das KEIN „vergeben".
+$GLOBALS['sperre_kaputt'] = true;
+als( 952 );
+$n['sperre_kaputt']      = ruf( 'eb_social_handle_setzen', array( 'handle' => 'ganz.frei' ) );
+$n['sperre_kaputt_name'] = eb_handle_von( 952 );
+$GLOBALS['sperre_kaputt'] = false;
+
+// Die Bremse greift beim Namenswechsel.
+$GLOBALS['rl_blockiert']['social_handle'] = true;
+als( 951 );
+$n['bremse']      = ruf( 'eb_social_handle_setzen', array( 'handle' => 'zwilling.zwei' ) );
+$n['bremse_name'] = eb_handle_von( 951 );
+$n['bremse_umschalten'] = ruf( 'eb_social_handle_setzen', array( 'handle' => 'zwilling', 'auffindbar' => false ) );
+unset( $GLOBALS['rl_blockiert']['social_handle'] );
+
+// Genauer Treffer zuerst, auch hinter zehn Teiltreffern.
+for ( $i = 960; $i < 972; $i++ ) { nutzer_anlegen( $i, 'Lena ' . $i, 'lena' . $i ); }
+nutzer_anlegen( 999, 'Lena', 'lena' );
+// Der naheliegende erste Vorschlag ist selbst vergeben — sonst haette die
+// Besitzerpruefung der Vorschlaege kein Subjekt.
+nutzer_anlegen( 998, 'Lena Eins', 'lena1' );
+als( 1 );
+$n['genau_zuerst'] = ruf( 'eb_social_suche', array(), array( 'q' => '@Lena' ) );
+
+// Die offene Pruefroute: ABGEMELDET.
+als( 0 );
+$n['frei_vergeben']  = ruf( 'eb_social_handle_frei', array(), array( 'h' => 'lena' ) );
+$n['frei_frei']      = ruf( 'eb_social_handle_frei', array(), array( 'h' => 'ganz.neu' ) );
+$n['frei_kurz']      = ruf( 'eb_social_handle_frei', array(), array( 'h' => 'ab' ) );
+$n['frei_gesperrt']  = ruf( 'eb_social_handle_frei', array(), array( 'h' => 'support.x' ) );
+$n['frei_verborgen'] = ruf( 'eb_social_handle_frei', array(), array( 'h' => 'zwilling' ) );
+$n['frei_eimer']     = end( $GLOBALS['rl_aufrufe'] );
+$n['frei_vorschlag_besitzer'] = array_map( 'eb_handle_besitzer', (array) ( $n['frei_vergeben']['body']['vorschlaege'] ?? array() ) );
+als( 999 );
+$n['frei_eigener']   = ruf( 'eb_social_handle_frei', array(), array( 'h' => 'lena' ) );
+
+$ergebnis['nick'] = $n;
+
+/* ══════════════════════════════════════════════════════════════════════
+   8 · DER PROBELAUF ZÄHLT UND PLANT — UND SCHREIBT NICHTS
+   ══════════════════════════════════════════════════════════════════════ */
+
+$p = array();
+// Leeren schreibt '' — der Schluessel bleibt, der Nachtrag laesst das Konto aus.
+als( 1010 ); nutzer_anlegen( 1010, 'Rueck Zug', 'rueck.zug' );
+$p['leeren'] = ruf( 'eb_social_handle_setzen', array( 'handle' => '' ) );
+$p['leeren_schluessel'] = metadata_exists( 'user', 1010, 'eb_handle' );
+
+nutzer_anlegen( 1000, 'Max Mustermann' );
+nutzer_anlegen( 1001, 'Max Mustermann' );          // gleicher Name, nichts geschrieben
+nutzer_anlegen( 1002, '' );                        // ohne Anzeigenamen
+nutzer_anlegen( 1003, 'Support Team' );            // nur reserviert ableitbar
+nutzer_anlegen( 1004, 'Alt Regel' );
+$GLOBALS['usermeta'][1004]['eb_handle'] = 'Alt Name!';   // aeltere, lockere Regel
+nutzer_anlegen( 1005, 'Doppel A', 'doppel' );
+nutzer_anlegen( 1006, 'Doppel B', 'doppel' );
+
+$vorher = json_encode( array( $GLOBALS['usermeta'], $GLOBALS['optionen'], $db->sperren ) );
+$log    = count( $db->sperr_log );
+$p['lauf'] = eb_handles_probelauf( 5000 );
+$p['unveraendert'] = $vorher === json_encode( array( $GLOBALS['usermeta'], $GLOBALS['optionen'], $db->sperren ) );
+$p['keine_sperre'] = count( $db->sperr_log ) === $log;
+$p['ohne_schluessel'] = count( array_filter( array_keys( $GLOBALS['nutzer'] ),
+    function ( $id ) { return ! metadata_exists( 'user', $id, 'eb_handle' ); } ) );
+$p['nutzer_gesamt'] = count( $GLOBALS['nutzer'] );
+$p['gedeckelt'] = eb_handles_probelauf( 3 );
+$p['route'] = eb_hq_nicknames_probelauf( new WP_REST_Request() )->status;
+
+$ergebnis['probe'] = $p;
 
 echo json_encode( $ergebnis, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES ), "\n";

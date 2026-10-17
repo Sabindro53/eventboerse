@@ -2248,8 +2248,8 @@ Kategorie, `_feedRadarGruppen` ist Karten-Clustering, und `/collaborations`
 Dienstleister→Dienstleister, keine gemeinsame Planung.
 
 ```bash
-npx playwright test tests/e2e/social.spec.js           # 48 Tests, PHP wirklich ausgefuehrt
-npx playwright test tests/e2e/freunde-ansicht.spec.js  # 18 Tests, echter Browser
+npx playwright test tests/e2e/social.spec.js           # 70 Tests, PHP wirklich ausgefuehrt
+npx playwright test tests/e2e/freunde-ansicht.spec.js  # 23 Tests, echter Browser
 ```
 
 **Eigene Tabellen, nicht das Board.** `eb_board_projects` ist EIN JSON-Blob je
@@ -2395,6 +2395,119 @@ Kontaktschutz, wo dieselbe Falle schon einmal stand.
 tut nichts mehr. Vier Mutationen, jede macht die Suite rot: Riegel entfernt ·
 Umschrift wieder nach dem Kleinschreiben · Abschluss-Marke nie gesetzt · der
 Nachtrag setzt nie einen Handle.
+
+#### Nickname für alle — die Zustimmung steht jetzt daneben
+
+Am 15.10.2026 umgesetzt, Auftrag des Inhabers über das UX-Briefing (Codex):
+*jedes* Konto bekommt einen Nickname, bei der Registrierung frei wählbar, in
+den Einstellungen änderbar. Das kollidierte frontal mit Entscheidung 1 —
+der Handle-Kasten versprach jedem ohne Namen wörtlich „nicht auffindbar".
+
+**Nickname und Auffindbarkeit sind deshalb zwei Angaben.**
+`eb_handle_auffindbar()` liest `eb_handle_auffindbar` neben `eb_handle`:
+`'0'` verborgen, `'1'` ausdrücklich auffindbar, **fehlt = auffindbar**. Der
+Rückfall ist kein Versehen: jeder Bestandshandle wurde vom Nutzer SELBST
+gesetzt, und genau das war die Einwilligung. Ein Rückfall auf „verborgen"
+machte über Nacht alle bisherigen Nutzer unsichtbar.
+
+**Der Nachtrag vergibt Namen VERBORGEN.** Damit hebt er Entscheidung 1 nicht
+mehr auf — die Begründung für den Riegel `EB_HANDLE_NACHTRAG` (eine
+Datenschutz-Aussage, die vor dem Schalter stehen muss) ist dadurch
+**schwächer geworden, aber nicht entfallen**: ein vergebener Name ist über
+die offene Prüfroute als „vergeben" erkennbar. Der Schalter bleibt beim
+Inhaber; umgelegt wurde nichts.
+
+**Die Suche zeigt Verborgene auch beim genauen Namen nicht.** Wer den vollen
+Namen eines verborgenen Kontos eintippt, erfährt nichts. Der genaue Treffer
+eines Auffindbaren steht dagegen immer vorn — vorher fiel er bei zehn
+Teiltreffern genau dann heraus, wenn jemand den vollen Namen kannte.
+
+**Ein Schreibweg, unter einer Sperre.** `eb_handle_beanspruchen()` ist der
+einzige Ort, der `eb_handle` schreibt — Route, Registrierung und Nachtrag
+gehen hindurch. Vorher stand „erst prüfen, dann schreiben": zwei
+gleichzeitige Registrierungen sahen beide „frei", und danach hießen zwei
+Konten gleich. `usermeta` hat keinen eindeutigen Index (und eine
+WordPress-Kerntabelle baut man nicht um), also ordnet MySQLs `GET_LOCK` die
+Anfragen hintereinander. **Antwortet die Datenbank nicht, ist das 503
+„gerade nicht prüfbar", nie 409 „vergeben"** — wer eine Störung als Konflikt
+meldet, schickt Menschen auf die Suche nach einem anderen Namen, obwohl ihrer
+frei ist.
+
+**Offen und live zu belegen:** ob `GET_LOCK` auf dem IONOS-MySQL antwortet.
+Auf einem Galera-Cluster täte es das nicht, und dann schlüge **jedes**
+Setzen mit 503 fehl — sichtbar und ohne Datenverlust, aber vollständig. Ein
+einziger Nickname-Wechsel nach dem Deploy klärt es.
+
+**Genau eine offene Route:** `GET /social/handle/frei` — die Registrierung
+prüft, bevor es ein Konto gibt. Sie schreibt nichts und nennt nie einen
+Besitzer (`status` und `vorschlaege`, sonst nichts), gedeckelt an der
+Leitung. `social.spec.js` führt sie als **festen** Eintrag in `OFFEN`; eine
+zweite offene Route fällt durch. Was sie verrät, ist dasselbe wie jeder
+Namensraum mit eindeutigen Namen: dass ein Name vergeben ist.
+
+**Bremse nur auf den Namenswechsel** (`social_handle`, 10 je Tag und
+Konto). Den Schalter umzulegen kostet nichts — wer sich unsichtbar machen
+will, darf nicht an einem Deckel scheitern, den er mit Tippfehlern
+verbraucht hat. Und ein Namenswechsel ohne `auffindbar` im Rumpf lässt die
+Zustimmung, wie sie war: ein neuer Name macht niemanden still sichtbar.
+
+**Reserviert sind jetzt auch Varianten** (`eventboerse.support`,
+`admin_team`), aber nur beim Beanspruchen, nicht rückwirkend. Ein Name, aus
+dem sich nichts Freies machen lässt, bekommt im Nachtrag `eventfan.<id>`,
+sonst bliebe genau dieses Konto für immer ohne Nickname.
+
+**Die Oberfläche:** derselbe Kasten auf `/freunde` und in den Einstellungen
+(`[data-nickname-kasten]`), eine Quelle (`_sozialNick`). „Speichern" schickt
+nur bei einer gültigen Änderung. Die Registrierung prüft entprellt (350 ms)
+und blockiert das Absenden **nur** bei sicherem „vergeben"/„reserviert" —
+eine Störung ist keine Absage. Scheitert der Nickname nach dem Anlegen,
+steht es jetzt da; vorher wurde das verschluckt, und das Konto blieb
+namenlos, ohne dass es jemand erfuhr.
+
+**Der Probelauf steht vor dem Schalter** (Briefing N01): `GET /hq/nicknames`,
+nur Verwaltung (`eb_hq_verwaltung_darf`), ruft `eb_handles_probelauf()`. Er
+zählt jedes Konto in genau eine Spalte (gültig · fehlt · geleert ·
+ungültig), benennt doppelte und ungültige Altlasten mit Konto-Kennung und
+plant die Vergabe — gegen den Bestand **und** die eigenen Vorschläge: er
+schreibt nichts, also stünden seine Planungen sonst nirgends, und zwei „Max
+Mustermann" bekämen denselben Namen. Der Test vergleicht den **gesamten**
+Zustand vorher und nachher (Meta, Optionen, Sperren). Keine Anzeigenamen im
+Bericht, Vorschau auf 20 gedeckelt.
+
+**Dabei gefunden: der Rückzug war keiner.** Der Nachtrag sucht Konten, bei
+denen `eb_handle` **fehlt**, und sein Kommentar versprach seit dem
+15.09.2026, ein bewusst geleerter Name werde nie überschrieben. Die Route
+**löschte** den Schlüssel aber beim Leeren — für den Nachtrag sah das aus wie
+„hatte nie einen". Jetzt wird `''` geschrieben. Der Prüfstand hatte es nicht
+sehen können: seine `NOT EXISTS`-Nachbildung behandelte einen leeren Wert wie
+einen fehlenden Schlüssel, also genau wie die Route falsch herum. Ein
+Stellvertreter, der denselben Irrtum hat wie sein Subjekt, bestätigt ihn nur.
+
+**Im HQ unter „@ Nickname-Probelauf"** (nur Administratoren). Er läuft
+**erst auf Klick**, nicht beim Öffnen — er geht über alle Konten, und ein
+Blick ins HQ soll den PHP-Pool nicht jedes Mal so belasten. Der Bericht
+zeigt Bestand, Plan, Vorschau, Altlasten und den Schalterstand, alles über
+`textContent`. **Gehen die Spalten nicht auf, steht eine Warnung da statt
+„fertig"** — ebenso bei einem abgeschnittenen Lauf und bei einer Antwort, die
+sich nicht als Probelauf ausweist. Der Test schneidet Markup UND Skript aus
+`hq.html`, statt ein Gerüst nachzubauen; eine umbenannte Kennung bliebe sonst
+grün, und der echte Knopf wäre tot.
+
+**Noch nicht gebaut:** Suche nach öffentlichem Anzeigenamen, der Hinweis „Dein Nickname ist @…"
+beim nächsten Besuch, Profil-Links per Nickname.
+
+Fünfzig Mutationen über Server, Probelauf, HQ und Oberfläche, jede macht ihre
+Suite rot. Eine überlebte zuerst und hat ein Loch im Prüfstand gezeigt: die
+Besitzerprüfung der Vorschläge hatte kein Subjekt, weil der erste Vorschlag
+ohnehin frei war. Eine zweite war im ersten Lauf **scheinbar** rot — ein
+Ausreißer unter Last; einzeln gefahren überlebte sie, und erst ein Test mit
+bösartigem Vorschlag im Registrierungsformular machte sie wirklich rot.
+Mutationen laufen deshalb zweimal.
+
+```bash
+npx playwright test tests/e2e/nickname-ansicht.spec.js  # 20 Tests, echter Browser
+npx playwright test tests/e2e/hq-nickname.spec.js       # 8 Tests, echter Browser
+```
 
 #### Die Rollen und was sie sehen
 
@@ -5609,7 +5722,7 @@ npm run test:smoke      # nur Routen-Smoke-Tests
 npm run test:css        # CSS-Minify-Regression (Verlaufsschrift)
 ```
 
-1384 Tests in 93 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
+1439 Tests in 95 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
 Sätze), Gebühren (centgenau, JS↔PHP-Parität), Wissensbasis (Antworten +
 Leckage-Schutz), Zufluss (Quarantäne-Tor + Demo-Feed-Ehrlichkeit),
 Verbindungen (HQ-Zugang + Connector-Katalog), Auftragsstrom (Herkunft +
@@ -6065,7 +6178,7 @@ Push auf `main` → GitHub Actions (`.github/workflows/ionos-deploy.yml`) → SF
 | `app-shell.html` | **Einzige Quelle des SPA-Bodys** (PHP-frei). Body-Markup NUR hier editieren. |
 | `index.php` | WordPress-Template: PHP-Head (Per-Page-Meta) + `readfile(app-shell.html)` + `wp_footer()`. Body NICHT direkt editieren. |
 | `index.html` | Lokale Dev-Shell, **generiert** via `./build-index-html.sh` (= `index.local-head.html` + `app-shell.html` + `index.local-foot.html`). Nicht von Hand editieren. |
-| `functions.php` | WordPress-Theme: REST API (137 Routen), Asset-Registrierung — 22 davon in `includes/social/` (Freunde, Gruppen, gemeinsamer Plan), 2 in `includes/stimme/` (Sprachausgabe und -erkennung des Assistenten) |
+| `functions.php` | WordPress-Theme: REST API (139 Routen), Asset-Registrierung — 23 davon in `includes/social/` (Freunde, Gruppen, gemeinsamer Plan), 2 in `includes/stimme/` (Sprachausgabe und -erkennung des Assistenten) |
 | `webauthn.php` | Passkey/WebAuthn ohne Composer-Dependencies |
 
 **JS-Workflow (seit 2026-08, kein Drift):** Frontend-Änderungen NUR in `js/modules/**`,
@@ -6086,7 +6199,7 @@ Alle Navigation läuft über `navigateTo(page, data, skipHistory)`. Seiten-Token
 
 Base: `/wp-json/eventboerse/v1/`. Aufgebaut per `_apiUrl(endpoint)` (fällt auf relativen Pfad zurück wenn `eventboerseApi.restUrl` nicht gesetzt). Authentifizierung per WordPress-Nonce → `X-WP-Nonce` Header via `_apiHeaders()`.
 
-137 Route-Registrierungen (`register_rest_route`), grob gruppiert nach: Auth, Nutzer, WebAuthn, 2FA, Listings, Messaging, Reviews, Payments, Favoriten, Admin, Rechtsablage, **Freunde & Gruppen** (`includes/social/routen.php`), **gemeinsamer Plan** (`includes/social/plan-routen.php`), **PStTG-Angaben** (`includes/steuer/psttg-routen.php`), **Sprache des Assistenten** (`includes/stimme/routen.php`), Utilities.
+139 Route-Registrierungen (`register_rest_route`), grob gruppiert nach: Auth, Nutzer, WebAuthn, 2FA, Listings, Messaging, Reviews, Payments, Favoriten, Admin, Rechtsablage, **Freunde & Gruppen** (`includes/social/routen.php`), **gemeinsamer Plan** (`includes/social/plan-routen.php`), **PStTG-Angaben** (`includes/steuer/psttg-routen.php`), **Sprache des Assistenten** (`includes/stimme/routen.php`), Utilities.
 
 **Gezählt wird über alle PHP-Dateien, nicht nur `functions.php`.** Bis zum 09.09.2026 las `kontext.mjs` nur die eine Datei — und meldete „106 behauptet, 106 gemessen" für eine Anwendung mit 124 Routen, sobald die ersten ausgelagert waren. Ein Prüfer, der sein Subjekt nur zur Hälfte kennt, gibt eine Entwarnung, die er nicht decken kann.
 

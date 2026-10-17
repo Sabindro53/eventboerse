@@ -30,6 +30,12 @@ var _sozialAccount = null;
 var _sozialLadefolge = 0;
 var _sozialSuchfolge = 0;
 var _sozialLadePromise = null;
+var _sozialSuchtext = '';
+// Nickname und Auffindbarkeit — EINE Quelle fuer die Freunde-Seite und die
+// Einstellungen. Zwei Kopien desselben Namens zeigten nach dem Speichern auf
+// der einen Seite den alten, auf der anderen den neuen.
+var _sozialNick = null;
+var _sozialSuchmeldung = '';
 
 /** Eine Antwort holen — Fehler enden IMMER sichtbar, nie in der Konsole. */
 function sozialRuf(pfad, methode, rumpf) {
@@ -84,47 +90,198 @@ function sozialRolleName(rolle) {
   return 'Mitglied';
 }
 
+/** Nickname und Einwilligung aus einer `social/ich`-Antwort übernehmen. */
+function sozialNickAusIch(d) {
+  var h = (d && d.handle) || '';
+  // Ein Server ohne `auffindbar` (vor dem 15.10.2026) kennt nur „Handle =
+  // auffindbar" — dann ist genau das die Wahrheit.
+  _sozialNick = {
+    handle: h,
+    auffindbar: d && typeof d.auffindbar === 'boolean' ? d.auffindbar : !!h,
+  };
+}
+
 /**
- * Der Handle-Kasten.
+ * Der Nickname-Kasten — auf der Freunde-Seite und in den Einstellungen.
  *
- * Er steht ganz oben und sagt in Worten, was das Setzen bedeutet. Ein
- * Feld ohne diesen Satz wäre eine Einwilligung, die niemand als solche
- * erkennt — und damit keine.
+ * Nickname und Auffindbarkeit stehen GETRENNT da, und der Schalter sagt in
+ * Worten, was er bedeutet. Bis zum 15.10.2026 war beides eins: wer einen
+ * Namen hatte, war auffindbar. Seit jedes Konto einen Nickname bekommen
+ * kann, wäre das eine Einwilligung, die niemand gegeben hat.
+ *
+ * `ort` wird zu Kennungen und steht im onclick — deshalb nur die festen
+ * Orte aus `sozialNickOrt()`.
  */
-function sozialHandleKasten() {
-  var h = (_sozialStand && _sozialStand.handle) || '';
-  return '<section class="soz-karte soz-handle">'
-    + '<h3><span class="material-icons-round">alternate_email</span> Dein Suchname</h3>'
-    + '<p>Nur wer einen Suchnamen hat, kann von Freunden gefunden werden. '
-    + 'Ohne ihn bist du <strong>nicht auffindbar</strong> — auch nicht über deinen Namen '
-    + 'oder deine E-Mail-Adresse. Du kannst ihn jederzeit wieder löschen.</p>'
+function sozialNicknameKasten(ort) {
+  ort = sozialNickOrt(ort);
+  if (!ort) return '';
+  var n = _sozialNick || { handle: '', auffindbar: false };
+  var id = 'sozNick_' + ort;
+  return '<section class="soz-karte soz-handle" data-nick-ort="' + ort + '">'
+    + '<h3><span class="material-icons-round" aria-hidden="true">alternate_email</span> Dein Nickname</h3>'
+    + '<p>' + (n.handle
+      ? 'Du bist <strong>@' + _escHtml(n.handle) + '</strong>. '
+      : 'Du hast noch keinen Nickname. ')
+    + 'Deine Nachrichten, Freunde und Buchungen bleiben erhalten, wenn du ihn änderst.</p>'
+    + '<label class="soz-label" for="' + id + '">Nickname</label>'
     + '<div class="soz-handle-zeile">'
-    + '<span class="soz-at">@</span>'
-    + '<input type="text" id="sozHandle" value="' + _escHtml(h) + '" maxlength="24" '
+    + '<span class="soz-at" aria-hidden="true">@</span>'
+    + '<input type="text" id="' + id + '" value="' + _escHtml(n.handle) + '" maxlength="25" '
     + 'placeholder="z. B. anna.b" autocomplete="off" spellcheck="false" '
-    + 'aria-label="Dein Suchname">'
-    + '<button type="button" class="btn-primary" onclick="sozialHandleSpeichern()">Speichern</button>'
-    + (h ? '<button type="button" class="btn-outline" onclick="sozialHandleLoeschen()">Löschen</button>' : '')
+    + 'aria-describedby="' + id + '_regel ' + id + '_status">'
     + '</div>'
-    + '<small class="soz-hinweis">3–24 Zeichen: Kleinbuchstaben, Ziffern, Punkt, Unterstrich.</small>'
+    + '<small class="soz-hinweis" id="' + id + '_regel">3–24 Zeichen: Kleinbuchstaben, Ziffern, Punkt, Unterstrich.</small>'
+    + '<label class="soz-schalter" for="' + id + '_auffindbar">'
+    + '<input type="checkbox" id="' + id + '_auffindbar"' + (n.auffindbar ? ' checked' : '') + '> '
+    + 'Über meinen Nickname gefunden werden</label>'
+    + '<small class="soz-hinweis">Ist das aus, findet dich niemand in der Personensuche — '
+    + 'auch nicht über deinen Namen oder deine E-Mail-Adresse.</small>'
+    + '<p class="soz-nick-status" id="' + id + '_status" role="status" aria-live="polite"></p>'
+    + '<div class="soz-nick-vorschlaege" id="' + id + '_vorschlaege"></div>'
+    + '<button type="button" class="btn-primary" onclick="sozialNicknameSpeichern(\'' + ort + '\')">Speichern</button>'
     + '</section>';
+}
+
+/**
+ * Ein Platz-Attribut auf einen BEKANNTEN Ort abbilden — oder auf nichts.
+ *
+ * Der Wert landet in Kennungen und im onclick. Ein Muster („nur
+ * Kleinbuchstaben") liess jedes Wort durch, und CodeQL meldete am
+ * 15.10.2026 zu Recht, dass hier Text aus dem DOM zu HTML wird. Zurück
+ * kommt deshalb immer ein Literal aus diesem Code, nie der gelesene Text.
+ */
+function sozialNickOrt(roh) {
+  if (roh === 'einstellungen') return 'einstellungen';
+  if (roh === 'freunde') return 'freunde';
+  return '';
+}
+
+/** Jeden Platz `[data-nickname-kasten]` neu füllen (Einstellungen). */
+function sozialNicknameKaestenZeichnen() {
+  var plaetze = document.querySelectorAll('[data-nickname-kasten]');
+  for (var i = 0; i < plaetze.length; i++) {
+    var ort = sozialNickOrt(plaetze[i].getAttribute('data-nickname-kasten'));
+    plaetze[i].innerHTML = ort ? sozialNicknameKasten(ort) : '';
+  }
+}
+
+function sozialNickMeldung(ort, text) {
+  var el = document.getElementById('sozNick_' + ort + '_status');
+  if (el) el.textContent = text || '';
+}
+
+/**
+ * Speichern — nur bei einer gültigen ÄNDERUNG.
+ *
+ * Ein Klick ohne Änderung schickt nichts: jeder Namenswechsel zählt
+ * serverseitig gegen einen Tagesdeckel, und wer dreimal „Speichern"
+ * drückt, darf ihn nicht dabei verbrauchen.
+ */
+function sozialNicknameSpeichern(ort) {
+  var id = 'sozNick_' + ort;
+  var feld = document.getElementById(id);
+  var schalter = document.getElementById(id + '_auffindbar');
+  if (!feld || !schalter) return;
+  var h = String(feld.value || '').trim().toLowerCase().replace(/^@/, '');
+  var alt = _sozialNick || { handle: '', auffindbar: false };
+  var vorschlaege = document.getElementById(id + '_vorschlaege');
+  if (vorschlaege) vorschlaege.innerHTML = '';
+  if (h === alt.handle && schalter.checked === alt.auffindbar) {
+    sozialNickMeldung(ort, 'Es gibt nichts zu speichern.');
+    return;
+  }
+  if (!/^[a-z0-9._]{3,24}$/.test(h)) {
+    sozialNickMeldung(ort, '3–24 Zeichen: Kleinbuchstaben, Ziffern, Punkt, Unterstrich.');
+    return;
+  }
+  sozialNickMeldung(ort, 'Wird gespeichert …');
+  sozialRuf('social/handle', 'POST', { handle: h, auffindbar: schalter.checked })
+    .then(function (d) {
+      _sozialNick = { handle: d.handle || '', auffindbar: !!d.auffindbar };
+      if (_sozialStand) _sozialStand.handle = _sozialNick.handle;
+      showToast(_sozialNick.auffindbar
+        ? 'Gespeichert. Andere finden dich als @' + _sozialNick.handle + '.'
+        : 'Gespeichert. Du bist @' + _sozialNick.handle + ' und nicht auffindbar.', 'check_circle');
+      sozialNicknameKaestenZeichnen();
+      if (document.getElementById('sozNick_freunde')) renderFreundePage();
+      sozialNickMeldung(ort, 'Gespeichert.');
+    })
+    .catch(function (e) {
+      sozialNickMeldung(ort, (e && e.message) || 'Das hat nicht geklappt.');
+      if (e && e.code === 'handle_vergeben') sozialNickVorschlaegeZeigen(ort, h);
+    });
+}
+
+/** Bei „schon vergeben" freie Varianten anbieten, statt raten zu lassen. */
+function sozialNickVorschlaegeZeigen(ort, h) {
+  sozialRuf('social/handle/frei?h=' + encodeURIComponent(h)).then(function (d) {
+    var el = document.getElementById('sozNick_' + ort + '_vorschlaege');
+    if (!el) return;
+    var frei = (d && d.vorschlaege || []).filter(function (v) { return /^[a-z0-9._]{3,24}$/.test(v); });
+    el.innerHTML = frei.length ? '<span>Frei wären:</span> ' + frei.map(function (v) {
+      return '<button type="button" class="btn-outline btn-sm" onclick="sozialNickVorschlagNehmen(\''
+        + ort + '\',\'' + v + '\')">@' + _escHtml(v) + '</button>';
+    }).join(' ') : '';
+  }).catch(function () { /* die Meldung „vergeben" steht schon da */ });
+}
+
+function sozialNickVorschlagNehmen(ort, v) {
+  var feld = document.getElementById('sozNick_' + ort);
+  if (!feld || !/^[a-z0-9._]{3,24}$/.test(String(v))) return;
+  feld.value = v;
+  feld.focus();
+  sozialNickMeldung(ort, '@' + v + ' ist eingetragen — zum Übernehmen speichern.');
+}
+
+/** Einstellungen: den Nickname-Kasten laden und zeichnen. */
+function ebNicknameEinstellungen() {
+  var plaetze = document.querySelectorAll('[data-nickname-kasten]');
+  if (!plaetze.length) return;
+  if (!currentUser) {
+    for (var i = 0; i < plaetze.length; i++) plaetze[i].innerHTML = '';
+    return;
+  }
+  if (_sozialNick && _sozialAccount === String(currentUser.id)) {
+    sozialNicknameKaestenZeichnen();
+    return;
+  }
+  for (var j = 0; j < plaetze.length; j++) {
+    plaetze[j].innerHTML = '<section class="soz-karte"><p class="soz-hinweis">Dein Nickname wird geladen …</p></section>';
+  }
+  var uid = String(currentUser.id);
+  sozialRuf('social/ich').then(function (d) {
+    if (!currentUser || String(currentUser.id) !== uid) return;
+    // Ein anderes Konto als zuletzt: erst alles Alte verwerfen, sonst stuende
+    // auf der Freunde-Seite die Liste des vorigen Kontos.
+    if (_sozialAccount !== uid) sozialZuruecksetzen();
+    sozialNickAusIch(d);
+    sozialNicknameKaestenZeichnen();
+  }).catch(function () {
+    for (var k = 0; k < plaetze.length; k++) {
+      plaetze[k].innerHTML = '<section class="soz-karte"><p>Dein Nickname konnte nicht geladen werden.</p>'
+        + '<button type="button" class="btn-outline" onclick="ebNicknameEinstellungen()">Erneut versuchen</button></section>';
+    }
+  });
 }
 
 function sozialFreundeAnsicht() {
   var s = _sozialStand || { friends: [], incoming: [], outgoing: [], blocked: [] };
-  var html = sozialHandleKasten();
+  var html = '';
 
   html += '<section class="soz-karte">'
     + '<h3><span class="material-icons-round">person_search</span> Freunde finden</h3>'
     + '<div class="soz-suche-zeile">'
-    + '<span class="soz-at">@</span>'
-    + '<input type="text" id="sozSuche" placeholder="Suchname eingeben" autocomplete="off" '
-    + 'spellcheck="false" aria-label="Nach Suchname suchen" '
+    + '<input type="search" id="sozSuche" placeholder="Nickname, z. B. @anna.b" autocomplete="off" '
+    + 'value="' + _escHtml(_sozialSuchtext) + '" '
+    + 'oninput="sozialSuchtextMerken(this.value)" '
+    + 'spellcheck="false" aria-label="Nach Nickname suchen" aria-describedby="sozSucheHinweis" '
     + 'onkeydown="if(event.key===\'Enter\'){event.preventDefault();sozialSuchen();}">'
     + '<button type="button" class="btn-primary" onclick="sozialSuchen()">Suchen</button>'
     + '</div>'
-    + '<div id="sozTreffer" class="soz-liste"></div>'
+    + '<p id="sozSucheHinweis" class="soz-hinweis">Mit oder ohne @ suchen. Ein Teil des Nicknames genügt (mindestens 3 Zeichen).</p>'
+    + '<div id="sozTreffer" class="soz-liste" role="status" aria-live="polite" aria-atomic="true"></div>'
     + '</section>';
+  html += sozialNicknameKasten('freunde');
 
   if (s.incoming.length) {
     html += '<section class="soz-karte"><h3><span class="material-icons-round">mark_email_unread</span> '
@@ -348,7 +505,7 @@ function renderFreundePage() {
     + '</div>'
     + (_sozialReiter === 'freunde' ? sozialFreundeAnsicht() : sozialGruppenAnsicht());
 
-  if (_sozialReiter === 'freunde') sozialTrefferZeichnen();
+  if (_sozialReiter === 'freunde') sozialTrefferZeichnen(_sozialSuchmeldung);
   if (typeof sozialPlanungsEntwurfZeigen === 'function') sozialPlanungsEntwurfZeigen();
 }
 
@@ -394,6 +551,9 @@ function sozialZuruecksetzen() {
   _sozialStand = null;
   _sozialGruppen = null;
   _sozialTreffer = [];
+  _sozialSuchtext = '';
+  _sozialSuchmeldung = '';
+  _sozialNick = null;
   _sozialLaeuft = false;
   _sozialLadePromise = null;
   _sozialPlan = {};
@@ -418,6 +578,7 @@ function sozialLaden(neu) {
     if (!Array.isArray(a[0].friends) || !Array.isArray(a[1].groups) || !a[2].person) {
       throw new Error('Unvollständige Antwort');
     }
+    sozialNickAusIch(a[2]);
     _sozialStand = { handle: a[2].handle || '', ich: a[2].person,
       friends: a[0].friends, incoming: a[0].incoming || [],
       outgoing: a[0].outgoing || [], blocked: a[0].blocked || [] };
@@ -435,32 +596,18 @@ function sozialLaden(neu) {
   return _sozialLadePromise;
 }
 
-function sozialHandleSpeichern() {
-  var el = document.getElementById('sozHandle');
-  if (!el) return;
-  sozialRuf('social/handle', 'POST', { handle: el.value })
-    .then(function (d) {
-      _sozialStand.handle = d.handle || '';
-      showToast(d.handle ? 'Du bist jetzt als @' + d.handle + ' auffindbar.'
-        : 'Du bist nicht mehr auffindbar.', 'check_circle');
-      renderFreundePage();
-    })
-    .catch(sozialFehler);
-}
-
-function sozialHandleLoeschen() {
-  sozialRuf('social/handle', 'POST', { handle: '' })
-    .then(function () {
-      _sozialStand.handle = '';
-      showToast('Du bist nicht mehr auffindbar.', 'check_circle');
-      renderFreundePage();
-    })
-    .catch(sozialFehler);
+// Wer weitertippt, verwirft jede noch laufende Antwort der alten Suche.
+function sozialSuchtextMerken(value) {
+  _sozialSuchtext = String(value || '');
+  _sozialSuchfolge++;
+  _sozialTreffer = [];
+  sozialTrefferZeichnen('');
 }
 
 function sozialSuchen() {
   var el = document.getElementById('sozSuche');
-  var q = el ? String(el.value || '').trim().toLowerCase().replace(/^@/, '') : '';
+  _sozialSuchtext = el ? String(el.value || '') : _sozialSuchtext;
+  var q = _sozialSuchtext.trim().toLowerCase().replace(/^@/, '');
   if (q.length < 3) {
     _sozialSuchfolge++;
     _sozialTreffer = [];
@@ -475,12 +622,17 @@ function sozialSuchen() {
     .then(function (d) {
       if (folge !== _sozialSuchfolge || !currentUser || currentUser.id !== uid) return;
       _sozialTreffer = d.results || [];
-      sozialTrefferZeichnen(_sozialTreffer.length ? '' : 'Niemand gefunden.');
+      sozialTrefferZeichnen(_sozialTreffer.length ? '' : 'Niemand gefunden. Prüfe den Nickname oder frage deine Freunde nach ihrem @Namen.');
     })
-    .catch(function (e) { sozialFehler(e); sozialTrefferZeichnen('Das hat nicht geklappt.'); });
+    .catch(function (e) {
+      if (folge !== _sozialSuchfolge || !currentUser || currentUser.id !== uid) return;
+      sozialFehler(e);
+      sozialTrefferZeichnen('Die Suche konnte nicht geladen werden. Bitte versuche es erneut.');
+    });
 }
 
 function sozialTrefferZeichnen(meldung) {
+  _sozialSuchmeldung = meldung || '';
   var el = document.getElementById('sozTreffer');
   if (!el) return;
   if (!_sozialTreffer.length) {
@@ -490,8 +642,10 @@ function sozialTrefferZeichnen(meldung) {
   el.innerHTML = _sozialTreffer.map(function (p) {
     var k;
     if (p.state === 'accepted') k = '<span class="soz-status">Befreundet</span>';
-    else if (p.state === 'pending') k = '<span class="soz-status">Anfrage läuft</span>';
-    else k = '<button type="button" class="btn-primary" onclick="sozialAnfragen(' + p.id + ')">Anfragen</button>';
+    else if (p.state === 'pending' && p.mine) k = '<span class="soz-status">Anfrage gesendet</span>';
+    else if (p.state === 'pending') k = '<button type="button" class="btn-primary" onclick="sozialAntwort(' + p.id + ',true)">Annehmen</button>'
+      + '<button type="button" class="btn-outline" onclick="sozialAntwort(' + p.id + ',false)">Ablehnen</button>';
+    else k = '<button type="button" class="btn-primary" onclick="sozialAnfragen(' + p.id + ')">Freundschaft anfragen</button>';
     return sozialPersonZeile(p, k);
   }).join('');
 }
@@ -508,6 +662,9 @@ function sozialAntwort(id, annehmen) {
     .then(function () {
       showToast(annehmen ? 'Ihr seid jetzt befreundet.' : 'Anfrage abgelehnt.', 'check_circle');
       return sozialLaden(true);
+    })
+    .then(function () {
+      if (_sozialSuchtext.trim().replace(/^@/, '').length >= 3) sozialSuchen();
     })
     .catch(sozialFehler);
 }

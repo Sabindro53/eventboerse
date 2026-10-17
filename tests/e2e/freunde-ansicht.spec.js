@@ -357,3 +357,81 @@ test.describe('Nickname bei der Anmeldung', () => {
       .toMatch(/eb_handles_nachtrag_32/);
   });
 });
+
+test.describe('Freundessuche: Orientierung und aktuelle Ergebnisse', () => {
+  test('die Suche steht vor der Nickname-Verwaltung und behält ihre Eingabe', async ({ page }) => {
+    const { inhalt } = await freundeOeffnen(page, LEER);
+    await expect(inhalt.locator('section').first()).toContainText('Freunde finden');
+    await inhalt.getByRole('searchbox', { name: 'Nach Nickname suchen' }).fill('@Ben_K');
+    await page.evaluate(() => sozialReiter('gruppen'));
+    await page.evaluate(() => sozialReiter('freunde'));
+    await expect(inhalt.getByRole('searchbox')).toHaveValue('@Ben_K');
+  });
+
+  test('mit @ und Großschreibung sucht die echte Route nach dem normalisierten Nickname', async ({ page }) => {
+    const { inhalt, gesehen } = await freundeOeffnen(page, {
+      ...LEER, suche: { results: [{ ...PERSON(2, 'Ben', 'ben_k'), state: 'none' }] },
+    });
+    await inhalt.getByRole('searchbox').fill('@Ben_K');
+    await inhalt.getByRole('searchbox').press('Enter');
+    await expect(inhalt.locator('#sozTreffer')).toContainText('Ben');
+    expect(gesehen.some((u) => new URL(u).pathname.endsWith('/social/suche')
+      && new URL(u).searchParams.get('q') === 'ben_k')).toBe(true);
+    await expect(inhalt.locator('#sozTreffer').getByRole('button', { name: 'Freundschaft anfragen' })).toBeVisible();
+  });
+
+  test('gesendete und empfangene Freundschaftsanfragen haben unterschiedliche Aktionen', async ({ page }) => {
+    const { inhalt } = await freundeOeffnen(page, {
+      ...LEER, suche: { results: [
+        { ...PERSON(2, 'Ben', 'ben_k'), state: 'pending', mine: true },
+        { ...PERSON(3, 'Cem', 'cem99'), state: 'pending', mine: false },
+      ] },
+    });
+    await inhalt.getByRole('searchbox').fill('abc');
+    await inhalt.getByRole('searchbox').press('Enter');
+    const rows = inhalt.locator('#sozTreffer .soz-person');
+    await expect(rows).toHaveCount(2);
+    await expect(rows.nth(0)).toContainText('Anfrage gesendet');
+    await expect(rows.nth(0).locator('button')).toHaveCount(0);
+    await expect(rows.nth(1).getByRole('button', { name: 'Annehmen', exact: true })).toBeVisible();
+    await expect(rows.nth(1).getByRole('button', { name: 'Ablehnen', exact: true })).toBeVisible();
+  });
+
+  for (const fehler of [false, true]) {
+    test(`eine verspätete ${fehler ? 'Fehlermeldung' : 'Antwort'} überschreibt keine neue Suche`, async ({ page }) => {
+      const { inhalt } = await freundeOeffnen(page, LEER);
+      let freigeben;
+      const wartet = new Promise((resolve) => { freigeben = resolve; });
+      let gestartet;
+      const anfrage = new Promise((resolve) => { gestartet = resolve; });
+      await page.route('**/social/suche?*', async (route) => {
+        const q = new URL(route.request().url()).searchParams.get('q');
+        if (q === 'alter') {
+          gestartet();
+          await wartet;
+          return route.fulfill({ status: fehler ? 500 : 200,
+            contentType: 'application/json', body: JSON.stringify({
+              results: [PERSON(2, 'Alter Treffer', 'alter')], message: 'Alte Störung',
+            }) });
+        }
+        return route.fulfill({ status: 200, contentType: 'application/json',
+          body: JSON.stringify({ results: [PERSON(3, 'Aktueller Treffer', 'neuer')] }) });
+      });
+      await inhalt.getByRole('searchbox').fill('alter');
+      await inhalt.getByRole('searchbox').press('Enter');
+      await anfrage;
+      await inhalt.getByRole('searchbox').fill('neuer');
+      await inhalt.getByRole('searchbox').press('Enter');
+      await expect(inhalt.locator('#sozTreffer')).toContainText('Aktueller Treffer');
+      const fertig = page.waitForResponse((r) => new URL(r.url()).searchParams.get('q') === 'alter');
+      freigeben();
+      await fertig;
+      // Flush the application response handler, rather than relying on a fixed delay.
+      await page.waitForFunction(() => !document.querySelector('#sozTreffer').textContent.includes('Suche läuft'));
+      await expect(inhalt.locator('#sozTreffer')).toContainText('Aktueller Treffer');
+      await expect(inhalt.locator('#sozTreffer')).not.toContainText('Alter Treffer');
+      await expect(inhalt.locator('#sozTreffer')).not.toContainText('konnte nicht geladen');
+      await expect(page.getByText('Alte Störung', { exact: true })).toHaveCount(0);
+    });
+  }
+});
