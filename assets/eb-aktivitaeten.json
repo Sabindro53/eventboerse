@@ -1,7 +1,7 @@
 {
   "version": 2,
   "hinweis": "Erzeugt von scripts/aktivitaeten.mjs. Nicht von Hand bearbeiten.",
-  "stand": "2026-10-18T03:39:42.652Z",
+  "stand": "2026-10-19T03:40:42.597Z",
   "gebiete": [
     {
       "stadt": "Köln",
@@ -17590,7 +17590,7 @@
       "gebiet": "Frankfurt",
       "ort": {
         "name": "Forstgeräte früher und heute",
-        "stadt": "",
+        "stadt": "Frankfut",
         "lat": 50.06282,
         "lon": 8.66917
       },
@@ -17912,7 +17912,7 @@
       "gebiet": "Frankfurt",
       "ort": {
         "name": "Heimatmuseum Nied",
-        "stadt": "",
+        "stadt": "Frankfurt am Main",
         "lat": 50.10001,
         "lon": 8.56554
       },
@@ -19977,27 +19977,6 @@
       "partner": false
     },
     {
-      "id": "osm:node/696502288",
-      "art": "ort",
-      "titel": "Gartenhallenbad Bernhausen",
-      "kategorie": "Erlebnisbad",
-      "beginn": null,
-      "gebiet": "Stuttgart",
-      "ort": {
-        "name": "Gartenhallenbad Bernhausen",
-        "stadt": "",
-        "lat": 48.67327,
-        "lon": 9.20981
-      },
-      "entfernungKm": 11.6,
-      "quelle": {
-        "name": "OpenStreetMap",
-        "url": "https://www.openstreetmap.org/node/696502288",
-        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
-      },
-      "partner": false
-    },
-    {
       "id": "osm:node/1414463899",
       "art": "ort",
       "titel": "Theater unterm Regenbogen",
@@ -20230,6 +20209,28 @@
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/299812491",
+        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
+      },
+      "partner": false
+    },
+    {
+      "id": "osm:node/1609075419",
+      "art": "ort",
+      "titel": "Scala Kultur",
+      "kategorie": "Kino",
+      "beginn": null,
+      "gebiet": "Stuttgart",
+      "ort": {
+        "name": "Scala Kultur",
+        "stadt": "Ludwigsburg",
+        "lat": 48.89547,
+        "lon": 9.19372
+      },
+      "entfernungKm": 13.3,
+      "webseite": "https://www.scala-ludwigsburg.de/",
+      "quelle": {
+        "name": "OpenStreetMap",
+        "url": "https://www.openstreetmap.org/node/1609075419",
         "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
       },
       "partner": false
