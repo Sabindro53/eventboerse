@@ -2082,6 +2082,9 @@ body.dark-mode .ai-live-feedback { background: var(--bg-alt); border-color: var(
   color: var(--text-light);
 }
 .ai-hero-stats strong { color: var(--dark); font-weight: 700; }
+/* Die Zeile hat eine eigene display-Angabe — ohne diese Regel stünde sie
+   trotz [hidden] sichtbar und leer da. */
+.ai-hero-stats[hidden] { display: none; }
 .ai-stat-dot { color: var(--border); font-size: 1.2rem; }
 /* Dark mode AI hero */
 body.dark-mode .ai-hero {
