@@ -16,7 +16,7 @@ Zahlen ihrer Zeit — die sind Historie, kein Ist-Stand. Der Ensemble-Kontext
 liest diese Datei von oben; ein Modell, das „68 Tests" als aktuell meldet, hat
 einen alten Abschnitt gelesen und nicht diesen.
 
-- **Playwright-Suite: 1566 Tests in 105 Suiten**, blockierendes Gate in `pr-check.yml`.
+- **Playwright-Suite: 1567 Tests in 105 Suiten**, blockierendes Gate in `pr-check.yml`.
   Läuft seit dem Self-Hosting auch ohne Netzzugang vollständig durch
 
 ## Gemeinsame Plattformbasis (21.10.2026)
@@ -48,13 +48,41 @@ Die Nickname-Route akzeptiert nur echte JSON-Booleans; sieben ungültige Typen
 bleiben ohne Schreibwirkung. Der PHP-Prüfstand bestätigt Status 400 und die
 unveränderte versteckte Einstellung. Es wurden keine echten Konten verändert.
 
-**Nächster Schritt:** Verifizierten Integrationsstand und CI prüfen; vor einer
-Live-Freigabe GET_LOCK und den vollständigen Rollenweg in WordPress testen.
-Der Rollenabgleich hat zwei reproduzierte Ablauf-Lücken: gebuchte Leistungen
-fehlen vor Erfüllung im Ablauf; fehlende Zeiten erscheinen als „08:00“.
-Der begrenzte Folgeauftrag in Mission Control soll genau diese Anzeige korrigieren,
-keine Zahlungswege oder Statusübergänge ändern. Das neue Blender-Modell bleibt
-zunächst Gestaltungsprototyp; die vorhandene Figurenwahl ist erhalten.
+**CI-Abschluss, Codex (21.10.2026):** Alle fünf GitHub-Prüfungen für
+`4c1686350396d64e3528f9d1a4eb49a70f624e84` erfolgreich abgeschlossen:
+E2E, PR-Validierung, Lint und beide CodeQL-Prüfungen. Remote-PR-Head und
+lokaler Head stimmen überein; keine laufenden Mission-Control-Aufträge.
+Die bestehenden lokalen Nachweise bleiben 1566/1566 Tests und 16/16 Tore.
+Kein erneuter Gesamtlauf und keine Produktänderung in diesem Prüfpaket.
+
+**Ablauf-Anzeige, Codex (21.10.2026):** Auftrag `20261021-162711-1a71`
+lokal umgesetzt. Zwei Browser-Gegenproben waren vor der Änderung rot.
+`renderBoardTimeline` nimmt jetzt den bestehenden Status `angebot` („Gebucht“)
+zusätzlich zu erfüllt/bezahlt auf; geplant/kontaktiert bleiben ausgeschlossen.
+Fehlende Zeiten zeigen „Zeit offen“. Mehrfachzeiten, Kartenreihenfolge und
+Projektdaten bleiben erhalten. Kein Statusübergang und kein Backend geändert.
+
+**Abschlussprüfung, Codex (21.10.2026):** Gesamtsuite **1567/1567 bestanden
+(11,0 Minuten)**, alle **16/16 Projekttore grün**. Zuvor Board-Zeiten 30/30
+bestanden und beide Mutationen (Gebucht-Filter entfernt / offene Zeit durch
+08:00 ersetzt) jeweils erkannt. Die Sammlung umfasst 1567 Tests in 105 Suiten.
+Protokolle: `timeline-full-tests.log`, `timeline-gates.log` und
+`timeline-mutations.json` im Mission-Control-Ordner. Der durch die Tore neu
+erzeugte Auftragsstrom ist nicht Bestandteil dieser Anzeigeänderung.
+
+**Lokaler Sprint abgeschlossen:** Gemeinsame Basis geprüft, erreichbare
+Legacy-Patches fachlich eingeordnet und beide reproduzierten Ablauf-Lücken
+korrigiert. Diff wird lokal als Commit gesichert; kein neuer Push, Merge oder
+Deploy. Die frühere GitHub-CI belegt ausschließlich Commit `4c168635`, nicht
+diesen lokalen Abschlussstand. Automatik nach Abschluss dieses Sprints pausieren;
+keine neue Funktionsfolge automatisch beginnen.
+
+**Offener Übergabepunkt, Codex:** Vor Live-Freigabe eine WordPress-Testumgebung
+mit Rücksetzpunkt herstellen und GET_LOCK sowie den vollständigen Rollenweg
+mit getrennten Testkonten prüfen. Die alten Kopien dürfen ohne vollständigen
+Vergleich weiterhin nicht entfernt werden. Das Blender-Modell und die
+visuelle Gesamtplanung bleiben Konzept/Prototyp, kein fertig integrierter
+Raumplaner. Für die nächste Ausbauphase einen konkreten Sprint abgrenzen.
 
 ## Gesuche als Gesuche zeigen — F01–F03 (16.10.2026)
 

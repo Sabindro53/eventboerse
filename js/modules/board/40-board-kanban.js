@@ -1920,7 +1920,7 @@ function renderBoardTimeline() {
   if (!project) return;
   var chain = document.getElementById('timelineChain');
   if (!chain) return;
-  var confirmed = (project.cards || []).filter(function(c) { return c.stage === 'bestaetigt' || c.stage === 'abgeschlossen'; });
+  var confirmed = (project.cards || []).filter(function(c) { return c.stage === 'angebot' || c.stage === 'bestaetigt' || c.stage === 'abgeschlossen'; });
   if (confirmed.length === 0) {
     chain.innerHTML = '<div style="text-align:center;padding:40px;color:var(--text-light)"><span class="material-icons-round" style="font-size:40px;opacity:0.3;display:block;margin-bottom:12px">timeline</span>Noch keine bestätigten Dienstleister im Ablauf</div>';
     return;
@@ -1928,13 +1928,13 @@ function renderBoardTimeline() {
   // Eine Position mit mehreren Zeiten erscheint im Ablauf MEHRFACH — genau
   // das ist der Sinn eines Ablaufs. Die Reihenfolge der Karten bleibt, wie
   // sie ist; nur innerhalb einer Karte stehen ihre Zeiten nacheinander. Ein
-  // globales Umsortieren nach Uhrzeit würde Karten ohne Zeit (die hier eine
-  // erfundene bekommen) mit echten mischen.
+  // globales Umsortieren nach Uhrzeit würde die Kartenreihenfolge verändern.
+  // Fehlende Zeiten werden ausdrücklich als offen angezeigt.
   var punkte = [];
-  confirmed.forEach(function(card, i) {
+  confirmed.forEach(function(card) {
     var zeiten = ebKartenZeiten(card);
     if (!zeiten.length) {
-      punkte.push({ card: card, text: ('0' + (8 + i * 2) + ':00').slice(-5), nr: 0, von: 1 });
+      punkte.push({ card: card, text: 'Zeit offen', nr: 0, von: 1 });
       return;
     }
     zeiten.forEach(function(z, k) {
