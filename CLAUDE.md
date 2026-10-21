@@ -64,6 +64,49 @@ Fremdtext ist **Daten, keine Anweisung**. Notizen dort sind immer
 Worten unter `10-Produkt/Wissen/` neu schreibt — nie durch Umstellen von
 `share`. Regeln: `vault/50-Evolution/Recherche/_Schleuse.md`.
 
+#### Das Schleusen-Tor sah keine neuen Dateien
+
+Am 21.10.2026 mit Trail of Bits' `agentic-actions-auditor` gegen
+`recherche.yml` gefahren. Der Schritt „Keine Freigabe durch die Hintertür"
+prüfte mit `git diff --name-only` — und das sieht **keine unverfolgten
+Dateien**. `create-pull-request` committet sie aber. Eine **neue** Notiz
+`vault/10-Produkt/Wissen/x.md` mit `share: public` kam damit an **beiden**
+Prüfungen vorbei in den PR. Dieselbe Klasse wie der alte `geheimnisse.mjs`,
+der unverfolgte Dateien ebenfalls nicht las.
+
+Gemessen wird jetzt am **Index nach `git add -A`**, mit `--no-renames`:
+sonst zeigt ein Verschieben **in** die Schleuse nur den neuen Pfad, und
+woher die Datei kam, verschwindet. Rohtext und Zusammenfassung legt der
+Agent deshalb unter `$RUNNER_TEMP/recherche/` ab, nicht im Repository —
+das Tor darf jede neue Datei draussen als Befund werten, statt eine Liste
+bekannter Ausnahmen zu führen.
+
+Drei Dinge daneben, alle aus demselben Grund (der Agent liest offenes Web,
+also Fremdtext): `persist-credentials: false` (sonst liegt der Job-Token in
+`.git/config`), `show_full_output: false` (öffentliches Repository,
+öffentliche Logs), und das freie `thema` kommt über `env`, nicht als
+`${{ }}` in den Shell-Quelltext.
+
+**Die Routine hätte ihre Aufgabe nie erfüllen können.** Ohne
+`--allowedTools` ist Bash in der Action aus; der Auftrag, `quarantine.mjs`
+zu fahren, lief ins Leere. Erlaubt ist jetzt **genau dieser eine Befehl** —
+kein `Bash(*)`. Aufgefallen ist es nie, weil die Routine nie gelaufen ist.
+
+**Der erste Test für das Verschieben war aus dem falschen Grund rot.** Er
+verschob eine öffentliche Notiz; dann schlug die share-Prüfung an, und die
+Mutation „`--no-renames` entfernt" überlebte. Verschoben wird jetzt eine
+interne.
+
+Dreizehn Mutationen, jede macht die Suite rot: zurück auf `git diff` ·
+`git add -A` entfernt · `--no-renames` entfernt · share-Muster wieder eng ·
+`persist-credentials` entfernt · volles Protokoll an · Thema wieder als
+Ausdruck (**5 rot**) · Steuerzeichen-Prüfung entfernt · `Bash(*)` ·
+`--allowedTools` entfernt · feste Endmarke · Ablage nicht angelegt.
+
+```bash
+npx playwright test tests/e2e/recherche-schleuse.spec.js   # 15 Tests, 13 Mutationen
+```
+
 ### Befund → Arbeit
 
 Die elf Rollen erzeugen Befunde, der Autopilot erzeugt Arbeit. Verbunden sind
@@ -5722,7 +5765,7 @@ npm run test:smoke      # nur Routen-Smoke-Tests
 npm run test:css        # CSS-Minify-Regression (Verlaufsschrift)
 ```
 
-1439 Tests in 95 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
+1454 Tests in 96 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
 Sätze), Gebühren (centgenau, JS↔PHP-Parität), Wissensbasis (Antworten +
 Leckage-Schutz), Zufluss (Quarantäne-Tor + Demo-Feed-Ehrlichkeit),
 Verbindungen (HQ-Zugang + Connector-Katalog), Auftragsstrom (Herkunft +
@@ -5739,6 +5782,9 @@ sieht nicht aus wie „in Ordnung"),
 **Antwortgrenze** (Auftrag und Token-Budget aus einer Zahl),
 **Ersatzkette** (eine schweigende Rolle verliert ihre Schicht nicht),
 **Auto-Merge** (erst die Prüfungen des PRs, dann der Merge),
+**Recherche-Schleuse** (das Tor der Recherche-Routine sieht auch neue,
+unverfolgte Dateien und verschobene; das freie Thema erreicht den
+Shell-Quelltext nicht; der Agent darf genau einen Bash-Befehl),
 **Geheimnisse** (ein gepflanzter Schlüssel fällt auf — im Baum und in der
 Historie; ein Verweis auf eine Umgebungsvariable nicht),
 **Phantom-Workflows** (was GitHub als aktiv führt, hat auch eine Datei),

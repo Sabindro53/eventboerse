@@ -35,6 +35,11 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          # Sonst bleibt der Job-Token in .git/config liegen, wo der Agent ihn
+          # lesen kann. Webseiten sind Fremdtext; eine davon koennte genau das
+          # verlangen. create-pull-request bringt seinen eigenen Token mit.
+          persist-credentials: false
 
       - name: Node einrichten
         uses: actions/setup-node@v4
@@ -52,8 +57,22 @@ jobs:
 
       - name: Thema bestimmen
         id: thema
+        # Die freie Eingabe kommt ueber env, nie als Ausdruck im Skript: ein
+        # Ausdruck wird VOR dem Parsen in den Shell-Quelltext kopiert, ein
+        # Anfuehrungszeichen im Thema beendete also die Zeichenkette.
+        env:
+          THEMA_EINGABE: ${{ github.event.inputs.thema }}
         run: |
-          IN="${{ github.event.inputs.thema }}"
+          IN="$THEMA_EINGABE"
+          # Ein Zeilenumbruch schriebe weitere Schluessel nach $GITHUB_OUTPUT,
+          # und das Thema landet im Prompt und im PR-Titel. Kurz, einzeilig,
+          # ohne Steuerzeichen.
+          # Bash-Muster statt grep: grep arbeitet zeilenweise und sieht den
+          # Zeilenumbruch selbst nie — genau den Fall, um den es geht.
+          if [ "${#IN}" -gt 120 ] || [[ "$IN" == *[[:cntrl:]]* ]]; then
+            echo "::error title=Thema ungueltig::Hoechstens 120 Zeichen, eine Zeile, keine Steuerzeichen."
+            exit 1
+          fi
           if [ -z "$IN" ]; then
             THEMEN=("Event-Formate im deutschsprachigen Raum" "Preisniveau von Event-Dienstleistungen" \
                     "Nischen- und Community-Formate" "Saisonale Nachfrage im Eventmarkt" \
@@ -64,13 +83,25 @@ jobs:
           echo "thema=$IN" >> "$GITHUB_OUTPUT"
           echo "date=$(date -u +%Y-%m-%d)" >> "$GITHUB_OUTPUT"
           echo "### Recherche-Thema: $IN" >> "$GITHUB_STEP_SUMMARY"
+          # Ablage AUSSERHALB des Checkouts fuer Rohtext und Zusammenfassung.
+          # So darf das Tor unten jede neue Datei im Repository als Befund
+          # werten, statt eine Liste bekannter Dateien zu entschuldigen.
+          mkdir -p "$RUNNER_TEMP/recherche"
 
       - name: Claude recherchiert
         uses: anthropics/claude-code-action@v1
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
-          claude_args: '--model claude-opus-4-8 --max-turns 40'
-          show_full_output: 'true'
+          # Bash ist aus, solange nichts erlaubt ist. Die Aufgabe braucht genau
+          # einen Befehl, also ist genau der erlaubt — kein Bash(*), kein git,
+          # kein curl. --add-dir laesst Write die Ablage ausserhalb erreichen.
+          claude_args: >-
+            --model claude-opus-4-8 --max-turns 40
+            --allowedTools "Bash(node scripts/quarantine.mjs:*),WebSearch,WebFetch"
+            --add-dir ${{ runner.temp }}/recherche
+          # Oeffentliches Repository, oeffentliche Logs. Das volle Protokoll
+          # truege alles, was eine Webseite dem Agenten zu drucken einredet.
+          show_full_output: 'false'
           prompt: |
             Du bist die Recherche-Routine des Projekts "Eventboerse" (deutscher
             Event-Marktplatz). Lies zuerst vault/50-Evolution/Recherche/_Schleuse.md
@@ -88,7 +119,9 @@ jobs:
                 --thema <schlagwort> \
                 --einordnung "<1-3 Saetze: was bedeutet das fuer die Eventboerse>"
 
-            Den Rohtext der Quelle vorher in eine temporaere Datei schreiben.
+            Den Rohtext der Quelle vorher in eine Datei unter
+            ${{ runner.temp }}/recherche/ schreiben — NICHT ins Repository.
+            Jede neue Datei im Repository ausserhalb der Schleuse bricht den Lauf ab.
 
             HARTE REGELN:
             - Schreibe KEINE Notiz von Hand in vault/. Nur ueber das Skript —
@@ -109,7 +142,7 @@ jobs:
             Pruefe am Ende `node scripts/quarantine.mjs --check` und behebe
             gemeldete Verstoesse. Schreibe eine kurze deutsche Zusammenfassung
             (was gefunden, welche Quellen, was es fuer uns bedeutet) nach
-            RECHERCHE_SUMMARY.md im Repo-Wurzelverzeichnis.
+            ${{ runner.temp }}/recherche/RECHERCHE_SUMMARY.md.
 
       - name: Quarantaene-Tor pruefen
         run: node scripts/quarantine.mjs --check
@@ -118,28 +151,44 @@ jobs:
         run: |
           # Doppelter Boden: die Routine darf ausserhalb der Schleuse nichts
           # anfassen, und schon gar nichts oeffentlich machen.
-          if git diff --name-only | grep -v '^vault/50-Evolution/Recherche/' | grep -q .; then
+          #
+          # Gemessen am INDEX nach `git add -A`, nicht am Arbeitsbaum: ein
+          # blosses `git diff` sieht keine unverfolgten Dateien, und
+          # create-pull-request committet sie. Eine NEUE Notiz mit
+          # share: public kam bis zum 21.10.2026 an beiden Pruefungen vorbei.
+          # --no-renames: eine verschobene Datei muss auch ihren alten Pfad
+          # zeigen, sonst verschwindet beim Verschieben IN die Schleuse,
+          # woher sie kam.
+          git add -A
+          AUSSERHALB=$(git diff --cached --no-renames --name-only | grep -v '^vault/50-Evolution/Recherche/' || true)
+          if [ -n "$AUSSERHALB" ]; then
             echo "::error title=Aenderung ausserhalb der Schleuse::Die Recherche-Routine darf nur vault/50-Evolution/Recherche/ veraendern."
-            git diff --name-only
+            printf '%s\n' "$AUSSERHALB"
             exit 1
           fi
-          if git diff -- vault/50-Evolution/Recherche/ | grep -q '^+share: public'; then
+          if git diff --cached --no-renames -- vault/50-Evolution/Recherche/ | grep -Eq "^\+share:[[:space:]]*[\"']?public"; then
             echo "::error title=share: public in der Schleuse::Freigaben gehoeren in einen eigenen, menschlichen Commit."
             exit 1
           fi
 
       - name: Zusammenfassung einlesen
         id: summary
+        env:
+          THEMA: ${{ steps.thema.outputs.thema }}
         run: |
-          if [ -f RECHERCHE_SUMMARY.md ]; then
+          DATEI="$RUNNER_TEMP/recherche/RECHERCHE_SUMMARY.md"
+          if [ -f "$DATEI" ]; then
+            # Diese Datei hat der Agent geschrieben. Eine feste Endmarke liesse
+            # sich darin schliessen, und jede Zeile danach waere eine neue
+            # Ausgabe.
+            EOF_MARKE="SUMMARY_$(openssl rand -hex 16)"
             {
-              echo "body<<SUMMARY_EOF"
-              cat RECHERCHE_SUMMARY.md
-              echo "SUMMARY_EOF"
+              echo "body<<$EOF_MARKE"
+              cat "$DATEI"
+              echo "$EOF_MARKE"
             } >> "$GITHUB_OUTPUT"
-            rm -f RECHERCHE_SUMMARY.md
           else
-            echo "body=Recherche zu \`${{ steps.thema.outputs.thema }}\`." >> "$GITHUB_OUTPUT"
+            echo "body=Recherche zu \`$THEMA\`." >> "$GITHUB_OUTPUT"
           fi
 
       - name: Draft-PR erstellen
