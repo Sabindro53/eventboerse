@@ -1101,4 +1101,17 @@ $p['route'] = eb_hq_nicknames_probelauf( new WP_REST_Request() )->status;
 
 $ergebnis['probe'] = $p;
 
+// Malformed JSON values must not turn a hidden account into a public one.
+nutzer_anlegen( 1200, 'Typ Test', 'typ.test' );
+als( 1200 );
+$typ = array();
+foreach ( array( 'false', 'true', 0, 1, null, array(), array( 'yes' ) ) as $wert ) {
+    update_user_meta( 1200, 'eb_handle_auffindbar', '0' );
+    $antwort = ruf( 'eb_social_handle_setzen', array( 'handle' => 'typ.test', 'auffindbar' => $wert ) );
+    $typ[] = array( 'status' => $antwort['status'], 'sichtbar' => eb_handle_auffindbar( 1200 ) );
+}
+$ergebnis['sichtbarkeit_typen'] = $typ;
+$ergebnis['sichtbarkeit_true'] = ruf( 'eb_social_handle_setzen', array( 'handle' => 'typ.test', 'auffindbar' => true ) );
+$ergebnis['sichtbarkeit_false'] = ruf( 'eb_social_handle_setzen', array( 'handle' => 'typ.test', 'auffindbar' => false ) );
+
 echo json_encode( $ergebnis, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES ), "\n";

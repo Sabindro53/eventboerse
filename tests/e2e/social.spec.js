@@ -592,6 +592,18 @@ test.describe('Der Handle-Nachtrag ist opt-in — ausgeführt, nicht gelesen', (
    ══════════════════════════════════════════════════════════════════════ */
 
 test.describe('Nickname für alle: Vergabe ist keine Zustimmung', () => {
+  test('nur echte JSON-Wahrheitswerte ändern die Auffindbarkeit', () => {
+    const s = stand();
+    expect(s.sichtbarkeit_typen).toHaveLength(7);
+    for (const r of s.sichtbarkeit_typen) {
+      expect(r.status).toBe(400);
+      expect(r.sichtbar, 'ein ungültiger Typ machte das Konto sichtbar').toBe(false);
+    }
+    expect(s.sichtbarkeit_true.status).toBe(200);
+    expect(s.sichtbarkeit_true.body.auffindbar).toBe(true);
+    expect(s.sichtbarkeit_false.status).toBe(200);
+    expect(s.sichtbarkeit_false.body.auffindbar).toBe(false);
+  });
   test('der Nachtrag vergibt Namen VERBORGEN — weder Teil- noch genauer Name findet sie', async () => {
     const n = stand().nick;
     expect(n.nachtrag_auffindbar).toEqual(['0', '0']);

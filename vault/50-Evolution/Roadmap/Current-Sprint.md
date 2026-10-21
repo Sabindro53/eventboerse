@@ -16,7 +16,7 @@ Zahlen ihrer Zeit — die sind Historie, kein Ist-Stand. Der Ensemble-Kontext
 liest diese Datei von oben; ein Modell, das „68 Tests" als aktuell meldet, hat
 einen alten Abschnitt gelesen und nicht diesen.
 
-- **Playwright-Suite: 1544 Tests in 103 Suiten**, blockierendes Gate in `pr-check.yml`.
+- **Playwright-Suite: 1566 Tests in 105 Suiten**, blockierendes Gate in `pr-check.yml`.
   Läuft seit dem Self-Hosting auch ohne Netzzugang vollständig durch
 
 ## Gemeinsame Plattformbasis (21.10.2026)
@@ -25,27 +25,36 @@ einen alten Abschnitt gelesen und nicht diesen.
 Planer und Dienstleister führen. Autonome Umsetzung beauftragt; keine echten
 Nutzerdaten, Zahlungsaktionen oder Zugangsdaten verändern.
 
-**Wer:** Codex koordiniert, Claude prüft den alten Juni-Patch über Hermes.
+**Wer:** Codex koordiniert. Rollenabgleich und lokaler Legacy-Abgleich sind
+abgeschlossen; der Claude-Versuch endete am Turn-Limit und wurde nicht wiederholt.
 Ein Implementierungsauftrag gleichzeitig, keine doppelten Aufträge.
 
 **Arbeitsort:** `Documents/eventboerse-platform`, Zweig `codex/platform-unified`.
-Redesign (`01364e1`) + lokal bekanntes main (`e475b7f`) + sieben offene
+Redesign (`01364e1`) + GitHub-main (`242131ae`) + sieben offene
 Redesign-Dateien übernommen. Ein generierter PHP/JSON-Konflikt reproduzierbar
 aufgelöst. Alter Juni-Patch gesichert und separat im Abgleich; nie blind über
 neuere Auth- oder Migrationslogik legen. Alte Kopien noch nicht gelöscht.
 `START-HERE.md` erklärt Quellen, Betriebsgrenzen und Arbeitsfolge.
 
-**Prüfung:** Erster Gesamtlauf: 1523 bestanden, 12 fehlgeschlagen, 9 nicht
-weiter ausgeführt. Ursachen: lokale npm-/GNU-sed-Umgebung, veraltete Testzahlen
-und neue Mausfolge mit eigener Medienabfrage. Letzteres auf vorhandene
-`ebBewegungReduziert` / `ebBewegungBeobachten` umgestellt; gezielter Nachlauf
-läuft. Keine Freigabe aus einem teilweise grünen Lauf ableiten.
+**Prüfung:** Finaler Gesamtlauf: **1566/1566 bestanden (11,6 Minuten)**,
+alle **16/16 Tore grün**, npm audit **0 bekannte Befunde**. Zwei Mutationsproben
+belegen die neue Mausfolge und die Typprüfung der Auffindbarkeit. Die beiden
+vorhandenen Desktop-Korrekturen an kern.spec.js und stimme.spec.js sind übernommen.
+Die lokale Prüflaufumgebung nutzt funktionierendes npm/npx, GNU sed und PHP mit
+WebP, ohne die globalen Werkzeuge zu ersetzen.
 
-**Nächster Schritt:** Nachlauf abschließen, alle erforderlichen Tore und
-Gesamtsuite am finalen Stand fahren. Danach eine rollenbezogene Ist/Soll-
-Prüfung mit konkreten Reproduktionswegen. Das neue Blender-Modell ist ein
-Gestaltungsprototyp; die vorhandene Figurenwahl bleibt erhalten. Kein
-Frameworkwechsel und keine zweite Event-Datenhaltung.
+**Im Review korrigiert:** Der Textwert `"false"` darf kein Opt-in auslösen.
+Die Nickname-Route akzeptiert nur echte JSON-Booleans; sieben ungültige Typen
+bleiben ohne Schreibwirkung. Der PHP-Prüfstand bestätigt Status 400 und die
+unveränderte versteckte Einstellung. Es wurden keine echten Konten verändert.
+
+**Nächster Schritt:** Verifizierten Integrationsstand und CI prüfen; vor einer
+Live-Freigabe GET_LOCK und den vollständigen Rollenweg in WordPress testen.
+Der Rollenabgleich hat zwei reproduzierte Ablauf-Lücken: gebuchte Leistungen
+fehlen vor Erfüllung im Ablauf; fehlende Zeiten erscheinen als „08:00“.
+Der begrenzte Folgeauftrag in Mission Control soll genau diese Anzeige korrigieren,
+keine Zahlungswege oder Statusübergänge ändern. Das neue Blender-Modell bleibt
+zunächst Gestaltungsprototyp; die vorhandene Figurenwahl ist erhalten.
 
 ## Gesuche als Gesuche zeigen — F01–F03 (16.10.2026)
 
@@ -83,6 +92,25 @@ Frameworkwechsel und keine zweite Event-Datenhaltung.
 **Claude Code, 15.10.2026 — HQ-Knopf:** Block „@ Nickname-Probelauf" in `hq.html` (nur Admin, läuft erst auf Klick, Bericht über textContent, Warnung wenn Spalten nicht aufgehen / abgeschnitten / keine Probelauf-Bestätigung). `hq-nickname.spec.js` 8 Tests, 10 Mutationen zweimal rot. `hq-protected.php` neu erzeugt.
 
 **Betriebsgrenze:** Lokal weiterarbeiten; nicht pushen, mergen, deployen, echte Nachrichten senden oder reale Buchungen/Zahlungen auslösen. Der Nutzer möchte Fortschritt und eine Fortsetzung durch Claude Code, nicht eine ungeprüfte Live-Veröffentlichung. Kurze Chatmeldungen, Details in dieser kanonischen Übergabe fortschreiben. Noch kein PR geöffnet.
+
+## Die Recherche-Schleuse sah keine neuen Dateien (2026-10-21)
+
+Mit `agentic-actions-auditor` (Trail of Bits) gegen die beiden Workflows mit
+`claude-code-action` gefahren. `recherche.yml` trug vier Befunde, alle
+behoben: das Schleusen-Tor sah keine unverfolgten Dateien (eine NEUE Notiz
+mit `share: public` kam durch), der Job-Token lag für den Agenten lesbar in
+`.git/config` bei vollem Protokoll im öffentlichen Log, das freie `thema`
+stand als `${{ }}` im Shell-Quelltext, und Bash war für den Befehl, den der
+Auftrag verlangt, gar nicht erlaubt. 15 Tests, 13 Mutationen, alle rot.
+
+**`claude-improve.yml` ist nachgezogen:** die Schleuse wird per
+`sparse-checkout` gar nicht ausgecheckt (und erscheint im PR nicht als
+Löschung), kein Token in `.git/config`, kein volles Protokoll, Fokus über
+`env` gegen die Auswahlliste geprüft. 6 Tests, 12 Mutationen.
+
+**Offen:** Beide Routinen laufen nur per Hand; die Verbesserungs-Routine
+scheitert seit Juli. Ob die Action `--add-dir` und die Werkzeugliste
+annimmt, zeigt erst ein echter Lauf.
 
 ## Der QA-Bot gibt die Kategorie weiter (2026-10-01)
 

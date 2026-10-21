@@ -2,7 +2,7 @@
 
 Dieser Arbeitsbereich vereint den Produktzweig `claude/plattform-redesign`,
 die dort noch offenen Assistenten-Korrekturen und den am 21.10.2026 lokal
-bekannten Stand von `origin/main` (`e475b7f`). Arbeitszweig:
+bekannten Stand von `origin/main` (`242131ae`). Arbeitszweig:
 `codex/platform-unified`. Die Zusammenführung ist noch nicht veröffentlicht.
 
 ## Wo gearbeitet wird

@@ -83,7 +83,13 @@ function eb_social_handle_setzen( WP_REST_Request $request ) {
     $params     = (array) $request->get_json_params();
     $handle     = strtolower( trim( (string) ( $params['handle'] ?? '' ) ) );
     $handle     = ltrim( $handle, '@' );
-    $auffindbar = array_key_exists( 'auffindbar', $params ) ? (bool) $params['auffindbar'] : null;
+    // JSON false must never become consent through PHP's truthy "false" string.
+    // Reject malformed values before changing either the nickname or visibility.
+    if ( array_key_exists( 'auffindbar', $params ) && ! is_bool( $params['auffindbar'] ) ) {
+        return eb_social_fehler( 'auffindbarkeit_ungueltig', 400,
+            'Auffindbarkeit muss ausdrücklich als wahr oder falsch angegeben werden.' );
+    }
+    $auffindbar = $params['auffindbar'] ?? null;
 
     if ( $handle === '' ) {
         // LEER schreiben, nicht loeschen. Der Nachtrag sucht Konten, bei

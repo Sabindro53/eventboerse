@@ -21,7 +21,13 @@ async function mitMikrofon() {
     executablePath: fs.existsSync(CHROMIUM) ? CHROMIUM : undefined,
     args: ['--use-fake-device-for-media-stream', '--use-fake-ui-for-media-stream'],
   });
-  const ctx = await browser.newContext({ permissions: ['microphone'], baseURL: 'http://localhost:8000' });
+  // baseURL aus der Konfiguration, nicht fest „localhost:8000". Am 15.10.2026
+  // gemessen: auf Port 8000 lief der Server einer ANDEREN Arbeitskopie
+  // (`reuseExistingServer`), und `localhost` ist nicht die Adresse, an die
+  // der eigene Server bindet (127.0.0.1). Diese drei Tests prüften damit
+  // fremden Code — oder liefen, wenn jener Server endete, in
+  // ERR_CONNECTION_REFUSED. Eine Suite misst den Server, den sie startet.
+  const ctx = await browser.newContext({ permissions: ['microphone'], baseURL: test.info().project.use.baseURL });
   const page = await ctx.newPage();
   await page.route('https://api.github.com/**', (r) => r.abort());
   await page.route('**/hq/stimme', (r) => r.fulfill({ status: 200, contentType: 'application/json',

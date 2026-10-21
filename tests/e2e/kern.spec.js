@@ -806,17 +806,69 @@ test.describe('Neuronaler Kern', () => {
     // war das ein Wettlauf gegen die 900-ms-Animation: unter Last kam der
     // zweite Aufruf erst an, als onfinish den Impuls schon entfernt hatte —
     // der Test wurde dann rot, obwohl der Impuls korrekt gelaufen war.
-    const { vorher, waehrend } = await page.evaluate(() => {
-      const v = document.querySelectorAll('.nn-impuls').length;
-      ebImpuls('betrieb', 'gut');
-      return { vorher: v, waehrend: document.querySelectorAll('.nn-impuls').length };
+    //
+    // Gemessen wird GENAU DIESER Impuls, nicht „die Bahn ist leer".
+    //
+    // Bis zum 15.10.2026 stand hier: 1400 ms warten, dann 0 `.nn-impuls`
+    // verlangen. Der Test war einzeln immer grün und zusammen mit
+    // stimme.spec.js mal rot, mal grün. Im echten Browser nachgemessen,
+    // welcher Impuls nach 1400 ms noch dastand: NIE der ausgelöste — der war
+    // in jedem Lauf längst entfernt. Es waren FREMDE: `connPruefe()` prüft
+    // die Verbindungen gestaffelt über mehrere Sekunden nach dem Laden und
+    // feuert je Probe einen Impuls. Unter Last verschiebt sich diese Staffel
+    // in das Messfenster; in einem Lauf standen zwei Probe-Impulse da, der
+    // jüngere erst rund 160 ms vor der Messung ausgelöst. „Bahn leer" maß also den Takt der
+    // Proben, nicht die Regel — und eine feste Wartezeit verschiebt das
+    // Rennen nur, statt es zu beenden.
+    //
+    // Auch „verschwindet irgendwann" wäre noch zu schwach — das war der
+    // zweite Befund desselben Tages. `nnZeichnen()` baut die SVG per
+    // innerHTML neu auf, und die Verbindungsproben rufen es. Dabei reißt der
+    // Neuaufbau JEDEN Impuls mit, auch einen, der sich nie selbst entfernen
+    // würde: die Mutation „onfinish entfernt" überlebte die erste Fassung
+    // dieser Umstellung, und die alte 1400-ms-Fassung hatte dieselbe Lücke.
+    // Ein Prüfer, dessen Subjekt ein Nebeneffekt wegräumt, misst den
+    // Nebeneffekt.
+    //
+    // Gemessen wird deshalb am Ende DER Animation: sie muss endlich sein,
+    // und unmittelbar nach ihrem Ende muss der Impuls weg sein. Ein
+    // Durchgang, in dem die SVG zwischendurch neu gebaut wurde (ihr erstes
+    // Kind ist dann ein anderes), sagt darüber nichts und wird wiederholt —
+    // höchstens fünfmal. Ohne `onfinish → remove()` ist das rot.
+    const r = await page.evaluate(async () => {
+      const svg = document.getElementById('nn');
+      for (let versuch = 1; versuch <= 5; versuch++) {
+        const anker = svg.firstElementChild;
+        const vorher = svg.querySelectorAll('.nn-impuls').length;
+        ebImpuls('betrieb', 'gut');
+        const alle = svg.querySelectorAll('.nn-impuls');
+        // ebImpuls hängt synchron ans Ende — im selben Tick ist der letzte
+        // unserer, kein fremder kann dazwischenkommen.
+        const puls = alle[alle.length - 1];
+        if (!puls || alle.length <= vorher) return { sichtbar: false };
+        const anim = puls.getAnimations()[0];
+        if (!anim || !Number.isFinite(anim.effect.getComputedTiming().endTime)) {
+          return { sichtbar: true, endlich: false };
+        }
+        // Obergrenze gut das Fünffache der 900 ms: Spielraum für Last, kein
+        // Freibrief für eine Animation, die nie endet.
+        await Promise.race([anim.finished, new Promise((ok) => setTimeout(ok, 5000))]);
+        // Das finish-Ereignis folgt dem Versprechen — eine Aufgabe abwarten.
+        await new Promise((ok) => setTimeout(ok, 0));
+        if (anker.isConnected) {
+          return { sichtbar: true, endlich: true, versuch,
+            beendet: anim.playState === 'finished', stehtNoch: puls.isConnected };
+        }
+      }
+      return { sichtbar: true, endlich: true, ungestoert: false };
     });
-    await page.waitForTimeout(1400);
-    const nachher = await page.evaluate(() => document.querySelectorAll('.nn-impuls').length);
 
-    expect(waehrend, 'ein Impuls muss sichtbar werden').toBeGreaterThan(vorher);
-    // Der Kern der Regel: nach dem Ereignis ist die Bahn wieder leer.
-    expect(nachher, 'ein Impuls darf nicht endlos weiterlaufen').toBe(0);
+    expect(r.sichtbar, 'ein Impuls muss sichtbar werden').toBe(true);
+    expect(r.endlich, 'ein Impuls darf nicht endlos weiterlaufen').toBe(true);
+    expect(r.ungestoert, 'fünfmal hat ein Neuaufbau der SVG die Messung verdeckt').not.toBe(false);
+    expect(r.beendet, 'die Animation muss in 5 s enden').toBe(true);
+    // Der Kern der Regel: nach seinem Ereignis räumt der Impuls sich selbst weg.
+    expect(r.stehtNoch, 'ein Impuls darf nach seiner Animation nicht stehen bleiben').toBe(false);
   });
 
   test('Transportstrom läuft nur bei frischem Betriebsbeleg', async ({ page }) => {
