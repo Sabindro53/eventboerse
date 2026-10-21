@@ -16,8 +16,22 @@ Zahlen ihrer Zeit — die sind Historie, kein Ist-Stand. Der Ensemble-Kontext
 liest diese Datei von oben; ein Modell, das „68 Tests" als aktuell meldet, hat
 einen alten Abschnitt gelesen und nicht diesen.
 
-- **Playwright-Suite: 1384 Tests in 93 Suiten**, blockierendes Gate in `pr-check.yml`.
+- **Playwright-Suite: 1399 Tests in 94 Suiten**, blockierendes Gate in `pr-check.yml`.
   Läuft seit dem Self-Hosting auch ohne Netzzugang vollständig durch
+
+## Die Recherche-Schleuse sah keine neuen Dateien (2026-10-21)
+
+Mit `agentic-actions-auditor` (Trail of Bits) gegen die beiden Workflows mit
+`claude-code-action` gefahren. `recherche.yml` trug vier Befunde, alle
+behoben: das Schleusen-Tor sah keine unverfolgten Dateien (eine NEUE Notiz
+mit `share: public` kam durch), der Job-Token lag für den Agenten lesbar in
+`.git/config` bei vollem Protokoll im öffentlichen Log, das freie `thema`
+stand als `${{ }}` im Shell-Quelltext, und Bash war für den Befehl, den der
+Auftrag verlangt, gar nicht erlaubt. 15 Tests, 13 Mutationen, alle rot.
+
+**Offen, nicht in diesem PR:** `claude-improve.yml` trägt ebenfalls
+`show_full_output: true` und liest `vault/` samt Schleuse. Beide Routinen
+laufen nur per Hand; die Verbesserungs-Routine scheitert seit Juli.
 
 ## Der QA-Bot gibt die Kategorie weiter (2026-10-01)
 
