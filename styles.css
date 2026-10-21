@@ -678,6 +678,13 @@ body.dark-mode .nav-clear-search:hover { background: var(--border-light); }
   padding: 8px 0;
   z-index: 1001;
   display: none;
+  /* Mit Abschnitten ist das Menü für Dienstleister höher als ein
+     Telefonbildschirm; ohne Grenze lägen die letzten Einträge (Abmelden)
+     unerreichbar unter dem Rand. */
+  max-height: calc(100vh - var(--nav-height) - 16px);
+  max-height: calc(100dvh - var(--nav-height) - 16px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
   animation: menuSlide 0.15s ease;
 }
 @keyframes menuSlide {
@@ -697,6 +704,13 @@ body.dark-mode .nav-clear-search:hover { background: var(--border-light); }
 .user-menu-section button:hover { background: var(--bg-alt); }
 .user-menu-section button .material-icons-round { font-size: 20px; color: var(--text-light); }
 .user-menu-section hr { border: none; border-top: 1px solid var(--border-light); margin: 4px 0; }
+.user-menu-gruppe + .user-menu-gruppe { border-top: 1px solid var(--border-light); margin-top: 4px; padding-top: 4px; }
+.user-menu-gruppe[hidden], .user-menu-section button[hidden] { display: none; }
+.user-menu-titel {
+  margin: 8px 20px 2px; font-size: 0.72rem; font-weight: 700; letter-spacing: .04em;
+  text-transform: uppercase; color: var(--text-light);
+}
+.user-menu-section button:focus-visible { outline: 2px solid var(--primary); outline-offset: -2px; background: var(--bg-alt); }
 
 /* ======== BOTTOM NAV ======== */
 .mobile-nav {
@@ -789,15 +803,22 @@ body.dark-mode .nav-clear-search:hover { background: var(--border-light); }
   -webkit-appearance: none;
           appearance: none;
   -webkit-tap-highlight-color: transparent;
-  transition: transform 0.18s ease, filter 0.18s ease;
+  /* opacity und visibility für N02 (ausblenden beim Herunterscrollen, ui/33) */
+  transition: transform 0.22s ease, opacity 0.22s ease, filter 0.18s ease, visibility 0s linear 0s;
   overflow: visible;
   filter: drop-shadow(0 6px 12px rgba(34,34,34,0.18)) drop-shadow(0 2px 5px rgba(227,28,95,0.18));
 }
 .eb-qa-launcher::before,
 .eb-qa-launcher::after { content: none; }
 .eb-qa-launcher:focus,
-.eb-qa-launcher:focus-visible,
 .eb-qa-launcher:active { outline: 0; box-shadow: none; background: transparent; }
+/* Tastatur: sichtbarer Ring. Vorher stand hier auch :focus-visible auf
+   outline 0 — wer mit der Tastatur bedient, sah nicht, wo er steht. */
+.eb-qa-launcher:focus-visible {
+  outline: 3px solid var(--primary-text);
+  outline-offset: 3px;
+  border-radius: 18px;
+}
 .eb-qa-launcher > span {
   position: relative;
   z-index: 1;
@@ -817,138 +838,92 @@ body.dark-mode .nav-clear-search:hover { background: var(--border-light); }
   justify-content: center;
   flex-shrink: 0;
 }
-.eb-qa-icon-svg {
+/* ── Assistenten-Figur (ui/33-assistent-figur.js, assets/avatare) ── */
+/* N02: beim Herunterscrollen aus dem Weg (ui/33). visibility statt nur
+   opacity: ein unsichtbarer Knopf darf weder Finger noch Tastaturfokus
+   fangen. Die Verzögerung von visibility lässt das Gleiten erst zu Ende
+   laufen. */
+.eb-qa-bot.is-weg .eb-qa-launcher {
+  transform: translateY(calc(100% + 24px));
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: transform 0.22s ease, opacity 0.22s ease, filter 0.18s ease, visibility 0s linear 0.22s;
+}
+/* Bewegungsreduktion: die globale Regel setzt jede Übergangsdauer auf
+   0.01ms — der Knopf verschwindet dann ohne Gleiten. Eine eigene Regel hier
+   wäre doppelt und ohne beobachtbare Wirkung. */
+.eb-qa-launcher .eb-qa-figur {
   width: 100%;
   height: 100%;
-  overflow: visible;
+  object-fit: cover;
+  object-position: center top;
+  border-radius: 18px 18px 22px 22px;
 }
-.eb-qa-icon-svg path,
-.eb-qa-icon-svg circle {
-  vector-effect: non-scaling-stroke;
+.eb-qa-head-avatar { overflow: hidden; }
+.eb-qa-head-avatar .eb-qa-figur {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center top;
 }
-.eb-qa-icon-svg .qa-body-shape {
-  fill: #2A3140;
-  stroke: #2a3140;
-  stroke-width: 1.6;
+.eb-qa-figur-wahl {
+  padding: 14px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg);
 }
-.eb-qa-icon-svg .qa-neck {
-  fill: #4a5263;
-  stroke: #2a3140;
-  stroke-width: 1.6;
+.eb-qa-figur-wahl[hidden] { display: none; }
+.eb-qa-figur-wahl h3 {
+  margin: 0 0 10px;
+  font-size: 0.95rem;
+  color: var(--dark);
 }
-.eb-qa-icon-svg .qa-earcup {
-  fill: #1f2632;
-  stroke: #2a3140;
-  stroke-width: 1.6;
+.eb-qa-figur-raster {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 8px;
 }
-.eb-qa-icon-svg .qa-head-main {
-  fill: #F2F4F8;
-  stroke: #2a3140;
-  stroke-width: 2.2;
+.eb-qa-figur-wahl-knopf {
+  aspect-ratio: 2 / 3;
+  padding: 0;
+  border: 2px solid var(--border);
+  border-radius: 12px;
+  background: var(--bg-alt);
+  overflow: hidden;
+  cursor: pointer;
 }
-.eb-qa-icon-svg .qa-visor {
-  fill: #1a1f2b;
-  stroke: #1a1f2b;
-  stroke-width: 1.6;
+.eb-qa-figur-wahl-knopf img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center top;
+  display: block;
 }
-.eb-qa-icon-svg .qa-eye {
-  fill: var(--accent);
-  filter: drop-shadow(0 0 2px rgba(0,226,197,0.7));
+.eb-qa-figur-wahl-knopf:hover { border-color: var(--primary); }
+.eb-qa-figur-wahl-knopf.is-aktiv { border-color: var(--primary); box-shadow: 0 0 0 2px var(--primary); }
+.eb-qa-figur-wahl-knopf:focus-visible { outline: 3px solid var(--primary-text); outline-offset: 2px; }
+.eb-qa-figur-spaeter {
+  margin-top: 10px;
+  padding: 6px 10px;
+  border: 0;
+  background: transparent;
+  color: var(--primary-text);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
 }
-.eb-qa-icon-svg .qa-eye-glow {
-  fill: #fff;
-}
-.eb-qa-icon-svg .qa-mouth-smile {
-  fill: none;
-  stroke: #2a3140;
-  stroke-width: 3;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
-/* Alte Mund-Elemente: falls noch im DOM, dezent ausblenden */
-.eb-qa-icon-svg .qa-mouth,
-.eb-qa-icon-svg .qa-mouth-line { display: none; }
-.eb-qa-icon-svg .qa-antenna-rod {
-  stroke: #2a3140;
-  stroke-width: 2.2;
-  stroke-linecap: round;
-}
-.eb-qa-icon-svg .qa-antenna-tip {
-  fill: var(--primary);
-  stroke: #2a3140;
-  stroke-width: 1.6;
-}
-.eb-qa-icon-svg .qa-mic-dot {
-  fill: var(--primary);
-  stroke: #2a3140;
-  stroke-width: 1.6;
-}
-.eb-qa-icon-svg .qa-mic-arm {
-  fill: none;
-  stroke: #2a3140;
-  stroke-width: 3.5;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
-/* Partyhut: gestreift + Bommel */
-.eb-qa-icon-svg .qa-hat-fill {
-  fill: var(--primary);
-}
-.eb-qa-icon-svg--mini .qa-hat-fill {
-  fill: #fff;
-}
-.eb-qa-icon-svg .qa-hat-stripe-a {
-  fill: #FFC857;
-}
-.eb-qa-icon-svg .qa-hat-stripe-b {
-  fill: var(--accent);
-}
-.eb-qa-icon-svg--mini .qa-hat-stripe-a { fill: var(--primary); }
-.eb-qa-icon-svg--mini .qa-hat-stripe-b { fill: var(--accent); }
-.eb-qa-icon-svg .qa-hat-stroke {
-  fill: none;
-  stroke: #2a3140;
-  stroke-width: 2.2;
-  stroke-linejoin: round;
-  stroke-linecap: round;
-}
-.eb-qa-icon-svg .qa-hat-brim {
-  fill: #fff;
-  stroke: #2a3140;
-  stroke-width: 1.8;
-}
-.eb-qa-icon-svg--mini .qa-hat-brim { fill: #fff; }
-.eb-qa-icon-svg .qa-hat-pom {
-  fill: #FFC857;
-  stroke: #2a3140;
-  stroke-width: 1.6;
-}
-.eb-qa-icon-svg .qa-hat-pom-shadow {
-  fill: rgba(0,0,0,0.12);
-  stroke: none;
-}
-.eb-qa-icon-svg--mini .qa-hat-pom { fill: var(--primary); }
-.eb-qa-icon-svg .qa-spark {
-  fill: none;
-  stroke: #FFC857;
-  stroke-width: 2.2;
-  stroke-linecap: round;
-}
-.eb-qa-icon-svg .qa-spark-alt {
-  stroke: var(--accent);
-  stroke-width: 2;
-}
-.eb-qa-launcher .qa-body-shape {
-  filter: none;
-}
+
 .eb-qa-status {
   display: none;
 }
 .eb-qa-panel {
   width: min(370px, calc(100vw - 24px));
   max-height: min(620px, calc(100vh - var(--nav-height) - var(--mobile-nav-height) - 38px));
-  display: grid;
-  grid-template-rows: auto minmax(170px, 1fr) auto auto;
+  /* Spalte statt Raster: die Figurenauswahl ist mal da, mal nicht. Ein
+     festes Raster mit vier Zeilen schob sie über den Nachrichtenbereich,
+     und „Später" war nicht mehr klickbar. */
+  display: flex;
+  flex-direction: column;
   background: rgba(255,255,255,0.96);
   color: var(--text);
   border: 1px solid rgba(255,56,92,0.14);
@@ -965,7 +940,7 @@ body.dark-mode .nav-clear-search:hover { background: var(--border-light); }
 }
 .eb-qa-head {
   display: grid;
-  grid-template-columns: 42px 1fr 34px;
+  grid-template-columns: 42px 1fr 34px 34px;
   align-items: center;
   gap: 10px;
   padding: 14px;
@@ -982,10 +957,6 @@ body.dark-mode .nav-clear-search:hover { background: var(--border-light); }
   background: #fff;
   border: 1px solid rgba(255,255,255,0.28);
   box-shadow: 0 8px 22px rgba(34,34,34,0.18);
-}
-.eb-qa-icon-svg--mini {
-  width: 31px;
-  height: 38px;
 }
 .eb-qa-head strong {
   display: block;
@@ -1009,7 +980,16 @@ body.dark-mode .nav-clear-search:hover { background: var(--border-light); }
   transition: background 0.16s ease;
 }
 .eb-qa-close:hover { background: rgba(255,255,255,0.16); }
+/* Nur der Nachrichtenbereich gibt nach. Ohne flex-shrink: 0 stauchte die
+   offene Figurenauswahl die Vorschlagsleiste, und die Knöpfe waren unten
+   abgeschnitten (im Bildschirmfoto gesehen, nicht im Test). */
+.eb-qa-head,
+.eb-qa-figur-wahl,
+.eb-qa-suggestions,
+.eb-qa-form { flex-shrink: 0; }
 .eb-qa-messages {
+  flex: 1 1 auto;
+  min-height: 96px;
   padding: 14px;
   overflow-y: auto;
   background:
@@ -1151,7 +1131,7 @@ body.dark-mode .eb-qa-action {
     max-height: calc(100vh - var(--nav-height) - var(--mobile-nav-height) - 34px);
   }
   .eb-qa-head {
-    grid-template-columns: 38px 1fr 34px;
+    grid-template-columns: 38px 1fr 34px 34px;
     padding: 12px;
   }
   .eb-qa-bubble { max-width: 96%; }
@@ -3418,6 +3398,21 @@ body.dark-mode .ai-sug-chip:hover { background: rgba(255,56,92,0.15); }
   flex-shrink: 0;
 }
 .listing-card-rating .material-icons-round { font-size: 16px; color: var(--dark); }
+/* Ein Gesuch nennt seine Art statt einer Bewertung (F02). --primary-text,
+   nicht --primary: die Markenfarbe als Text verfehlt 4,5 : 1 auf Weiß. */
+/* Profilarten: Bereiche mit eigener display-Angabe (.stat-ring, .tab)
+   ignorieren [hidden] sonst und stünden leer da. */
+#page-provider [hidden] { display: none !important; }
+
+.listing-card-art {
+  flex-shrink: 0;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--primary-text);
+  border: 1px solid currentColor;
+  border-radius: 999px;
+  padding: 1px 8px;
+}
 .listing-card-category {
   font-size: 0.85rem;
   color: var(--text-light);
@@ -4090,6 +4085,8 @@ body.dark-mode .ai-sug-chip:hover { background: rgba(255,56,92,0.15); }
 
 .browse-load-more-wrap {
   display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
   justify-content: center;
   padding: 28px 0 6px;
 }
@@ -4099,6 +4096,9 @@ body.dark-mode .ai-sug-chip:hover { background: rgba(255,56,92,0.15); }
   align-items: center;
   gap: 8px;
 }
+/* Mit eigener display-Angabe ignoriert der Knopf [hidden] sonst — dann
+   stünde „Weniger anzeigen" auch eingeklappt da. */
+.browse-load-more-btn[hidden] { display: none; }
 
 /* ── Filter chips ── */
 .filter-chip {
@@ -17809,6 +17809,18 @@ body.dark-mode .akt-karte { background: var(--bg-alt); }
   display: flex; flex-wrap: wrap; align-items: center; gap: .45rem; margin-bottom: .5rem;
 }
 .soz-at { font-weight: 700; color: var(--text-light); }
+.soz-label { display: block; margin: .2rem 0 .3rem; font-size: .8rem; font-weight: 600; color: var(--text); }
+.soz-schalter {
+  display: flex; align-items: center; gap: .5rem; margin: .7rem 0 .2rem;
+  font-size: .86rem; color: var(--text); cursor: pointer;
+}
+.soz-schalter input { width: 18px; height: 18px; accent-color: var(--primary); }
+.soz-nick-status { min-height: 1.2em; margin: .5rem 0; font-size: .8rem; color: var(--text); }
+.soz-nick-vorschlaege { display: flex; flex-wrap: wrap; align-items: center; gap: .4rem; margin-bottom: .6rem; font-size: .8rem; color: var(--text-light); }
+.form-hint-status { display: block; min-height: 1.2em; font-size: .78rem; color: var(--text); }
+.form-hint-status .btn-sm { margin: .2rem .3rem 0 0; }
+.reg-handle-zeile { display: flex; align-items: center; gap: .35rem; }
+.reg-handle-zeile input { flex: 1 1 auto; min-width: 0; }
 .soz-handle-zeile input, .soz-suche-zeile input, .soz-beitritt input {
   flex: 1 1 12rem; min-width: 0;
   padding: .55rem .7rem; border: 1px solid var(--border);
@@ -17854,6 +17866,30 @@ body.dark-mode .akt-karte { background: var(--bg-alt); }
   padding: .4rem .5rem; border: 1px solid var(--border);
   border-radius: var(--radius-sm); background: var(--bg); color: var(--text); font-size: .82rem;
 }
+/* Einladen ohne Konto (PRODUCT_REDESIGN.md 6.2) */
+.soz-einladung-karte { border-color: var(--primary); }
+.soz-einladung-knoepfe { display: flex; flex-wrap: wrap; gap: .6rem; justify-content: center; margin: .4rem 0 .8rem; }
+.soz-einladung-karte:not(.soz-leer-karte) .soz-einladung-knoepfe { justify-content: flex-start; }
+.soz-einladen-huelle {
+  position: fixed; inset: 0; z-index: 10050; display: flex; align-items: flex-end; justify-content: center;
+  background: rgba(0,0,0,.45); padding: 16px;
+}
+.soz-einladen-dialog {
+  width: 100%; max-width: 440px; background: var(--bg); color: var(--text);
+  border-radius: var(--radius-lg); padding: 1.2rem; box-shadow: 0 12px 40px rgba(0,0,0,.25);
+}
+@media (min-width: 640px) { .soz-einladen-huelle { align-items: center; } }
+.soz-einladen-dialog h3 { margin: 0 0 .4rem; font-size: 1.05rem; }
+.soz-einladen-dialog > p { margin: 0 0 1rem; font-size: .86rem; color: var(--text-light); line-height: 1.5; }
+.soz-teilen-wege { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: .5rem; margin-bottom: 1rem; }
+.soz-teilen-weg {
+  display: flex; align-items: center; gap: .5rem; min-height: 44px; padding: .55rem .75rem;
+  border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--bg);
+  color: var(--text); font: inherit; font-size: .9rem; text-decoration: none; cursor: pointer;
+}
+.soz-teilen-weg:hover, .soz-teilen-weg:focus-visible { border-color: var(--primary); }
+.soz-teilen-weg .material-icons-round { font-size: 20px; color: var(--primary-text); }
+.soz-einladen-zu { width: 100%; }
 .soz-code { display: flex; flex-wrap: wrap; align-items: center; gap: .45rem; margin-top: .5rem; }
 .soz-code code {
   padding: .3rem .55rem; border-radius: var(--radius-sm);

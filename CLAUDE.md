@@ -2311,8 +2311,8 @@ Kategorie, `_feedRadarGruppen` ist Karten-Clustering, und `/collaborations`
 Dienstleister→Dienstleister, keine gemeinsame Planung.
 
 ```bash
-npx playwright test tests/e2e/social.spec.js           # 48 Tests, PHP wirklich ausgefuehrt
-npx playwright test tests/e2e/freunde-ansicht.spec.js  # 18 Tests, echter Browser
+npx playwright test tests/e2e/social.spec.js           # 71 Tests, PHP wirklich ausgefuehrt
+npx playwright test tests/e2e/freunde-ansicht.spec.js  # 23 Tests, echter Browser
 ```
 
 **Eigene Tabellen, nicht das Board.** `eb_board_projects` ist EIN JSON-Blob je
@@ -2458,6 +2458,119 @@ Kontaktschutz, wo dieselbe Falle schon einmal stand.
 tut nichts mehr. Vier Mutationen, jede macht die Suite rot: Riegel entfernt ·
 Umschrift wieder nach dem Kleinschreiben · Abschluss-Marke nie gesetzt · der
 Nachtrag setzt nie einen Handle.
+
+#### Nickname für alle — die Zustimmung steht jetzt daneben
+
+Am 15.10.2026 umgesetzt, Auftrag des Inhabers über das UX-Briefing (Codex):
+*jedes* Konto bekommt einen Nickname, bei der Registrierung frei wählbar, in
+den Einstellungen änderbar. Das kollidierte frontal mit Entscheidung 1 —
+der Handle-Kasten versprach jedem ohne Namen wörtlich „nicht auffindbar".
+
+**Nickname und Auffindbarkeit sind deshalb zwei Angaben.**
+`eb_handle_auffindbar()` liest `eb_handle_auffindbar` neben `eb_handle`:
+`'0'` verborgen, `'1'` ausdrücklich auffindbar, **fehlt = auffindbar**. Der
+Rückfall ist kein Versehen: jeder Bestandshandle wurde vom Nutzer SELBST
+gesetzt, und genau das war die Einwilligung. Ein Rückfall auf „verborgen"
+machte über Nacht alle bisherigen Nutzer unsichtbar.
+
+**Der Nachtrag vergibt Namen VERBORGEN.** Damit hebt er Entscheidung 1 nicht
+mehr auf — die Begründung für den Riegel `EB_HANDLE_NACHTRAG` (eine
+Datenschutz-Aussage, die vor dem Schalter stehen muss) ist dadurch
+**schwächer geworden, aber nicht entfallen**: ein vergebener Name ist über
+die offene Prüfroute als „vergeben" erkennbar. Der Schalter bleibt beim
+Inhaber; umgelegt wurde nichts.
+
+**Die Suche zeigt Verborgene auch beim genauen Namen nicht.** Wer den vollen
+Namen eines verborgenen Kontos eintippt, erfährt nichts. Der genaue Treffer
+eines Auffindbaren steht dagegen immer vorn — vorher fiel er bei zehn
+Teiltreffern genau dann heraus, wenn jemand den vollen Namen kannte.
+
+**Ein Schreibweg, unter einer Sperre.** `eb_handle_beanspruchen()` ist der
+einzige Ort, der `eb_handle` schreibt — Route, Registrierung und Nachtrag
+gehen hindurch. Vorher stand „erst prüfen, dann schreiben": zwei
+gleichzeitige Registrierungen sahen beide „frei", und danach hießen zwei
+Konten gleich. `usermeta` hat keinen eindeutigen Index (und eine
+WordPress-Kerntabelle baut man nicht um), also ordnet MySQLs `GET_LOCK` die
+Anfragen hintereinander. **Antwortet die Datenbank nicht, ist das 503
+„gerade nicht prüfbar", nie 409 „vergeben"** — wer eine Störung als Konflikt
+meldet, schickt Menschen auf die Suche nach einem anderen Namen, obwohl ihrer
+frei ist.
+
+**Offen und live zu belegen:** ob `GET_LOCK` auf dem IONOS-MySQL antwortet.
+Auf einem Galera-Cluster täte es das nicht, und dann schlüge **jedes**
+Setzen mit 503 fehl — sichtbar und ohne Datenverlust, aber vollständig. Ein
+einziger Nickname-Wechsel nach dem Deploy klärt es.
+
+**Genau eine offene Route:** `GET /social/handle/frei` — die Registrierung
+prüft, bevor es ein Konto gibt. Sie schreibt nichts und nennt nie einen
+Besitzer (`status` und `vorschlaege`, sonst nichts), gedeckelt an der
+Leitung. `social.spec.js` führt sie als **festen** Eintrag in `OFFEN`; eine
+zweite offene Route fällt durch. Was sie verrät, ist dasselbe wie jeder
+Namensraum mit eindeutigen Namen: dass ein Name vergeben ist.
+
+**Bremse nur auf den Namenswechsel** (`social_handle`, 10 je Tag und
+Konto). Den Schalter umzulegen kostet nichts — wer sich unsichtbar machen
+will, darf nicht an einem Deckel scheitern, den er mit Tippfehlern
+verbraucht hat. Und ein Namenswechsel ohne `auffindbar` im Rumpf lässt die
+Zustimmung, wie sie war: ein neuer Name macht niemanden still sichtbar.
+
+**Reserviert sind jetzt auch Varianten** (`eventboerse.support`,
+`admin_team`), aber nur beim Beanspruchen, nicht rückwirkend. Ein Name, aus
+dem sich nichts Freies machen lässt, bekommt im Nachtrag `eventfan.<id>`,
+sonst bliebe genau dieses Konto für immer ohne Nickname.
+
+**Die Oberfläche:** derselbe Kasten auf `/freunde` und in den Einstellungen
+(`[data-nickname-kasten]`), eine Quelle (`_sozialNick`). „Speichern" schickt
+nur bei einer gültigen Änderung. Die Registrierung prüft entprellt (350 ms)
+und blockiert das Absenden **nur** bei sicherem „vergeben"/„reserviert" —
+eine Störung ist keine Absage. Scheitert der Nickname nach dem Anlegen,
+steht es jetzt da; vorher wurde das verschluckt, und das Konto blieb
+namenlos, ohne dass es jemand erfuhr.
+
+**Der Probelauf steht vor dem Schalter** (Briefing N01): `GET /hq/nicknames`,
+nur Verwaltung (`eb_hq_verwaltung_darf`), ruft `eb_handles_probelauf()`. Er
+zählt jedes Konto in genau eine Spalte (gültig · fehlt · geleert ·
+ungültig), benennt doppelte und ungültige Altlasten mit Konto-Kennung und
+plant die Vergabe — gegen den Bestand **und** die eigenen Vorschläge: er
+schreibt nichts, also stünden seine Planungen sonst nirgends, und zwei „Max
+Mustermann" bekämen denselben Namen. Der Test vergleicht den **gesamten**
+Zustand vorher und nachher (Meta, Optionen, Sperren). Keine Anzeigenamen im
+Bericht, Vorschau auf 20 gedeckelt.
+
+**Dabei gefunden: der Rückzug war keiner.** Der Nachtrag sucht Konten, bei
+denen `eb_handle` **fehlt**, und sein Kommentar versprach seit dem
+15.09.2026, ein bewusst geleerter Name werde nie überschrieben. Die Route
+**löschte** den Schlüssel aber beim Leeren — für den Nachtrag sah das aus wie
+„hatte nie einen". Jetzt wird `''` geschrieben. Der Prüfstand hatte es nicht
+sehen können: seine `NOT EXISTS`-Nachbildung behandelte einen leeren Wert wie
+einen fehlenden Schlüssel, also genau wie die Route falsch herum. Ein
+Stellvertreter, der denselben Irrtum hat wie sein Subjekt, bestätigt ihn nur.
+
+**Im HQ unter „@ Nickname-Probelauf"** (nur Administratoren). Er läuft
+**erst auf Klick**, nicht beim Öffnen — er geht über alle Konten, und ein
+Blick ins HQ soll den PHP-Pool nicht jedes Mal so belasten. Der Bericht
+zeigt Bestand, Plan, Vorschau, Altlasten und den Schalterstand, alles über
+`textContent`. **Gehen die Spalten nicht auf, steht eine Warnung da statt
+„fertig"** — ebenso bei einem abgeschnittenen Lauf und bei einer Antwort, die
+sich nicht als Probelauf ausweist. Der Test schneidet Markup UND Skript aus
+`hq.html`, statt ein Gerüst nachzubauen; eine umbenannte Kennung bliebe sonst
+grün, und der echte Knopf wäre tot.
+
+**Noch nicht gebaut:** Suche nach öffentlichem Anzeigenamen, der Hinweis „Dein Nickname ist @…"
+beim nächsten Besuch, Profil-Links per Nickname.
+
+Fünfzig Mutationen über Server, Probelauf, HQ und Oberfläche, jede macht ihre
+Suite rot. Eine überlebte zuerst und hat ein Loch im Prüfstand gezeigt: die
+Besitzerprüfung der Vorschläge hatte kein Subjekt, weil der erste Vorschlag
+ohnehin frei war. Eine zweite war im ersten Lauf **scheinbar** rot — ein
+Ausreißer unter Last; einzeln gefahren überlebte sie, und erst ein Test mit
+bösartigem Vorschlag im Registrierungsformular machte sie wirklich rot.
+Mutationen laufen deshalb zweimal.
+
+```bash
+npx playwright test tests/e2e/nickname-ansicht.spec.js  # 20 Tests, echter Browser
+npx playwright test tests/e2e/hq-nickname.spec.js       # 8 Tests, echter Browser
+```
 
 #### Die Rollen und was sie sehen
 
@@ -3699,11 +3812,14 @@ wandern zusammen.
 Vier Mutationen, jede macht die Suite rot: Knopf entfernt · Reiter nicht
 gesetzt · Untertitel zurück auf reinen Chat · Anmeldedialog statt Erklärung.
 
-**Die Mobilleiste ist bewusst NICHT angefasst.** Ihr Board-Slot führt laut
-Kommentar seit jeher zum Planungs-Board, *„das Auftragsboard erreichen
-Dienstleister über das Menü"* — eine dokumentierte Entscheidung, keine
-Nachlässigkeit. Fünf Plätze sind das Maximum einer solchen Leiste; sie
-umzuwidmen ist eine Produktentscheidung des Inhabers, keine Aufräumarbeit.
+**Die Mobilleiste war bewusst NICHT angefasst — bis zum 15.10.2026.** Ihr
+Board-Slot führte zum Planungs-Board, *„das Auftragsboard erreichen
+Dienstleister über das Menü"*. Sie umzuwidmen war eine Produktentscheidung
+des Inhabers; er hat sie mit dem Überarbeitungsauftrag getroffen. Seitdem
+heißt der dritte Platz für Dienstleister **„Aufträge"**, für alle anderen
+**„Planen"** (siehe „Navigation je Rolle" unten und `PRODUCT_REDESIGN.md`).
+Der Absatz bleibt stehen, damit niemand die alte Begründung für noch gültig
+hält.
 
 **Zwei tote Blöcke sind dabei herausgefallen.** `applyLogin()` und
 `applyLogout()` setzten Symbol und Text auf
@@ -3716,6 +3832,361 @@ in `30-auth.js` muss auch etwas treffen.
 
 ```bash
 npx playwright test tests/e2e/einstiege.spec.js   # 13 Tests, echte Klicks
+```
+
+### Navigation je Rolle — Stufe 1 der Überarbeitung
+
+Am 15.10.2026 auf Auftrag des Inhabers umgebaut. Konzept, Bestandsaufnahme
+und die Zuordnung „bisher → neuer Platz" stehen in **`PRODUCT_REDESIGN.md`**;
+hier nur, was beim Weiterbauen nicht vergessen werden darf.
+
+**Rollenweiche ist `_applyRoleNav()`, sonst nichts.** Hauptlink der Leiste
+(„Für Dienstleister" / „Mein Event" / „Mein Geschäft"), Menüabschnitte und
+dritter Platz der Mobilleiste werden dort gesetzt; `ebNavHauptweg()` fragt
+dieselbe Rolle. Beschriftung und Ziel wandern zusammen.
+
+**Kein Menüziel darf still verschwinden.** `navigation-rollen.spec.js`
+führt die Ziele von vor dem Umbau als feste Liste und verlangt, dass jedes
+für mindestens eine Rolle **sichtbar** erreichbar bleibt.
+
+**Ein versteckter Abschnitt ist kein Fokusziel.** Der erste Entwurf
+fokussierte beim Öffnen den ersten Knopf im DOM — beim Planer liegt der im
+versteckten „Mein Geschäft", und der Fokus blieb still am Avatar. Gefunden
+erst im Bildschirmfoto, nicht im Test; jetzt mutationsgeprüft.
+
+**Ein vermuteter Fehler, der keiner war.** Bei der Inventur sah es aus, als
+öffne die Inserat-Maske für Planer auf „Ich biete" — der Router setzt beim
+Öffnen `offer`. Aber `updateCreateFormForRole()` läuft danach und setzt
+Planer auf „Ich suche". Wer nur die eine Zeile liest, „behebt" etwas, das
+funktioniert. Neu ist nur die **ausdrückliche** Wahl über den Weg
+(`/create-listing/suche`), die nach der Rollen-Voreinstellung greift.
+
+**Symbole in Menü und Mobilleiste sind `aria-hidden`.** Vorher hieß jeder
+Knopf für einen Screenreader „view_kanban Planungs-Board".
+
+**Mutationsproben sichern AUSSERHALB des Projektordners.** Beim ersten
+Lauf verschwand eine Sicherungskopie (`*.mutbak`) mitten im Lauf aus dem
+Worktree auf dem Schreibtisch; eine Mutation blieb stehen und wurde erst am
+Abbruch bemerkt. Ursache nicht belegt (Vermutung: Schreibtisch-Synchronisierung).
+Seitdem liegen Sicherungen im Scratchpad, und der Lauf endet mit
+`git status --porcelain` gegen den Commit statt mit einem Dateivergleich.
+
+```bash
+npx playwright test tests/e2e/navigation-rollen.spec.js   # 18 Tests, 14 Mutationen
+```
+
+### Gesuche sahen aus wie Angebote — und die Migration dafür lief nie
+
+Befunde F01–F03 des Live-Audits vom 15.10.2026, am 16.10.2026 gemessen. An
+der öffentlichen Inserate-Route der Live-Seite tragen *„Suche DJ für 28.
+Geburtstag"* und *„Klavierspieler für Events gesucht"* beide
+`listingType: "offer"`, `priceLabel: "ab … € / Event"` und `rating: 0`.
+
+**Zwei Ursachen, und keine davon liegt beim Anlegen.**
+
+1. **Die Nachmarkierung aus Migration 2.3 konnte nie laufen.** Sie steht in
+   `if ( ! $tcol )` — aber `eb_create_tables()` legt die Spalte
+   `listing_type` unmittelbar davor per dbDelta selbst an. Die Frage „fehlt
+   die Spalte?" ist also immer schon mit Nein beantwortet, und jede alte
+   Zeile trägt den Vorgabewert `'offer'`. Beide Gesuche stammen aus dem März,
+   die Migration aus dem Juli. **Dieselbe Klasse wie bei 2.8:** ein Zweig,
+   den die eigene Vorbereitung unerreichbar macht.
+2. **Keine Karte las den Typ.** Suche, Laufband und „Meine Inserate" zeigten
+   Stern, Bewertung, Anbieterpreis und „Verfügbarkeit" für alles.
+   `listingType` wurde an genau drei Stellen gelesen, zwei davon mit je
+   eigener Erkennung — und die Abbildung unter „Meine Inserate" warf das
+   Feld beim Übernehmen sogar weg.
+
+**Behoben in der Darstellung, nicht in den Daten** (Entscheidung Q3 des
+Inhabers). `ebIstGesuch()` in `core/00-basis.js` ist die **eine** Erkennung;
+`listingType: 'offer'` gilt dort nicht als Aussage, weil es der Vorgabewert
+ist, und die Titelregel der Migration bleibt als Rückfall. Ein Test verbietet
+eine zweite Fassung der Regel in irgendeinem Modul.
+
+Ein Gesuch zeigt **„Gesuch" statt Stern** und **„Budget: …" statt „ab …"**;
+ein schon als Budget gespeicherter Text bleibt. Unter „Meine Inserate" fallen
+Bewertung und „Verfügbarkeit" weg. **Gesuche bleiben in der Suche** —
+Dienstleister sollen sie finden; ein eigener Kanal gehört zu Stufe 2.
+
+**Offen:** F01, das Profil eines Planers mit Anbieter-Spezialisierung, liegt
+in der Profilansicht und ist hier nicht angefasst. Die Migration 2.3 selbst
+bleibt kaputt; sie zu reparieren hiesse, echte Zeilen umzuschreiben.
+
+**Eine Mutation überlebte zuerst**, und der Grund ist lehrreich: der
+Maskierungstest gab dem Gesuch einen Preistext mit Markup — den der
+Gesuch-Zweig gar nicht zeigt, weil er alte Texte durch das Budget ersetzt.
+Die Probe bestand, ohne die Maskierung je zu erreichen.
+
+```bash
+npx playwright test tests/e2e/gesuch-darstellung.spec.js   # 9 Tests, 10 Mutationen
+```
+
+### Profilarten — das Profil las sein erstes Inserat
+
+F01 des Live-Audits, gebaut am 16.10.2026 nach den Entscheidungen P1–P3 des
+Inhabers (`PRODUCT_REDESIGN.md` 1.5). `loadProvider()` kannte keine
+Profilart: Unterzeile, Preis, Highlights und Spezialisierungen kamen aus dem
+**ersten Inserat**. Wer nur Gesuche hatte, bekam ein Anbieterprofil mit
+„DJ & Musik · Köln" und „ab 200€ / Event". Das Konto aus F01 heißt live
+**„Admin"** — eine Weiche nur über die Rolle hätte es verfehlt.
+
+**Die Art kommt aus den Inhalten, die Rolle ist Zusatz** (`ebProfilArt()`):
+Anbieterprofil bei mindestens einem Angebot ODER Rolle Dienstleister, sonst
+Mitgliedsprofil. Kopf, Preis, Highlights und Spezialisierungen kommen nur
+aus einem **Angebot**, nie aus einem Gesuch. Das Mitgliedsprofil zeigt
+Unterzeile, Ort, Über mich und den Reiter „Gesuche" — ohne Bewertung,
+Portfolio und Partnerschaften. Mischkonten bekommen einen zweiten Reiter.
+
+**Eine Eingabe, die nie erschien.** Die Unterzeile lässt sich im eigenen
+Profil bearbeiten, wird als `tagline` gespeichert und mit „Tagline
+gespeichert!" quittiert — angezeigt wurde sie nie, das erste Inserat
+überschrieb sie beim nächsten Laden. Sie gilt jetzt für alle Profile (P2).
+
+**Die Rolle kommt spät.** Bei Inseraten im Speicher wird der Kopf gezeichnet,
+bevor die Profil-Route antwortet; `_profilAnsichtZeichnen()` läuft deshalb
+ein zweites Mal mit Rolle, Ort und Unterzeile aus der Antwort. Eine Antwort
+für ein schon verlassenes Profil darf nicht hineinzeichnen
+(`_profilKontext`).
+
+**Gemessen wird, was ein Besucher sieht** (`offsetParent`), nicht das
+Markup. `.stat-ring` und `.tab` tragen eigene `display`-Angaben und
+ignorierten `[hidden]` — `#page-provider [hidden]` hält das; ohne die Regel
+werden fünf Tests rot.
+
+**Drei Mutationen überlebten die erste Fassung der Tests**, und jede zeigte
+eine Lücke: kein Konto mit Angebot, aber ohne Rolle Dienstleister · kein
+Dienstleister mit nur Gesuchen (die Rolle kommt dann allein aus der späten
+Antwort) · kein schneller Wechsel zwischen zwei Profilen. Alle drei Fälle
+haben jetzt einen Test.
+
+**Und eine Mutation blieb im Code stehen.** Ein abgebrochener Mutationslauf
+hinterließ „Kopf aus dem ersten Inserat" im uncommitteten Arbeitsstand; der
+nächste Lauf maß gegen diesen Stand und lieferte falsche Zahlen. Gefunden
+erst, weil ein Anker nicht mehr passte. Das Mutationsskript prüft seitdem
+**vor** dem Lauf, dass der Grundstand grün ist, und **nach** jeder Probe
+per Prüfsumme, dass die Datei wieder das Original ist. Ein abgebrochener
+Lauf ist nicht „nie gelaufen".
+
+```bash
+npx playwright test tests/e2e/profil-arten.spec.js   # 14 Tests, 15 Mutationen
+```
+
+### Die Profil-Route zählte jedes Konto auf — und nannte die Admins
+
+Beim Durchgang als Dienstleister auf der Live-Seite gefunden (N01,
+`PRODUCT_REDESIGN.md` Abschnitt 9), am 16.10.2026 behoben. `GET provider/{id}`
+antwortete **ohne Anmeldung** für jede fortlaufende ID mit Name, Rolle, Ort
+und Bio. Zwei Folgen: die Rolle **„Admin"** war für jedes Konto abfragbar,
+und Event-Planer, die nie etwas veröffentlicht haben, standen mit Namen im
+Netz. Das widersprach der eigenen Regel „keine Nutzer-Aufzählung" (Freunde &
+Gruppen, Entscheidung 1).
+
+**Öffentlich ist nur die Basisrolle** — `eventboerse_base_role()`, also
+„Dienstleister" oder „Event-Planer", nie „Admin".
+
+**Öffentlich ist ein Profil nur mit öffentlichem Inhalt:** Basisrolle
+Dienstleister, ein aktives Inserat oder Gesuch, oder eine abgegebene
+Bewertung (dort steht der Name ohnehin). Sonst sehen es nur das Konto selbst,
+Admins und der Gesprächspartner aus dem Chat. Alle anderen bekommen
+**dieselbe 404 wie für eine ID, die es nicht gibt** — eine eigene Absage
+(„privat") ließe weiter zählen.
+
+**Der Suchname zählt bewusst nicht.** Er ist seit dem 15.09.2026 Pflicht bei
+der Registrierung und damit keine Einwilligung mehr; als Kriterium hätte er
+fast jedes neue Konto wieder öffentlich gemacht.
+
+**Ein zweites Leck lag daneben:** `eb_collaboration_partner()` lieferte die
+Partner in derselben öffentlichen Antwort mit interner Rolle. Geprüft wird
+deshalb die **Bedingung**: jeder Aufruf von `eventboerse_map_role()` steht in
+einer Funktion, die nur dem eigenen Konto oder Admins antwortet (Liste im
+Test, mit Grund je Eintrag). Ein neuer öffentlicher Aufruf macht ihn rot.
+
+**Der Handler steht jetzt in `includes/profil/profil-route.php`**, damit der
+Prüfstand ihn im Original ausführt. Er wurde zuerst **unverändert**
+verschoben: mit dem alten Handler fielen genau die sechs Tests durch, die den
+Befund beschreiben — der Beleg, dass der Prüfstand das Loch sieht und nicht
+nur die Reparatur.
+
+Die Profilseite zeigt bei 404 jetzt „Dieses Profil ist nicht verfügbar",
+statt im Ladezustand stehen zu bleiben.
+
+**Offen beim Inhaber:** ob die Datenschutzerklärung die Sichtbarkeit von
+Profilen beschreibt — ein Modell schreibt hier keinen Rechtstext.
+
+```bash
+npx playwright test tests/e2e/profil-oeffentlich.spec.js   # 16 Tests, 14 Mutationen
+```
+
+### Der Assistent hat ein Gesicht — wählbar, statt des Roboters
+
+Auftrag des Inhabers vom 16.10.2026. Zehn Event-Assistenten-Figuren
+(`assets/avatare/avatar-01.webp` … `-10`) ersetzen den gezeichneten Roboter;
+beim ersten Öffnen erscheint „Wähle deinen Event-Assistenten", Vorgabe ist
+Figur 1, gewechselt wird jederzeit über „face" im Kopf des Panels.
+**Nutzungsrechte vom Inhaber am 16.10.2026 bestätigt** — das Bildpaket selbst
+nannte weder Urheber noch Lizenz (`assets/avatare/README.md`).
+
+**Ausgeliefert werden 160 × 240 px, je 5–8 KB**, nicht die freigestellten
+512 × 768 px (45–53 KB): der Knopf ist 64 × 80 px groß. Beim Start lädt nur
+die gewählte Figur, die übrigen erst mit der Auswahl (`loading="lazy"`).
+Archiv, Übersichtsbild und Arbeitsnotizen bleiben draußen; ein Test lässt im
+Ordner nur die zehn Bilder und die README zu.
+
+**Die Adresse setzt das Modul**, nicht das Markup: `ebAssetUrl()` kennt die
+Theme-Basis, ein relativer Pfad wäre live falsch. Ein gespeicherter Wert wird
+gegen die Liste `01`–`10` geprüft und nie in eine Adresse eingesetzt.
+
+**Gespeichert nur mit Einwilligung** (`eb_assistent_figur_v1`, funktional,
+Cookie-Liste) — ohne sie gilt die Wahl für die Sitzung. Dieselbe Lehre wie
+beim Sprachschalter.
+
+**Drei Funde beim Einbau, zwei davon nur im Bild:**
+- Das Panel war ein Raster mit **vier festen Zeilen**. Die Auswahl als
+  fünftes Kind schob den Nachrichtenbereich über „Später" — der Knopf war
+  nicht klickbar. Jetzt eine Flex-Spalte, in der nur die Nachrichten
+  nachgeben.
+- Danach stauchte die offene Auswahl die Vorschlagsleiste; die Knöpfe waren
+  unten abgeschnitten. **Gesehen im Bildschirmfoto, kein Test hatte es
+  bemerkt** — jetzt misst einer die volle Höhe.
+- Der Knopf nahm bei `:focus-visible` den Fokusrahmen weg. Wer mit der
+  Tastatur bedient, sah nicht, wo er steht.
+
+**Gestaucht wird nur auf kleinen Telefonen.** Der Test dazu lief zuerst bei
+390 × 844 px und überlebte die Mutation „Stauchen erlaubt": dort reicht der
+Platz für alles. Gemessen wird jetzt bei 375 × 667 px.
+
+**Zwei Wachen sind ein Paar:** die Prüfung des gespeicherten Werts und die der
+Adresse. Jede einzeln entfernt überlebt, weil die andere den Fall noch fängt;
+beide zusammen machen die Suite rot.
+
+**Die volle Suite fand zwei Fehler, die die eigene nicht sah:** ein
+erfundenes Token (`var(--bg-gray, #f4f4f6)` auf einer Fläche, `design-system.spec.js`
+— der Rückfallwert hätte in beiden Farbmodi gegolten) und die erzeugte
+`eb-rechtsunterlagen.json`, die die Modulzahl mitträgt (32 → 33,
+`node scripts/rechtsunterlagen.mjs`). Ein neues Modul heißt: diese Datei neu
+erzeugen.
+
+**N02: beim Herunterscrollen weg, beim Hochscrollen wieder da**
+(Entscheidung des Inhabers vom 17.10.2026). Ein erster Versuch reservierte
+unten Platz für den Knopf — unter jeder Seite steht aber die Fußzeile, die
+Überdeckung passiert beim Scrollen mittendrin. Die Regel erzeugte nur
+Weißraum, die Mutation „Abstand weg" überlebte, sie ist wieder draußen.
+
+Ausgeblendet wird mit `visibility: hidden`, nicht nur `opacity`: ein
+unsichtbarer Knopf darf weder Finger noch Tastaturfokus fangen. Er bleibt
+ganz oben, bei offenem Panel und solange er selbst den Fokus hat; kleine
+Bewegungen unter 8 px zählen nicht. Gerechnet wird nur bei einem
+Scroll-Ereignis, einmal je Frame, mit passivem Horcher — kein Dauerlauf.
+
+**Gemessen wird, was der Finger trifft** (`elementFromPoint`). Der erste
+Test maß auf „Einstellungen" — abgemeldet öffnet die das Anmeldefenster, und
+getroffen wurde dessen Formular. Jetzt eine lange öffentliche Seite, mit
+Gegenprobe, dass kein Fenster offen ist.
+
+**Bewegungsreduktion ändert nur das Gleiten.** Die globale Regel setzt jede
+Übergangsdauer auf `0.01ms` (der Browser meldet `1e-05s`); eine eigene Regel
+wäre doppelt und ohne Wirkung gewesen und ist deshalb nicht da. Der Test prüft
+das Ergebnis — höchstens 1 ms — und die Gegenprobe, dass ohne Reduktion
+wirklich geglitten wird.
+
+**Und der gemeinsame Prüfstand gibt keine Einwilligung, obwohl er so
+aussieht.** `openApp()` in `tests/e2e/helpers.js` schreibt vor jedem Laden
+`{essential: true, functional: true}` — das Format von vor August. Die App
+liest `funktional`/`profil`; für sie hat damit **niemand** zugestimmt. Der
+Banner verschwindet trotzdem, weil überhaupt ein Wert dasteht. Die Suite läuft
+also ohne funktionale Einwilligung, und der Kommentar im Helfer legt das
+Gegenteil nahe. Gefunden, weil dieser Test seine Einwilligung vor `openApp()`
+registrierte und vom Helfer überschrieben wurde — einmal in rund zwanzig
+Läufen, je nach Ablauf. **Offen:** den Helfer auf das gültige Format heben;
+das betrifft jede Suite und gehört in einen eigenen Schritt mit voller Suite.
+
+```bash
+npx playwright test tests/e2e/assistent-figur.spec.js   # 22 Tests, 22 Mutationen
+```
+
+### Suchergebnisse lassen sich wieder einklappen
+
+Aus der Besprechung vom 15.10.2026 (`PRODUCT_REDESIGN.md` 6.1). Mit „Mehr
+anzeigen" ließen sich Treffer nur aufklappen; zurück ging es allein durch
+Hochscrollen. „Weniger anzeigen" setzt auf die **Startmenge** zurück, die
+`renderBrowseGrid()` beim ersten Zeichnen wählt (`_browseGridPaging.start`).
+Eine feste Zahl wäre falsch, weil die Startmenge an der Spaltenzahl hängt.
+
+**`.browse-load-more-btn` trägt `display: inline-flex`** und ignoriert
+`[hidden]` deshalb ohne eigene Regel. Ohne sie stünde „Weniger anzeigen"
+auch im eingeklappten Zustand da. Es ist dieselbe Falle wie beim Warnkasten
+der Mehrfachzeiten.
+
+**Der Fokus geht auf „Mehr anzeigen".** Der gedrückte Knopf verschwindet
+beim Einklappen, und ohne neues Ziel fiele der Fokus auf `<body>`.
+
+**Die Startmenge sind genau 9 Treffer** (`EB_BROWSE_START`, Entscheidung des
+Inhabers vom 16.10.2026). Vorher waren es fünf volle Reihen, also je nach
+Bildschirm 15, 20 oder 25: auf jedem Gerät eine andere Seite. „Mehr anzeigen"
+richtet die folgenden Schritte weiter an den Reihen aus.
+
+**Die Begrenzung hat einen fremden Test entwertet, nicht kaputtgemacht.**
+`assistent-kategorie.spec.js` belegte „#Hochzeit filtert wirklich" mit
+*weniger sichtbaren Karten*. Bei 9 Startkarten stehen ungefiltert und
+gefiltert beide Male 9 da, und der Test wurde rot, obwohl der Filter wirkt.
+Gemessen wird jetzt die Trefferzahl („N Services gefunden"). Die Gegenprobe
+gehört dazu: Mit abgeschaltetem Anlass-Filter wird genau diese Zusicherung
+rot.
+
+**Der Prüfstand muss auf `navigateTo('browse')` warten.** Der Router zeichnet
+nach `loadDbListings()` selbst; wer vorher sein Raster stellt, wird
+überschrieben und misst das Standardraster. So fiel der erste Lauf mit 15
+statt 3 Karten durch, aus einem Grund, der nichts mit dem Code zu tun hatte.
+
+```bash
+npx playwright test tests/e2e/weniger-anzeigen.spec.js   # 9 Tests, 9 Mutationen
+```
+
+### Einladen ohne Konto — ein Link, den man versteht
+
+Gemessen am 16.10.2026, gebaut nach `PRODUCT_REDESIGN.md` 6.2 (Teil A). Den
+Einladungslink (`/freunde/einladung?einladung=CODE`) gab es schon. Wer ihn
+**ohne Konto** öffnete, sah „Dafür brauchst du ein Konto." und „Anmelden":
+keinen Hinweis, dass er eingeladen ist, und keine Registrierung, obwohl
+Eingeladene meist neu sind. Nach der Anmeldung musste er Code-Feld und
+„Beitreten" selbst finden.
+
+**Jetzt:** Der Einladende teilt über **WhatsApp, E-Mail, SMS, Link kopieren**
+und auf dem Telefon über „Teilen …". Die eingeladene Person sieht **„Du
+bist eingeladen!"** mit „Kostenlos registrieren" (auf Eventplaner
+voreingestellt) und „Ich habe schon ein Konto". Nach der Anmeldung steht
+eine Bestätigung „Gruppe beitreten", danach öffnet sich der gemeinsame Plan.
+
+**Eventbörse verschickt nichts.** `wa.me`, `mailto:` und `sms:` öffnen die
+App des Einladenden; Nummer oder Adresse der eingeladenen Person erreichen
+den Server nie. Damit verarbeiten wir keine Daten Dritter und verschicken
+keine Werbe-E-Mails. Ein Test hält fest, dass beim Teilen keine Anfrage an
+unsere API geht. Wer das ändern will, braucht vorher einen Absatz in der
+Datenschutzerklärung.
+
+**Gruppendaten erst nach der Anmeldung** (Entscheidung E2 des Inhabers):
+Die Ansicht für Gäste nennt keine Gruppe. Deshalb gibt es **keinen neuen
+unauthentifizierten Lesepunkt**.
+
+**Kein stilles Beitreten.** Erst der Klick schickt den Code, wie beim Code-Feld
+bisher. Falsch und abgelaufen sagen dasselbe; der Code verschwindet danach
+aus der Adresse, damit ein Neuladen nicht dieselbe Absage wiederholt.
+
+**Der Code lebt nur in der Adresse**, es gibt keinen neuen Speicherschlüssel und
+damit keine Änderung an der Cookie-Liste. Das trägt, weil ein geöffneter Link
+mit `navigateTo(…, true)` startet und die Adresse nicht neu schreibt.
+
+**Drei Prüfstandsfehler, alle an derselben Stelle gelernt:**
+- Ohne das dritte Argument von `navigateTo()` ersetzt `pushState` den Pfad
+  **samt Code**. Der Test mäße einen Weg, den kein Besucher nimmt.
+- **Der Cookie-Banner trägt `role="dialog"`.** Wer „den Dialog" zählt, zählt
+  ihn mit; gesucht wird deshalb über den Namen.
+- „Der Fokus kehrt zurück" prüfte den Text des aktiven Elements. Fällt der
+  Fokus auf `<body>`, steht der Text dort auch, und die Mutation
+  „Fokus nicht zurückgeben" überlebte. Geprüft wird jetzt das Element.
+
+```bash
+npx playwright test tests/e2e/einladung.spec.js   # 14 Tests, 14 Mutationen
 ```
 
 #### Und der geteilte Link auf genau diese Seite endete auf der Fehlerseite
@@ -5672,7 +6143,7 @@ npm run test:smoke      # nur Routen-Smoke-Tests
 npm run test:css        # CSS-Minify-Regression (Verlaufsschrift)
 ```
 
-1405 Tests in 95 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
+1566 Tests in 105 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
 Sätze), Gebühren (centgenau, JS↔PHP-Parität), Wissensbasis (Antworten +
 Leckage-Schutz), Zufluss (Quarantäne-Tor + Demo-Feed-Ehrlichkeit),
 Verbindungen (HQ-Zugang + Connector-Katalog), Auftragsstrom (Herkunft +
@@ -6001,7 +6472,7 @@ WordPress-Mediathek ist der richtige, weil die Bilder dort dieselbe Behandlung
 bekommen wie ein Nutzer-Upload. **Das Skript nicht mehr benutzen.**
 
 **Die Icon-Schrift ist zugeschnitten.** Material Icons Round trug 2200 Symbole
-und 170 KB; benutzt werden 402. Die ausgelieferte Datei ist **34 KB**, die
+und 170 KB; benutzt werden 403. Die ausgelieferte Datei ist **34 KB**, die
 Quelle liegt unter `scripts/lib/` und wird nie ausgeliefert (`^scripts/` ist im
 Deploy ausgeschlossen).
 
@@ -6128,12 +6599,12 @@ Push auf `main` → GitHub Actions (`.github/workflows/ionos-deploy.yml`) → SF
 | Datei | Inhalt |
 |-------|--------|
 | `app.js` | **Generiert** aus `js/modules/**` via `./build-app-js.sh` — nie von Hand editieren |
-| `js/modules/` | Quelle des Frontends: 32 Module in `core/`, `search/`, `chat/`, `payments/`, `board/`, `ai/`, `ui/`, `social/` (Reihenfolge: `modules.list`) |
+| `js/modules/` | Quelle des Frontends: 33 Module in `core/`, `search/`, `chat/`, `payments/`, `board/`, `ai/`, `ui/`, `social/` (Reihenfolge: `modules.list`) |
 | `styles.css` | ~17 900 Zeilen CSS, mobile-first |
 | `app-shell.html` | **Einzige Quelle des SPA-Bodys** (PHP-frei). Body-Markup NUR hier editieren. |
 | `index.php` | WordPress-Template: PHP-Head (Per-Page-Meta) + `readfile(app-shell.html)` + `wp_footer()`. Body NICHT direkt editieren. |
 | `index.html` | Lokale Dev-Shell, **generiert** via `./build-index-html.sh` (= `index.local-head.html` + `app-shell.html` + `index.local-foot.html`). Nicht von Hand editieren. |
-| `functions.php` | WordPress-Theme: REST API (137 Routen), Asset-Registrierung — 22 davon in `includes/social/` (Freunde, Gruppen, gemeinsamer Plan), 2 in `includes/stimme/` (Sprachausgabe und -erkennung des Assistenten) |
+| `functions.php` | WordPress-Theme: REST API (139 Routen), Asset-Registrierung — 23 davon in `includes/social/` (Freunde, Gruppen, gemeinsamer Plan), 2 in `includes/stimme/` (Sprachausgabe und -erkennung des Assistenten) |
 | `webauthn.php` | Passkey/WebAuthn ohne Composer-Dependencies |
 
 **JS-Workflow (seit 2026-08, kein Drift):** Frontend-Änderungen NUR in `js/modules/**`,
@@ -6154,7 +6625,7 @@ Alle Navigation läuft über `navigateTo(page, data, skipHistory)`. Seiten-Token
 
 Base: `/wp-json/eventboerse/v1/`. Aufgebaut per `_apiUrl(endpoint)` (fällt auf relativen Pfad zurück wenn `eventboerseApi.restUrl` nicht gesetzt). Authentifizierung per WordPress-Nonce → `X-WP-Nonce` Header via `_apiHeaders()`.
 
-137 Route-Registrierungen (`register_rest_route`), grob gruppiert nach: Auth, Nutzer, WebAuthn, 2FA, Listings, Messaging, Reviews, Payments, Favoriten, Admin, Rechtsablage, **Freunde & Gruppen** (`includes/social/routen.php`), **gemeinsamer Plan** (`includes/social/plan-routen.php`), **PStTG-Angaben** (`includes/steuer/psttg-routen.php`), **Sprache des Assistenten** (`includes/stimme/routen.php`), Utilities.
+139 Route-Registrierungen (`register_rest_route`), grob gruppiert nach: Auth, Nutzer, WebAuthn, 2FA, Listings, Messaging, Reviews, Payments, Favoriten, Admin, Rechtsablage, **Freunde & Gruppen** (`includes/social/routen.php`), **gemeinsamer Plan** (`includes/social/plan-routen.php`), **PStTG-Angaben** (`includes/steuer/psttg-routen.php`), **Sprache des Assistenten** (`includes/stimme/routen.php`), Utilities.
 
 **Gezählt wird über alle PHP-Dateien, nicht nur `functions.php`.** Bis zum 09.09.2026 las `kontext.mjs` nur die eine Datei — und meldete „106 behauptet, 106 gemessen" für eine Anwendung mit 124 Routen, sobald die ersten ausgelagert waren. Ein Prüfer, der sein Subjekt nur zur Hälfte kennt, gibt eine Entwarnung, die er nicht decken kann.
 

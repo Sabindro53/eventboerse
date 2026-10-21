@@ -333,6 +333,7 @@ settings
 share
 shield
 smartphone
+sms
 snapchat
 sort
 source

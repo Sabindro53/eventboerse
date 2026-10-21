@@ -385,6 +385,132 @@ function _showProviderNotFound(pid) {
   }
 }
 
+/* ── Profilarten (PRODUCT_REDESIGN.md 1.5, Entscheidungen P1–P3) ─────────
+ * Vorher baute loadProvider() den Kopf aus dem ERSTEN INSERAT. Wer nur
+ * Gesuche hatte, bekam damit Kategorie, Preis und Spezialisierungen eines
+ * Anbieters (F01). Die Rolle allein trägt die Weiche nicht: das Konto aus
+ * F01 heißt live „Admin". */
+
+/** P1: Anbieterprofil, wenn mindestens ein Angebot ODER Rolle Dienstleister. */
+function ebProfilArt(anzahlAngebote, rolle) {
+  return (anzahlAngebote > 0 || rolle === 'Dienstleister') ? 'anbieter' : 'mitglied';
+}
+
+/** Das zuletzt gezeichnete Profil — eine späte Antwort für ein anderes
+ *  Profil darf nicht hineinzeichnen. */
+var _profilKontext = null;
+
+function _profilGesucheHtml(k) {
+  if (k.gesuche.length) return k.gesuche.map(renderListingCard).join('');
+  return '<div class="no-results-box" style="margin-top:12px">' +
+    '<span class="material-icons-round no-results-icon" aria-hidden="true">campaign</span>' +
+    '<div class="no-results-box-text"><h3>Noch keine Gesuche</h3>' +
+    (k.eigen
+      ? '<p>Beschreib, wen du suchst — Dienstleister melden sich bei dir.</p>' +
+        '<button class="btn-primary btn-sm" onclick="navigateTo(\'create-listing\', \'suche\')">Gesuch aufgeben</button>'
+      : '<p>Dieses Profil hat aktuell keine Gesuche veröffentlicht.</p>') +
+    '</div></div>';
+}
+
+/**
+ * Zeichnet alles, was von der Profilart abhängt. `ersterLauf` setzt die
+ * Inhalte und den Startreiter; ein zweiter Lauf (nach der Profil-Route)
+ * wechselt den Reiter nur, wenn sich die Art geändert hat.
+ */
+function _profilAnsichtZeichnen(k, ersterLauf) {
+  var art = ebProfilArt(k.angebote.length, k.rolle);
+  var artVorher = k.art;
+  k.art = art;
+  var anbieter = art === 'anbieter';
+  // Kopf, Preis, Highlights und Spezialisierungen kommen aus einem ANGEBOT,
+  // nie aus einem Gesuch. Ohne Angebot: der Profildatensatz selbst.
+  var kopf = k.angebote[0] || (_isProfileOnlyRecord(k.profil) ? k.profil : null);
+
+  // P2: die gespeicherte Unterzeile gilt für alle Profile.
+  var tagEl = document.getElementById('providerTagline');
+  if (tagEl && !_providerEditMode) {
+    var gespeichert = String(k.tagline || '').trim();
+    tagEl.textContent = gespeichert ||
+      (anbieter && kopf ? [kopf.categoryLabel, kopf.location].filter(Boolean).join(' · ') : (k.ort || ''));
+  }
+
+  document.getElementById('providerListingCount').textContent = anbieter ? k.angebote.length : k.gesuche.length;
+  var zl = document.getElementById('providerListingCountLabel');
+  if (zl) zl.textContent = anbieter ? 'Inserate' : 'Gesuche';
+
+  document.querySelectorAll('#page-provider [data-profil-nur="anbieter"]').forEach(function(el) {
+    el.hidden = !anbieter;
+  });
+  var gesucheReiter = document.getElementById('providerTabGesuche');
+  if (gesucheReiter) gesucheReiter.hidden = !(!anbieter || k.gesuche.length > 0);
+
+  // Auf einen Blick
+  var facts = [];
+  var ort = (anbieter && kopf && kopf.location) || k.ort;
+  if (ort) facts.push(['location_on', ort]);
+  if (k.demo) facts.push(['info', 'Beispielaccount für Demo-Beiträge']);
+  else if (anbieter && kopf) {
+    if (kopf.categoryLabel) facts.splice(1, 0, ['category', kopf.categoryLabel]);
+    if (k.angebote.length) {
+      if (kopf.priceLabel) facts.push(['euro', kopf.priceLabel]);
+      facts.push(['event_available', 'Termin und Verfügbarkeit im Chat klären']);
+    }
+  }
+  document.getElementById('providerFacts').innerHTML = facts.map(function(f) {
+    return '<li><span class="material-icons-round">' + f[0] + '</span><span>' + _escHtml(String(f[1])) + '</span></li>';
+  }).join('');
+
+  if (!ersterLauf && artVorher === art) return;
+
+  // Highlights und Spezialisierungen (nur sichtbar im Anbieterprofil)
+  var icons = ['check_circle', 'music_note', 'lightbulb', 'handshake', 'auto_awesome', 'mic'];
+  document.getElementById('providerHighlights').innerHTML = ((kopf && kopf.features) || []).map(function(f, i) {
+    return '<div class="prov-highlight"><span class="material-icons-round">' + icons[i % icons.length] + '</span> ' + _escHtml(f) + '</div>';
+  }).join('');
+  document.getElementById('providerSpecTags').innerHTML = ((kopf && kopf.tags) || []).map(function(t) {
+    return '<span class="provider-spec-tag">' + _escHtml(t) + '</span>';
+  }).join('');
+
+  // Reiter „Inserate": nur Angebote
+  var plGrid = document.getElementById('providerListings');
+  if (k.angebote.length) {
+    plGrid.innerHTML = k.angebote.map(renderListingCard).join('');
+    _initGridCards(plGrid);
+  } else if (k.eigen) {
+    plGrid.innerHTML =
+      '<div class="provider-add-listing" onclick="navigateTo(\'create-listing\')" style="' +
+        'display:flex;flex-direction:column;align-items:center;justify-content:center;' +
+        'border:2px dashed var(--border);border-radius:var(--radius-lg);' +
+        'padding:48px 24px;cursor:pointer;transition:all .2s ease;' +
+        'min-height:200px;color:var(--text-light);text-align:center;">' +
+        '<span class="material-icons-round" style="font-size:56px;margin-bottom:12px;color:var(--primary);">add_circle_outline</span>' +
+        '<span style="font-size:1.05rem;font-weight:600;color:var(--dark);">Erstes Inserat erstellen</span>' +
+        '<span style="font-size:0.85rem;margin-top:4px;">Zeig der Community was du anbietest</span>' +
+      '</div>';
+  } else {
+    plGrid.innerHTML =
+      '<div class="no-results-box" style="margin-top:12px">' +
+        '<span class="material-icons-round no-results-icon">inventory_2</span>' +
+        '<div class="no-results-box-text">' +
+          '<h3>Noch keine Inserate</h3>' +
+          '<p>Dieses Profil hat aktuell keine Inserate veröffentlicht.</p>' +
+        '</div>' +
+      '</div>';
+  }
+  // Reiter „Gesuche"
+  var gGrid = document.getElementById('providerGesuche');
+  if (gGrid) {
+    gGrid.innerHTML = _profilGesucheHtml(k);
+    if (k.gesuche.length) _initGridCards(gGrid);
+  }
+
+  // Startreiter: der erste sichtbare — Inserate beim Anbieter, Gesuche beim Mitglied.
+  var start = anbieter
+    ? document.querySelector('.provider-tabs .tab[onclick*="\'inserate\'"]')
+    : gesucheReiter;
+  if (start) switchProviderTab(start, anbieter ? 'inserate' : 'gesuche');
+}
+
 function loadProvider(providerId) {
   var pid = _toPositiveInt(providerId || (currentListing && currentListing.providerId));
   if (!pid) {
@@ -431,6 +557,8 @@ function loadProvider(providerId) {
         description: currentUser.bio || '',
         location: currentUser.location || '',
         categoryLabel: currentUser.role || 'Mitglied',
+        _rolle: (currentUser.baseRole === 'Dienstleister') ? 'Dienstleister' : (currentUser.role || ''),
+        _tagline: currentUser.tagline || '',
         priceLabel: '',
         images: currentUser.gallery || [],
         features: [],
@@ -443,7 +571,9 @@ function loadProvider(providerId) {
       fetch(_apiUrl('provider/' + pid) + '?_t=' + Date.now(), { credentials: 'same-origin', headers: _apiHeaders() })
         .then(function(r) { return r.json(); })
         .then(function(data) {
-          if (!data || data.message) return;
+          // 404 heißt seit N01 auch „nicht öffentlich“: die Seite sagt das,
+          // statt im Ladezustand stehen zu bleiben.
+          if (!data || data.message) { _showProviderNotFound(pid); return; }
           if (data.listings && data.listings.length > 0) {
             _mergeDbListingsIntoCache(data.listings);
           } else {
@@ -458,6 +588,8 @@ function loadProvider(providerId) {
               description: data.bio || '',
               location: data.location || '',
               categoryLabel: data.role || 'Anbieter',
+              _rolle: data.role || '',
+              _tagline: data.tagline || '',
               priceLabel: '',
               images: data.gallery || [],
               features: [],
@@ -506,8 +638,9 @@ function loadProvider(providerId) {
   // Profile Card
   document.getElementById('providerAvatar').src = _resolveAvatar(mainListing.providerImg, mainListing.providerName);
   document.getElementById('providerName').textContent = mainListing.providerName;
-  document.getElementById('providerTagline').textContent = `${mainListing.categoryLabel} · ${mainListing.location}`;
-  document.getElementById('providerListingCount').textContent = actualProviderListings.length;
+  // Unterzeile, Zähler, Fakten, Highlights, Spezialisierungen und Reiter
+  // zeichnet _profilAnsichtZeichnen() — weiter unten, und ein zweites Mal,
+  // wenn die Profil-Route Rolle und gespeicherte Unterzeile nachliefert.
   // Provider rating/reviews from aggregated DB data — filled after API call below
   var providerRating = mainListing.rating;
   var providerReviewCount = mainListing.reviews;
@@ -582,59 +715,23 @@ function loadProvider(providerId) {
     }
   });
 
-  // Highlights
-  const icons = ['check_circle', 'music_note', 'lightbulb', 'handshake', 'auto_awesome', 'mic'];
-  document.getElementById('providerHighlights').innerHTML = (mainListing.features || []).map((f, i) =>
-    `<div class="prov-highlight"><span class="material-icons-round">${icons[i % icons.length]}</span> ${_escHtml(f)}</div>`
-  ).join('');
-
   // Portfolio (admin-bewusst: auf fremden Profilen Lösch-Overlay für Admins)
   _renderProviderPortfolio();
 
-  // Show supplied facts; availability and response time require actual evidence.
-  var facts = [];
-  if (mainListing.location) facts.push(['location_on', mainListing.location]);
-  if (mainListing.categoryLabel) facts.push(['category', mainListing.categoryLabel]);
-  if (isDemoAccountProfile) facts.push(['info', 'Beispielaccount für Demo-Beiträge']);
-  else if (actualProviderListings.length) {
-    if (mainListing.priceLabel) facts.push(['euro', mainListing.priceLabel]);
-    facts.push(['event_available', 'Termin und Verfügbarkeit im Chat klären']);
-  }
-  document.getElementById('providerFacts').innerHTML = facts.map(function(f) {
-    return '<li><span class="material-icons-round">' + f[0] + '</span><span>' + _escHtml(String(f[1])) + '</span></li>';
-  }).join('');
-
-  // Spec Tags
-  document.getElementById('providerSpecTags').innerHTML = (mainListing.tags || []).map(t =>
-    `<span class="provider-spec-tag">${_escHtml(t)}</span>`
-  ).join('');
-
-  // Listings tab
-  if (actualProviderListings.length === 0 && _currentProviderIsOwn) {
-    document.getElementById('providerListings').innerHTML =
-      '<div class="provider-add-listing" onclick="navigateTo(\'create-listing\')" style="' +
-        'display:flex;flex-direction:column;align-items:center;justify-content:center;' +
-        'border:2px dashed var(--border);border-radius:var(--radius-lg);' +
-        'padding:48px 24px;cursor:pointer;transition:all .2s ease;' +
-        'min-height:200px;color:var(--text-light);text-align:center;">' +
-        '<span class="material-icons-round" style="font-size:56px;margin-bottom:12px;color:var(--primary);">add_circle_outline</span>' +
-        '<span style="font-size:1.05rem;font-weight:600;color:var(--dark);">Erstes Inserat erstellen</span>' +
-        '<span style="font-size:0.85rem;margin-top:4px;">Zeig der Community was du anbietest</span>' +
-      '</div>';
-  } else if (actualProviderListings.length === 0) {
-    document.getElementById('providerListings').innerHTML =
-      '<div class="no-results-box" style="margin-top:12px">' +
-        '<span class="material-icons-round no-results-icon">inventory_2</span>' +
-        '<div class="no-results-box-text">' +
-          '<h3>Noch keine Inserate</h3>' +
-          '<p>Dieses Profil hat aktuell keine Inserate veröffentlicht.</p>' +
-        '</div>' +
-      '</div>';
-  } else {
-    var plGrid = document.getElementById('providerListings');
-    plGrid.innerHTML = actualProviderListings.map(renderListingCard).join('');
-    _initGridCards(plGrid);
-  }
+  var eigen = !!(currentUser && _sameUserId(pid, currentUser.id));
+  var profilKtx = {
+    pid: pid,
+    profil: mainListing,
+    angebote: actualProviderListings.filter(function(l) { return !ebIstGesuch(l); }),
+    gesuche: actualProviderListings.filter(function(l) { return ebIstGesuch(l); }),
+    rolle: mainListing._rolle || '',
+    tagline: eigen ? (currentUser.tagline || '') : (mainListing._tagline || ''),
+    ort: mainListing.location || '',
+    eigen: eigen,
+    demo: isDemoAccountProfile
+  };
+  _profilKontext = profilKtx;
+  _profilAnsichtZeichnen(profilKtx, true);
 
   // Reviews tab — load from API
   var providerDbId = pid;
@@ -643,13 +740,23 @@ function loadProvider(providerId) {
     fetch(_apiUrl('provider/' + providerDbId) + '?_t=' + Date.now(), { credentials: 'same-origin', headers: _apiHeaders() })
       .then(function(r) { return r.json(); })
       .then(function(data) {
+        // Dieselbe Antwort trägt Rolle, Ort und gespeicherte Unterzeile. Sie
+        // kommen nach dem ersten Zeichnen an; gilt das Profil noch, wird mit
+        // ihnen neu gezeichnet (P1: Rolle Dienstleister ohne Angebot bleibt
+        // Anbieter; P2: die gespeicherte Zeile steht im Kopf).
+        if (data && _profilKontext === profilKtx) {
+          if (data.role) profilKtx.rolle = data.role;
+          if (data.location) profilKtx.ort = data.location;
+          if (!profilKtx.eigen && typeof data.tagline === 'string') profilKtx.tagline = data.tagline;
+          _profilAnsichtZeichnen(profilKtx, false);
+        }
         var reviews = data.reviews || [];
         if (reviews.length === 0) {
           document.getElementById('providerReviewsList').innerHTML =
             '<div style="text-align:center; padding: 40px 20px; color: var(--text-light);">' +
               '<span class="material-icons-round" style="font-size: 48px; margin-bottom: 12px; opacity: 0.4;">rate_review</span>' +
               '<p style="font-size: 1.05rem; font-weight: 600; color: var(--dark); margin-bottom: 6px;">Noch keine Bewertungen</p>' +
-              '<p style="font-size: 0.9rem;">Dieser Anbieter ist neu auf Eventbörse.</p>' +
+              '<p style="font-size: 0.9rem;">Dieses Profil ist neu auf Eventbörse.</p>' +
             '</div>';
         } else {
           document.getElementById('providerReviewsList').innerHTML = reviews.map(function(r) {
@@ -683,7 +790,7 @@ function loadProvider(providerId) {
       '<div style="text-align:center; padding: 40px 20px; color: var(--text-light);">' +
         '<span class="material-icons-round" style="font-size: 48px; margin-bottom: 12px; opacity: 0.4;">rate_review</span>' +
         '<p style="font-size: 1.05rem; font-weight: 600; color: var(--dark); margin-bottom: 6px;">Noch keine Bewertungen</p>' +
-        '<p style="font-size: 0.9rem;">Dieser Anbieter ist neu auf Eventbörse.</p>' +
+        '<p style="font-size: 0.9rem;">Dieses Profil ist neu auf Eventbörse.</p>' +
       '</div>';
   }
 
@@ -724,8 +831,6 @@ function loadProvider(providerId) {
     }
   }
 
-  // Reset to first tab
-  switchProviderTab(document.querySelector('.provider-tabs .tab'), 'inserate');
   loadProviderCollaborations(pid, isOwnProviderProfile);
   renderOwnProfileHub(pid);
 }

@@ -362,7 +362,7 @@ function navigateTo(page, data, skipHistory) {
   }
 
   // Hide user menu
-  document.getElementById('userMenu').classList.remove('show');
+  if (typeof _userMenuSetzen === 'function') _userMenuSetzen(false); else document.getElementById('userMenu').classList.remove('show');
 
   // Push browser history state (unless triggered by popstate or explicit skip)
   if (!skipHistory) {
@@ -511,6 +511,14 @@ function navigateTo(page, data, skipHistory) {
         if (_csB) _csB.innerHTML = '<span class="material-icons-round">publish</span> <span id="clSubmitLabel">Inserat veröffentlichen</span>';
       }
       updateCreateFormForRole();
+      // Eine AUSDRÜCKLICHE Wahl über den Weg (`/create-listing/suche`,
+      // `/create-listing/angebot`) schlägt die Rollen-Voreinstellung aus
+      // `updateCreateFormForRole()` — darum steht sie danach. Ohne das öffnete
+      // „Gesuch aufgeben" bei einem Dienstleister die Maske auf „Ich biete":
+      // ein Knopf, der etwas anderes tut, als er sagt.
+      if (!window._isEditNavigation && (data === 'suche' || data === 'angebot')) {
+        try { _clSetType(data === 'suche' ? 'search' : 'offer'); } catch (e) {}
+      }
       break;
     case 'dashboard':
       navigateTo('profile');
@@ -526,6 +534,7 @@ function navigateTo(page, data, skipHistory) {
       break;
     case 'settings':
       loadSettings();
+      if (typeof ebNicknameEinstellungen === 'function') ebNicknameEinstellungen();
       break;
     case 'business':
       if (!isDienstleister() && !(currentUser && currentUser.isAdmin)) {

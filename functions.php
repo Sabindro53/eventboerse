@@ -61,6 +61,8 @@ require_once get_template_directory() . '/includes/stimme/routen.php';
 // Verkauf von Waren. Erhoben wird beim Auszahlungsweg, nicht bei der
 // Registrierung; die Begruendung steht im Kopf des Moduls.
 require_once get_template_directory() . '/includes/steuer/psttg.php';
+// Öffentliche Profil-Route: wer welches Profil sehen darf (N01, PRODUCT_REDESIGN.md 9).
+require_once get_template_directory() . '/includes/profil/profil-route.php';
 require_once get_template_directory() . '/includes/steuer/psttg-routen.php';
 
 // Die Rechnung ueber unsere Vermittlungsprovision (§ 14 UStG). Bis zum
@@ -1905,7 +1907,8 @@ function eb_collaboration_partner( $partner_id ) {
     return array(
         'id'       => $partner_id,
         'name'     => $name ?: $user->display_name,
-        'role'     => eventboerse_map_role( $user ),
+        // Öffentlich (Partnerliste im Profil): nur die Basisrolle, nie „Admin“ (N01).
+        'role'     => eventboerse_base_role( $user ),
         'tagline'  => $meta['tagline'],
         'location' => $meta['location'],
         'photoUrl' => $meta['photoUrl'] ?: eb_avatar_url( $name ?: $user->display_name, $name ?: $user->display_name ),
@@ -7275,80 +7278,7 @@ function eb_favorites_toggle( WP_REST_Request $request ) {
 /* =====================================================================
    PUBLIC PROVIDER PROFILE
    ===================================================================== */
-function eb_provider_profile( WP_REST_Request $request ) {
-    global $wpdb;
-    $provider_id = absint( $request['id'] );
-    $user        = get_userdata( $provider_id );
-    if ( ! $user ) {
-        return new WP_REST_Response( array( 'message' => 'Anbieter nicht gefunden.' ), 404 );
-    }
-
-    $name   = trim( $user->first_name . ' ' . $user->last_name );
-    $meta   = eb_user_profile_meta( $provider_id );
-    $role   = eventboerse_map_role( $user );
-    $since  = date( 'Y', strtotime( $user->user_registered ) );
-
-    // Listings by this provider
-    $listings = $wpdb->get_results( $wpdb->prepare(
-        "SELECT * FROM {$wpdb->prefix}eb_listings WHERE user_id = %d AND status = 'active' ORDER BY created_at DESC",
-        $provider_id
-    ), ARRAY_A );
-
-    // Reviews on their listings
-    $listing_ids = wp_list_pluck( $listings, 'id' );
-    $listing_titles = array();
-    foreach ( $listings as $l ) {
-        $listing_titles[ (int) $l['id'] ] = $l['title'];
-    }
-    $reviews     = array();
-    if ( ! empty( $listing_ids ) ) {
-        $id_placeholders = implode( ',', array_fill( 0, count( $listing_ids ), '%d' ) );
-        $reviews = $wpdb->get_results(
-            $wpdb->prepare(
-                "SELECT r.*, u.display_name, u.ID as uid FROM {$wpdb->prefix}eb_reviews r
-                 LEFT JOIN {$wpdb->users} u ON r.user_id = u.ID
-                 WHERE r.listing_id IN ($id_placeholders) ORDER BY r.created_at DESC",
-                $listing_ids
-            )
-        );
-    }
-
-    $formatted_reviews = array();
-    foreach ( $reviews as $r ) {
-        $rname  = trim( get_user_meta( $r->uid, 'first_name', true ) . ' ' . get_user_meta( $r->uid, 'last_name', true ) );
-        $rphoto = get_user_meta( $r->uid, 'eb_photo_url', true );
-        $formatted_reviews[] = array(
-            'user_id'      => (int) $r->uid,
-            'rating'       => (int) $r->rating,
-            'text'         => $r->body,
-            'name'         => $rname ?: $r->display_name,
-            'avatar'       => $rphoto ?: eb_avatar_url( $rname ?: $r->display_name, $rname ?: $r->display_name ),
-            'date'         => date_i18n( 'j. F Y', strtotime( $r->created_at ) ),
-            'listingTitle' => isset( $listing_titles[ (int) $r->listing_id ] ) ? $listing_titles[ (int) $r->listing_id ] : '',
-        );
-    }
-
-    $response = new WP_REST_Response( array(
-        'id'       => $provider_id,
-        'name'     => $name,
-        'role'     => $role,
-        'since'    => $since,
-        'tagline'  => $meta['tagline'],
-        'location' => $meta['location'],
-        'bio'      => $meta['bio'],
-        'coverUrl' => $meta['coverUrl'],
-        'coverPosY'=> $meta['coverPosY'],
-        'photoUrl' => $meta['photoUrl'],
-        'gallery'  => $meta['gallery'],
-        'socialLinks' => $meta['socialLinks'],
-        'collaborations' => eb_collaborations_enriched( $provider_id, true ),
-        'listings' => array_map( 'eb_format_listing', $listings ),
-        'reviews'  => $formatted_reviews,
-    ), 200 );
-    $response->header( 'Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0' );
-    $response->header( 'Pragma', 'no-cache' );
-    return $response;
-}
+// eb_provider_profile() steht in includes/profil/profil-route.php (N01).
 
 /* =====================================================================
    ALLOW BIGGER UPLOADS
@@ -10973,6 +10903,14 @@ add_action( 'rest_api_init', function () {
     // Nachruestung der WebP-Begleitdateien. Dieselbe Schranke wie beim
     // Demo-Import: angemeldeter Administrator, nicht blosser HQ-Zugang. Die
     // Route schreibt in wp-content/uploads.
+    // Probelauf der Nickname-Vergabe: zaehlt und plant, schreibt nichts.
+    // Trotzdem Verwaltung, nicht HQ-Zugang — der Bericht nennt Konten.
+    register_rest_route( 'eventboerse/v1', '/hq/nicknames', array(
+        'methods'             => 'GET',
+        'callback'            => 'eb_hq_nicknames_probelauf',
+        'permission_callback' => 'eb_hq_verwaltung_darf',
+    ) );
+
     register_rest_route( 'eventboerse/v1', '/hq/webp', array(
         'methods'             => 'GET, POST',
         'callback'            => 'eb_hq_webp_nachruesten',
