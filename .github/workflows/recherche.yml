@@ -222,9 +222,12 @@ jobs:
             Commit mit Begruendung. Siehe `vault/50-Evolution/Recherche/_Schleuse.md`.
 
       - name: Ergebnis
+        env:
+          PR_NUMMER: ${{ steps.cpr.outputs.pull-request-number }}
+          PR_URL: ${{ steps.cpr.outputs.pull-request-url }}
         run: |
-          if [ -n "${{ steps.cpr.outputs.pull-request-number }}" ]; then
-            echo "✅ Draft-PR #${{ steps.cpr.outputs.pull-request-number }} — ${{ steps.cpr.outputs.pull-request-url }}" >> "$GITHUB_STEP_SUMMARY"
+          if [ -n "$PR_NUMMER" ]; then
+            echo "✅ Draft-PR #$PR_NUMMER — $PR_URL" >> "$GITHUB_STEP_SUMMARY"
           else
             echo "ℹ️ Nichts Neues gefunden — kein PR erstellt." >> "$GITHUB_STEP_SUMMARY"
           fi

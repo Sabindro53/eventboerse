@@ -32,56 +32,25 @@ const { test, expect } = require('@playwright/test');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
-const { execFileSync, spawnSync } = require('node:child_process');
+const { execFileSync } = require('node:child_process');
+const { workflowSchritte, laufBlock, fahreWieGithub, EINGABE_IM_SKRIPT } = require('./lib/workflow-schritte');
 
 const WURZEL = path.join(__dirname, '..', '..');
 const WORKFLOW = path.join(WURZEL, '.github', 'workflows', 'recherche.yml');
 const SCHLEUSE = 'vault/50-Evolution/Recherche/';
 
-const workflowText = () => fs.readFileSync(WORKFLOW, 'utf8');
+const ws = workflowSchritte(WORKFLOW);
 
-/** Ein Schritt des Jobs, vom `- name:` bis vor den nächsten. */
+/** Ein Schritt des Jobs; bricht laut ab, wenn es ihn nicht mehr gibt. */
 function schritt(name) {
-  const text = workflowText();
-  const kopf = [...text.matchAll(/^ {6}- name: (.+)$/gm)];
-  const i = kopf.findIndex((m) => m[1].trim() === name);
-  expect(i, `der Schritt „${name}" fehlt in recherche.yml — umbenannt? `
-    + `Dann hier mitziehen, sonst prüft diese Suite nichts mehr`).toBeGreaterThan(-1);
-  const ende = i + 1 < kopf.length ? kopf[i + 1].index : text.length;
-  return text.slice(kopf[i].index, ende);
+  const block = ws.schritt(name);
+  expect(block, `der Schritt „${name}" fehlt in recherche.yml — umbenannt? `
+    + `Dann hier mitziehen, sonst prüft diese Suite nichts mehr`).toBeTruthy();
+  return block;
 }
-
-/** Der `run: |`-Block eines Schritts, Einrückung abgezogen. */
-function lauf(block) {
-  const m = block.match(/^([ \t]+)run:[ \t]*\|[ \t]*\n/m);
-  if (!m) return null;
-  const tiefer = new RegExp(`^(?:${m[1]}[ \\t]|[ \\t]*$)`);
-  const zeilen = [];
-  for (const z of block.slice(m.index + m[0].length).split('\n')) {
-    if (!tiefer.test(z)) break;
-    zeilen.push(z.slice(m[1].length + 2));
-  }
-  return zeilen.join('\n');
-}
-
-/** Alle Schritte mit ihrem Namen und Rumpf. */
-function alleSchritte() {
-  const text = workflowText();
-  return [...text.matchAll(/^ {6}- name: (.+)$/gm)].map((m) => m[1].trim()).map((n) => ({
-    name: n, block: schritt(n),
-  }));
-}
-
-/**
- * Fährt ein Skript wie GitHub einen `run:`-Block ohne `shell:` fährt:
- * `bash -e`. Bewusst OHNE pipefail — genau so läuft dieser Job, und ein
- * Tor, das nur mit pipefail hält, hält hier nicht.
- */
-function fahre(skript, cwd, env = {}) {
-  return spawnSync('bash', ['--noprofile', '--norc', '-e', '-c', skript], {
-    cwd, encoding: 'utf8', env: { ...process.env, ...env },
-  });
-}
+const lauf = laufBlock;
+const alleSchritte = ws.alle;
+const fahre = fahreWieGithub;
 
 /** Ein Wegwerf-Repository mit einer bestehenden Notiz in der Schleuse. */
 function pruefRepo() {
@@ -203,7 +172,7 @@ test.describe('Das freie Thema kann den Shell-Quelltext nicht erreichen', () => 
       if (!skript) continue;
       expect(skript, `„${s.name}" setzt einen Eingabewert als \${{ }} in den `
         + `Shell-Quelltext — der Wert wird vor dem Parsen eingefügt`)
-        .not.toMatch(/\$\{\{\s*(github\.event\.inputs|inputs|steps\.thema\.outputs)\./);
+        .not.toMatch(EINGABE_IM_SKRIPT);
     }
     expect(themaSchritt(), 'die Eingabe kommt nicht mehr über env herein')
       .toMatch(/THEMA_EINGABE:\s*\$\{\{\s*github\.event\.inputs\.thema\s*\}\}/);
