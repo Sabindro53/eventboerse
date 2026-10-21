@@ -172,14 +172,23 @@ test.describe('Das Panel mit offener Auswahl', () => {
 
 test.describe('Speichern nur mit Einwilligung', () => {
   test('mit funktionaler Einwilligung überlebt die Wahl das Neuladen', async ({ page }) => {
+    // Die Einwilligung wird NACH openApp() gesetzt — sofort und für jedes
+    // weitere Laden. Gemessen am 17.10.2026: openApp() (helpers.js) schreibt
+    // vor jedem Laden eine Einwilligung im ALTEN Format
+    // ({essential, functional}), die App liest aber `funktional`. Ein
+    // früher registriertes Skript wurde davon überschrieben, ebSpeichern()
+    // verweigerte, und der Test fiel je nach Ablauf durch. Die Diagnose stand
+    // erst, als der Fehlerfall den gespeicherten Wert ausgab.
     await bereit(page);
+    await page.addInitScript((e) => localStorage.setItem('eb_cookie_consent', e), EINWILLIGUNG);
     await page.evaluate((e) => localStorage.setItem('eb_cookie_consent', e), EINWILLIGUNG);
     await page.click('#qaLauncher');
     await page.click('#qaFigurWahl button[data-figur="07"]');
-    expect(await page.evaluate((k) => localStorage.getItem(k), SCHLUESSEL)).toBe('07');
+    expect(await page.evaluate((k) => localStorage.getItem(k), SCHLUESSEL), 'vor dem Neuladen gespeichert').toBe('07');
     await page.reload();
     await warteAufAppBereit(page);
-    expect(await figurImKnopf(page)).toMatch(/avatar-07\.webp$/);
+    expect(await page.evaluate((k) => localStorage.getItem(k), SCHLUESSEL), 'nach dem Neuladen noch da').toBe('07');
+    expect(await figurImKnopf(page), 'Knopf zeigt die gespeicherte Figur').toMatch(/avatar-07\.webp$/);
   });
 
   test('ohne Einwilligung gilt sie für die Sitzung und wird nicht abgelegt', async ({ page }) => {
@@ -195,6 +204,111 @@ test.describe('Speichern nur mit Einwilligung', () => {
     await page.addInitScript((k) => localStorage.setItem(k, '../../wp-config"><img src=x>'), SCHLUESSEL);
     await bereit(page);
     expect(await figurImKnopf(page)).toMatch(/assets\/avatare\/avatar-01\.webp$/);
+  });
+});
+
+test.describe('N02: beim Herunterscrollen weg, beim Hochscrollen wieder da', () => {
+  // Entscheidung des Inhabers vom 17.10.2026. Der Knopf schwebt über dem
+  // Inhalt und lag beim Scrollen über Auftragskarten (live gemessen, N02).
+  // Ein reservierter Abstand am Seitenende half nicht — dort steht die
+  // Fußzeile. Jetzt geht er aus dem Weg, solange gelesen wird.
+  //
+  // Gemessen wird, was der Finger trifft (elementFromPoint), nicht eine
+  // Klasse: ein Knopf mit Klasse „weg“, der noch klickbar über dem Inhalt
+  // liegt, wäre genau der Befund.
+  async function langeSeite(page, reduziert) {
+    await page.setViewportSize({ width: 390, height: 844 });
+    if (reduziert) await page.emulateMedia({ reducedMotion: 'reduce' });
+    await bereit(page);
+    // Eine lange ÖFFENTLICHE Seite. Der erste Entwurf nahm „settings" —
+    // abgemeldet öffnet die das Anmeldefenster, und gemessen wurde dessen
+    // Formular statt des Knopfes.
+    await page.evaluate(() => navigateTo('datenschutz'));
+    await page.waitForTimeout(600);
+    expect(await page.evaluate(() => document.getElementById('loginModal').classList.contains('active'))).toBe(false);
+    expect(await page.evaluate(() => document.documentElement.scrollHeight)).toBeGreaterThan(2500);
+  }
+  const scrolle = (page, y) => page.evaluate(async (y) => {
+    window.scrollTo({ top: y, behavior: 'instant' });
+    await new Promise((ok) => setTimeout(ok, 450));
+  }, y);
+  // Ob er „weg" ist, entscheidet der Zustand sofort; ob der Finger ihn noch
+  // trifft, erst nach dem Gleiten. Unter Last maß ein fester Takt zu früh —
+  // die Mutation „Panel-Ausnahme weg" überlebte deshalb einen von zwei
+  // Läufen. Gewartet wird jetzt auf den Zustand, nicht auf die Uhr.
+  const weg = (page) => page.evaluate(() => document.getElementById('qaBot').classList.contains('is-weg'));
+  const trifftKnopf = (page) => page.evaluate(() => {
+    const k = document.getElementById('qaLauncher').getBoundingClientRect();
+    const el = document.elementFromPoint(k.left + k.width / 2, k.top + k.height / 2);
+    return !!(el && el.closest('#qaLauncher'));
+  });
+
+  test('herunter: der Knopf ist nicht mehr zu treffen — hoch: wieder da', async ({ page }) => {
+    await langeSeite(page);
+    expect(await trifftKnopf(page)).toBe(true);
+    await scrolle(page, 600);
+    await expect.poll(() => trifftKnopf(page)).toBe(false);
+    await scrolle(page, 450);
+    await expect.poll(() => trifftKnopf(page)).toBe(true);
+  });
+
+  test('ganz oben ist er immer da, auch nach einem Ruck nach unten', async ({ page }) => {
+    await langeSeite(page);
+    await scrolle(page, 60);
+    expect(await weg(page)).toBe(false);
+    expect(await trifftKnopf(page)).toBe(true);
+  });
+
+  test('ein kleines Zittern blendet nichts aus', async ({ page }) => {
+    await langeSeite(page);
+    await scrolle(page, 400);
+    await scrolle(page, 300);
+    expect(await trifftKnopf(page)).toBe(true);
+    await scrolle(page, 303);
+    expect(await weg(page)).toBe(false);
+    expect(await trifftKnopf(page)).toBe(true);
+  });
+
+  test('ist das Panel offen, bleibt der Knopf', async ({ page }) => {
+    await langeSeite(page);
+    await page.evaluate(() => { _ebFigurGefragt = true; openQaBot(); });
+    await scrolle(page, 600);
+    expect(await page.evaluate(() => scrollY)).toBeGreaterThanOrEqual(550);
+    expect(await weg(page)).toBe(false);
+    const s = await page.evaluate(() => getComputedStyle(document.getElementById('qaLauncher')).visibility);
+    expect(s).toBe('visible');
+  });
+
+  test('hat der Knopf den Tastaturfokus, bleibt er', async ({ page }) => {
+    await langeSeite(page);
+    await page.keyboard.press('Shift');
+    await page.evaluate(() => document.getElementById('qaLauncher').focus());
+    await scrolle(page, 600);
+    expect(await weg(page)).toBe(false);
+    expect(await trifftKnopf(page)).toBe(true);
+  });
+
+  test('versteckt ist er auch für die Tastatur weg — kein Fokus auf Unsichtbarem', async ({ page }) => {
+    await langeSeite(page);
+    await scrolle(page, 600);
+    await expect.poll(() => page.evaluate(() => getComputedStyle(document.getElementById('qaLauncher')).visibility)).toBe('hidden');
+  });
+
+  test('Bewegungsreduktion: dieselbe Funktion, aber ohne Gleiten', async ({ page }) => {
+    await langeSeite(page, true);
+    expect(await page.evaluate(() => matchMedia('(prefers-reduced-motion: reduce)').matches)).toBe(true);
+    const dauer = await page.evaluate(() => getComputedStyle(document.getElementById('qaLauncher')).transitionDuration);
+    // Die globale Regel setzt 0.01ms !important; der Browser meldet „1e-05s“.
+    // Gemessen wird, dass nichts sichtbar gleitet, nicht die Schreibweise.
+    expect(dauer.split(',').every((d) => parseFloat(d) <= 0.001), dauer).toBe(true);
+    await scrolle(page, 600);
+    await expect.poll(() => trifftKnopf(page)).toBe(false);
+  });
+
+  test('Gegenprobe: ohne Bewegungsreduktion gleitet er wirklich', async ({ page }) => {
+    await langeSeite(page);
+    const dauer = await page.evaluate(() => getComputedStyle(document.getElementById('qaLauncher')).transitionDuration);
+    expect(dauer.split(',').some((d) => parseFloat(d) >= 0.1), dauer).toBe(true);
   });
 });
 

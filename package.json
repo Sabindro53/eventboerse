@@ -37,5 +37,10 @@
     "@axe-core/playwright": "^4.12.1",
     "@playwright/test": "^1.62.1",
     "csso-cli": "^4.0.2"
+  },
+  "overrides": {
+    "csso-cli": {
+      "chokidar": "4.0.3"
+    }
   }
 }

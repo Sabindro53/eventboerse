@@ -4003,15 +4003,42 @@ erfundenes Token (`var(--bg-gray, #f4f4f6)` auf einer Fläche, `design-system.sp
 `node scripts/rechtsunterlagen.mjs`). Ein neues Modul heißt: diese Datei neu
 erzeugen.
 
-**N02 ist NICHT behoben, und das war zuerst anders gemeldet.** Der erste
-Versuch reservierte unten Platz für den Knopf. Unter jeder Seite steht aber
-die Fußzeile — am Seitenende liegt nie Inhalt unter dem Knopf, die Überdeckung
-passiert **beim Scrollen mittendrin**. Die Regel erzeugte nur Weißraum, und
-die Mutation „Abstand weg" überlebte. Sie ist wieder draußen; die Lösung ist
-eine Gestaltungsfrage (siehe `PRODUCT_REDESIGN.md` 9).
+**N02: beim Herunterscrollen weg, beim Hochscrollen wieder da**
+(Entscheidung des Inhabers vom 17.10.2026). Ein erster Versuch reservierte
+unten Platz für den Knopf — unter jeder Seite steht aber die Fußzeile, die
+Überdeckung passiert beim Scrollen mittendrin. Die Regel erzeugte nur
+Weißraum, die Mutation „Abstand weg" überlebte, sie ist wieder draußen.
+
+Ausgeblendet wird mit `visibility: hidden`, nicht nur `opacity`: ein
+unsichtbarer Knopf darf weder Finger noch Tastaturfokus fangen. Er bleibt
+ganz oben, bei offenem Panel und solange er selbst den Fokus hat; kleine
+Bewegungen unter 8 px zählen nicht. Gerechnet wird nur bei einem
+Scroll-Ereignis, einmal je Frame, mit passivem Horcher — kein Dauerlauf.
+
+**Gemessen wird, was der Finger trifft** (`elementFromPoint`). Der erste
+Test maß auf „Einstellungen" — abgemeldet öffnet die das Anmeldefenster, und
+getroffen wurde dessen Formular. Jetzt eine lange öffentliche Seite, mit
+Gegenprobe, dass kein Fenster offen ist.
+
+**Bewegungsreduktion ändert nur das Gleiten.** Die globale Regel setzt jede
+Übergangsdauer auf `0.01ms` (der Browser meldet `1e-05s`); eine eigene Regel
+wäre doppelt und ohne Wirkung gewesen und ist deshalb nicht da. Der Test prüft
+das Ergebnis — höchstens 1 ms — und die Gegenprobe, dass ohne Reduktion
+wirklich geglitten wird.
+
+**Und der gemeinsame Prüfstand gibt keine Einwilligung, obwohl er so
+aussieht.** `openApp()` in `tests/e2e/helpers.js` schreibt vor jedem Laden
+`{essential: true, functional: true}` — das Format von vor August. Die App
+liest `funktional`/`profil`; für sie hat damit **niemand** zugestimmt. Der
+Banner verschwindet trotzdem, weil überhaupt ein Wert dasteht. Die Suite läuft
+also ohne funktionale Einwilligung, und der Kommentar im Helfer legt das
+Gegenteil nahe. Gefunden, weil dieser Test seine Einwilligung vor `openApp()`
+registrierte und vom Helfer überschrieben wurde — einmal in rund zwanzig
+Läufen, je nach Ablauf. **Offen:** den Helfer auf das gültige Format heben;
+das betrifft jede Suite und gehört in einen eigenen Schritt mit voller Suite.
 
 ```bash
-npx playwright test tests/e2e/assistent-figur.spec.js   # 14 Tests, 14 Mutationen
+npx playwright test tests/e2e/assistent-figur.spec.js   # 22 Tests, 22 Mutationen
 ```
 
 ### Suchergebnisse lassen sich wieder einklappen
@@ -6053,7 +6080,7 @@ npm run test:smoke      # nur Routen-Smoke-Tests
 npm run test:css        # CSS-Minify-Regression (Verlaufsschrift)
 ```
 
-1533 Tests in 102 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
+1544 Tests in 103 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
 Sätze), Gebühren (centgenau, JS↔PHP-Parität), Wissensbasis (Antworten +
 Leckage-Schutz), Zufluss (Quarantäne-Tor + Demo-Feed-Ehrlichkeit),
 Verbindungen (HQ-Zugang + Connector-Katalog), Auftragsstrom (Herkunft +

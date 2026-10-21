@@ -803,7 +803,8 @@ body.dark-mode .nav-clear-search:hover { background: var(--border-light); }
   -webkit-appearance: none;
           appearance: none;
   -webkit-tap-highlight-color: transparent;
-  transition: transform 0.18s ease, filter 0.18s ease;
+  /* opacity und visibility für N02 (ausblenden beim Herunterscrollen, ui/33) */
+  transition: transform 0.22s ease, opacity 0.22s ease, filter 0.18s ease, visibility 0s linear 0s;
   overflow: visible;
   filter: drop-shadow(0 6px 12px rgba(34,34,34,0.18)) drop-shadow(0 2px 5px rgba(227,28,95,0.18));
 }
@@ -838,6 +839,20 @@ body.dark-mode .nav-clear-search:hover { background: var(--border-light); }
   flex-shrink: 0;
 }
 /* ── Assistenten-Figur (ui/33-assistent-figur.js, assets/avatare) ── */
+/* N02: beim Herunterscrollen aus dem Weg (ui/33). visibility statt nur
+   opacity: ein unsichtbarer Knopf darf weder Finger noch Tastaturfokus
+   fangen. Die Verzögerung von visibility lässt das Gleiten erst zu Ende
+   laufen. */
+.eb-qa-bot.is-weg .eb-qa-launcher {
+  transform: translateY(calc(100% + 24px));
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: transform 0.22s ease, opacity 0.22s ease, filter 0.18s ease, visibility 0s linear 0.22s;
+}
+/* Bewegungsreduktion: die globale Regel setzt jede Übergangsdauer auf
+   0.01ms — der Knopf verschwindet dann ohne Gleiten. Eine eigene Regel hier
+   wäre doppelt und ohne beobachtbare Wirkung. */
 .eb-qa-launcher .eb-qa-figur {
   width: 100%;
   height: 100%;

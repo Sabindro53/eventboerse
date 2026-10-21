@@ -9,15 +9,43 @@ tags: [layer/L5, domain/evolution, share/internal]
 
 > Ziel: Die beste und funktionalste Eventplattform für jedermann
 
-## Stand heute (2026-08-26)
+## Stand heute (2026-10-21)
 
 Diese Zahlen gelten JETZT. Weiter unten stehen abgeschlossene Sprints mit den
 Zahlen ihrer Zeit — die sind Historie, kein Ist-Stand. Der Ensemble-Kontext
 liest diese Datei von oben; ein Modell, das „68 Tests" als aktuell meldet, hat
 einen alten Abschnitt gelesen und nicht diesen.
 
-- **Playwright-Suite: 1533 Tests in 102 Suiten**, blockierendes Gate in `pr-check.yml`.
+- **Playwright-Suite: 1544 Tests in 103 Suiten**, blockierendes Gate in `pr-check.yml`.
   Läuft seit dem Self-Hosting auch ohne Netzzugang vollständig durch
+
+## Gemeinsame Plattformbasis (21.10.2026)
+
+**Auftrag des Inhabers:** Redesign und Event-Assistent als eine Plattform für
+Planer und Dienstleister führen. Autonome Umsetzung beauftragt; keine echten
+Nutzerdaten, Zahlungsaktionen oder Zugangsdaten verändern.
+
+**Wer:** Codex koordiniert, Claude prüft den alten Juni-Patch über Hermes.
+Ein Implementierungsauftrag gleichzeitig, keine doppelten Aufträge.
+
+**Arbeitsort:** `Documents/eventboerse-platform`, Zweig `codex/platform-unified`.
+Redesign (`01364e1`) + lokal bekanntes main (`e475b7f`) + sieben offene
+Redesign-Dateien übernommen. Ein generierter PHP/JSON-Konflikt reproduzierbar
+aufgelöst. Alter Juni-Patch gesichert und separat im Abgleich; nie blind über
+neuere Auth- oder Migrationslogik legen. Alte Kopien noch nicht gelöscht.
+`START-HERE.md` erklärt Quellen, Betriebsgrenzen und Arbeitsfolge.
+
+**Prüfung:** Erster Gesamtlauf: 1523 bestanden, 12 fehlgeschlagen, 9 nicht
+weiter ausgeführt. Ursachen: lokale npm-/GNU-sed-Umgebung, veraltete Testzahlen
+und neue Mausfolge mit eigener Medienabfrage. Letzteres auf vorhandene
+`ebBewegungReduziert` / `ebBewegungBeobachten` umgestellt; gezielter Nachlauf
+läuft. Keine Freigabe aus einem teilweise grünen Lauf ableiten.
+
+**Nächster Schritt:** Nachlauf abschließen, alle erforderlichen Tore und
+Gesamtsuite am finalen Stand fahren. Danach eine rollenbezogene Ist/Soll-
+Prüfung mit konkreten Reproduktionswegen. Das neue Blender-Modell ist ein
+Gestaltungsprototyp; die vorhandene Figurenwahl bleibt erhalten. Kein
+Frameworkwechsel und keine zweite Event-Datenhaltung.
 
 ## Gesuche als Gesuche zeigen — F01–F03 (16.10.2026)
 

@@ -104,4 +104,113 @@ function ebAssistentFigurBeimOeffnen() {
   if (!_ebFigurGefragt) ebAssistentFigurWahlOeffnen();
 }
 
+/* ── N02: aus dem Weg beim Lesen ─────────────────────────────────────────
+ * Entscheidung des Inhabers vom 17.10.2026: beim Herunterscrollen blendet
+ * sich der Knopf aus, beim Hochscrollen wieder ein. Er lag sonst über dem
+ * Inhalt, den man gerade liest (live an einer Auftragskarte gemessen).
+ *
+ * Drei Ausnahmen, alle aus Sicht der Person:
+ *   - ganz oben (unter EB_FIGUR_OBEN px) ist er immer da;
+ *   - ist das Panel offen, bleibt er — er ist dann der Weg zurück;
+ *   - hat er den Tastaturfokus, bleibt er — Fokus auf etwas Unsichtbarem
+ *     wäre eine Falle.
+ * Kleine Bewegungen (unter EB_FIGUR_SCHWELLE px) zählen nicht, sonst
+ * flackert er beim Lesen mit dem Daumen.
+ *
+ * Kein Dauerlauf: gerechnet wird nur bei einem Scroll-Ereignis, höchstens
+ * einmal je Frame (rAF), und der Horcher ist passiv. Die Leerlauf-Regel aus
+ * leerlauf.spec.js bleibt damit unberührt.
+ * Bewegungsreduktion ändert nur das Gleiten (CSS), nicht die Funktion.
+ */
+var EB_FIGUR_OBEN = 120;
+var EB_FIGUR_SCHWELLE = 8;
+var _ebFigurLetzteY = 0;
+var _ebFigurFrame = 0;
+
+function _ebFigurScrollPruefen() {
+  _ebFigurFrame = 0;
+  var bot = document.getElementById('qaBot');
+  if (!bot) return;
+  var y = window.scrollY || document.documentElement.scrollTop || 0;
+  var delta = y - _ebFigurLetzteY;
+  var panel = document.getElementById('qaPanel');
+  var knopf = document.getElementById('qaLauncher');
+  var bleibt = y < EB_FIGUR_OBEN ||
+    (panel && !panel.hidden) ||
+    (knopf && document.activeElement === knopf);
+  if (bleibt) {
+    bot.classList.remove('is-weg');
+    _ebFigurLetzteY = y;
+    return;
+  }
+  if (Math.abs(delta) < EB_FIGUR_SCHWELLE) return;
+  bot.classList.toggle('is-weg', delta > 0);
+  _ebFigurLetzteY = y;
+}
+
+window.addEventListener('scroll', function() {
+  if (!_ebFigurFrame) _ebFigurFrame = requestAnimationFrame(_ebFigurScrollPruefen);
+}, { passive: true });
+
+/* Dezenter Mausblick: nur das Bild bewegen, niemals den Scroll-Launcher.
+ * Ein Frame bündelt Ereignisse; ohne neue Bewegung gibt es keine Arbeit.
+ */
+(function() {
+  var maus = window.matchMedia('(hover: hover) and (pointer: fine)');
+  var grob = window.matchMedia('(pointer: coarse)');
+  var frame = 0;
+  var x = 0;
+  var y = 0;
+  var bild = null;
+  var vorher = '';
+
+  function reset() {
+    if (frame) cancelAnimationFrame(frame);
+    frame = 0;
+    if (bild) bild.style.transform = vorher;
+    bild = null;
+  }
+
+  function zeichnen() {
+    frame = 0;
+    var knopf = document.getElementById('qaLauncher');
+    var bot = document.getElementById('qaBot');
+    if (document.hidden || ebBewegungReduziert() || !maus.matches || grob.matches ||
+        !knopf || (bot && bot.classList.contains('is-weg'))) {
+      reset();
+      return;
+    }
+    var img = knopf.querySelector('img[data-assistent-figur]');
+    if (!img) { reset(); return; }
+    if (bild !== img) {
+      reset();
+      bild = img;
+      vorher = img.style.transform;
+    }
+    var rect = knopf.getBoundingClientRect();
+    var dx = Math.max(-1, Math.min(1, (x - rect.left - rect.width / 2) / 360));
+    var dy = Math.max(-1, Math.min(1, (y - rect.top - rect.height / 2) / 360));
+    bild.style.transform = 'translate(' + (dx * 1.5).toFixed(2) + 'px, ' +
+      (dy * 1.5).toFixed(2) + 'px) rotate3d(' + (-dy).toFixed(3) + ', ' +
+      dx.toFixed(3) + ', 0, ' + (Math.max(Math.abs(dx), Math.abs(dy)) * 3).toFixed(2) + 'deg)';
+  }
+
+  document.addEventListener('pointermove', function(event) {
+    if (!event.isTrusted || event.pointerType !== 'mouse') return;
+    if (document.hidden || ebBewegungReduziert() || !maus.matches || grob.matches) {
+      reset();
+      return;
+    }
+    x = event.clientX;
+    y = event.clientY;
+    if (!frame) frame = requestAnimationFrame(zeichnen);
+  }, { passive: true });
+  document.documentElement.addEventListener('pointerleave', reset, { passive: true });
+  window.addEventListener('blur', reset);
+  document.addEventListener('visibilitychange', reset);
+  ebBewegungBeobachten(reset);
+  maus.addEventListener('change', reset);
+  grob.addEventListener('change', reset);
+})();
+
 ebAssistentFigurAnwenden();
