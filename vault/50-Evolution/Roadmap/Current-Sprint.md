@@ -16,7 +16,7 @@ Zahlen ihrer Zeit — die sind Historie, kein Ist-Stand. Der Ensemble-Kontext
 liest diese Datei von oben; ein Modell, das „68 Tests" als aktuell meldet, hat
 einen alten Abschnitt gelesen und nicht diesen.
 
-- **Playwright-Suite: 1454 Tests in 96 Suiten**, blockierendes Gate in `pr-check.yml`.
+- **Playwright-Suite: 1460 Tests in 97 Suiten**, blockierendes Gate in `pr-check.yml`.
   Läuft seit dem Self-Hosting auch ohne Netzzugang vollständig durch
 
 ## Die Recherche-Schleuse sah keine neuen Dateien (2026-10-21)
@@ -29,9 +29,14 @@ mit `share: public` kam durch), der Job-Token lag für den Agenten lesbar in
 stand als `${{ }}` im Shell-Quelltext, und Bash war für den Befehl, den der
 Auftrag verlangt, gar nicht erlaubt. 15 Tests, 13 Mutationen, alle rot.
 
-**Offen, nicht in diesem PR:** `claude-improve.yml` trägt ebenfalls
-`show_full_output: true` und liest `vault/` samt Schleuse. Beide Routinen
-laufen nur per Hand; die Verbesserungs-Routine scheitert seit Juli.
+**`claude-improve.yml` ist nachgezogen:** die Schleuse wird per
+`sparse-checkout` gar nicht ausgecheckt (und erscheint im PR nicht als
+Löschung), kein Token in `.git/config`, kein volles Protokoll, Fokus über
+`env` gegen die Auswahlliste geprüft. 6 Tests, 12 Mutationen.
+
+**Offen:** Beide Routinen laufen nur per Hand; die Verbesserungs-Routine
+scheitert seit Juli. Ob die Action `--add-dir` und die Werkzeugliste
+annimmt, zeigt erst ein echter Lauf.
 
 ## Übergabe Codex → Claude Code: UX und Nicknames (15.10.2026)
 

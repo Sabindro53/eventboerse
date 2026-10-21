@@ -107,6 +107,26 @@ Ausdruck (**5 rot**) · Steuerzeichen-Prüfung entfernt · `Bash(*)` ·
 npx playwright test tests/e2e/recherche-schleuse.spec.js   # 15 Tests, 13 Mutationen
 ```
 
+**Die Verbesserungs-Routine las die Schleuse mit.** `claude-improve.yml`
+nimmt keinen Fremdtext von aussen an, verlangte aber „den Ordner vault/" —
+samt `vault/50-Evolution/Recherche/`, für einen Agenten mit
+`contents: write`. Eine Bitte im Prompt, den Ordner zu meiden, ist keine
+Grenze. Der Checkout blendet ihn deshalb per `sparse-checkout` aus
+(`cone-mode: false`, sonst gibt es keine Verneinung): die Dateien liegen
+nicht auf der Platte, und git hält sie **nicht** für gelöscht — ein
+`rm -rf` hätte `create-pull-request` die Schleuse als Löschung in den PR
+legen lassen. Dazu dieselben drei Griffe wie oben: kein Token in
+`.git/config`, kein volles Protokoll, der Fokus über `env` und gegen die
+Auswahlliste geprüft.
+
+Die Helfer zum Ausschneiden eines Schritts stehen seitdem einmal, in
+`tests/e2e/lib/workflow-schritte.js` — die zweite Suite hätte sie sonst
+nachgebaut. Zwölf Mutationen, jede rot.
+
+```bash
+npx playwright test tests/e2e/claude-improve.spec.js   # 6 Tests, 12 Mutationen
+```
+
 ### Befund → Arbeit
 
 Die elf Rollen erzeugen Befunde, der Autopilot erzeugt Arbeit. Verbunden sind
@@ -5765,7 +5785,7 @@ npm run test:smoke      # nur Routen-Smoke-Tests
 npm run test:css        # CSS-Minify-Regression (Verlaufsschrift)
 ```
 
-1454 Tests in 96 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
+1460 Tests in 97 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
 Sätze), Gebühren (centgenau, JS↔PHP-Parität), Wissensbasis (Antworten +
 Leckage-Schutz), Zufluss (Quarantäne-Tor + Demo-Feed-Ehrlichkeit),
 Verbindungen (HQ-Zugang + Connector-Katalog), Auftragsstrom (Herkunft +
@@ -5782,6 +5802,8 @@ sieht nicht aus wie „in Ordnung"),
 **Antwortgrenze** (Auftrag und Token-Budget aus einer Zahl),
 **Ersatzkette** (eine schweigende Rolle verliert ihre Schicht nicht),
 **Auto-Merge** (erst die Prüfungen des PRs, dann der Merge),
+**Verbesserungs-Routine** (die Recherche-Schleuse wird für den Agenten gar
+nicht ausgecheckt und erscheint im PR trotzdem nicht als Löschung),
 **Recherche-Schleuse** (das Tor der Recherche-Routine sieht auch neue,
 unverfolgte Dateien und verschobene; das freie Thema erreicht den
 Shell-Quelltext nicht; der Agent darf genau einen Bash-Befehl),
