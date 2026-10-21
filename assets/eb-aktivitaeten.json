@@ -1,7 +1,7 @@
 {
   "version": 2,
   "hinweis": "Erzeugt von scripts/aktivitaeten.mjs. Nicht von Hand bearbeiten.",
-  "stand": "2026-10-20T03:39:18.710Z",
+  "stand": "2026-10-21T03:42:04.618Z",
   "gebiete": [
     {
       "stadt": "Köln",
@@ -12006,6 +12006,7 @@
         "lon": 10.00306
       },
       "entfernungKm": 0.8,
+      "webseite": "https://www.hamburger-kunsthalle.de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/890870587",
