@@ -16,7 +16,7 @@ Zahlen ihrer Zeit — die sind Historie, kein Ist-Stand. Der Ensemble-Kontext
 liest diese Datei von oben; ein Modell, das „68 Tests" als aktuell meldet, hat
 einen alten Abschnitt gelesen und nicht diesen.
 
-- **Playwright-Suite: 1405 Tests in 95 Suiten**, blockierendes Gate in `pr-check.yml`.
+- **Playwright-Suite: 1460 Tests in 97 Suiten**, blockierendes Gate in `pr-check.yml`.
   Läuft seit dem Self-Hosting auch ohne Netzzugang vollständig durch
 
 ## Die Recherche-Schleuse sah keine neuen Dateien (2026-10-21)
@@ -37,6 +37,33 @@ Löschung), kein Token in `.git/config`, kein volles Protokoll, Fokus über
 **Offen:** Beide Routinen laufen nur per Hand; die Verbesserungs-Routine
 scheitert seit Juli. Ob die Action `--add-dir` und die Werkzeugliste
 annimmt, zeigt erst ein echter Lauf.
+
+## Übergabe Codex → Claude Code: UX und Nicknames (15.10.2026)
+
+**Wer:** claude übernimmt nach ausdrücklichem Nutzerauftrag. Weiterarbeiten im Arbeitsbereich `/Users/sandro/.codex/worktrees/eventboerse-ux-nicknames/eventbörse.de`, Branch `codex/eventboerse-friend-search`, Basis `378719d232b2e9cf8e67551b3a482a0ceab89e20`. Der ursprüngliche Projektordner enthält einen alten Juni-Checkout mit fremden Änderungen und ist NICHT der Implementierungsort.
+
+**Befund:** Live-Produktaudit mit 32 konkreten Befunden liegt unter `docs/ux-audit-2026-10-15/`. Die Kontotabs teilten nach Reload die Sitzung: künftige Rollentests in getrennten Kontexten, regulären Planer ohne Adminrechte einschließen. Nickname-Feld bei Registrierung und nachgelagerter POST existieren bereits; Bestandsmigration ist opt-in gesperrt. Die vorhandene Freundessuche stand unter der Suchnamen-Einrichtung, verlor Eingaben beim Neuzeichnen und ließ veraltete Fehlerantworten in die aktuelle Suche hinein.
+
+**Lokal umgesetzt:** `js/modules/social/60-freunde-gruppen.js`: Suche zuerst, zugängliche Statusregion, @-/Teilnickname-Hilfe, Eingabe und Suchmeldung bei Re-Render erhalten, Konto-Reset löscht Suchtext, überholte Antworten/Fehler ignoriert, empfangene und gesendete Anfragen mit passenden Aktionen, Ergebnisse nach Antwort erneut laden. Generiertes `app.js` gebaut. Fünf Regressionstests in `tests/e2e/freunde-ansicht.spec.js` ergänzt. Dokumentierte Suite-Zahlen in CLAUDE.md und hier an reale Sammlung angepasst.
+
+**Nachweise:** Gezielter Lauf zunächst 23/23 bestanden (`/tmp/eventboerse-friends-test.log`). Finaler Wiederholungslauf nach ergänzter Toast-Zusicherung: `/tmp/eventboerse-friends-final.log`. Isolierte Mutationsprobe `/tmp/eventboerse-mutation.cjs`: Original besteht, entfernte Sperre für veraltete Fehler wird erkannt. Gesamtsuite läuft im Übergabemoment (`/tmp/eventboerse-full-test.log`); noch KEINE Freigabe behaupten. Tore-Lauf `/tmp/eventboerse-gates.log`: fehlendes Icon `flight` im bestehenden Schriftzuschnitt; Testzahldrift anschließend korrigiert. Kein neues Icon durch diese Änderung. `npm` im PATH ist lokal defekt (../lib/cli.js fehlt); funktionsfähiger Aufruf: `node /Users/sandro/.local/lib/node_modules/npm/bin/npm-cli.js`. Abhängigkeiten danach mit diesem npm und `ci --ignore-scripts` gemäß Lockdatei installiert. Keine Paketupdates vorgenommen. Vier vorhandene Audit-Warnungen nicht automatisch mit --force reparieren.
+
+**Nächster Schritt, konkret:**
+1. Laufende Prüfungen abschließen/Logs lesen und aktuelle Suchänderung kontrollieren; keine Quellmutationen parallel zur Gesamtsuite. In Prüfsubprozessen ggf. PATH für npm/npx auf die reguläre npm-Installation korrigieren. Das Icon-Gate am Basisstand vergleichen und ohne Abschalten lösen. `scripts/tore.mjs` erzeugt selbst `assets/eb-auftragsstrom.json`; unbeabsichtigte Generator-Diffs prüfen, nicht blind übernehmen.
+2. Nicknames aus Kapitel 11 des Briefings weiterbauen: einheitliches Feld auf Profilen und in Einstellungen, serverseitig atomare Eindeutigkeit samt sichtbaren Registrierungsfehlern, Auffindbarkeit getrennt vom automatisch zugewiesenen Nickname, wiederholbare Dry-Run-Migration. Bestehenden Code in `includes/social/freunde-gruppen.php`, `includes/social/routen.php`, `js/modules/core/30-auth.js` wiederverwenden. Keine echte Nutzermigration oder stillschweigende Suchfreigabe ausführen. Keine Auth-/Zahlungs-/Rechtstextänderungen außerhalb des ausdrücklich beauftragten Nickname-Flows.
+3. Danach die priorisierten Seitenpakete aus dem Briefing: Angebote/Gesuche, Rollen-Shell, Planerprojekt, Anbieterablauf, 3D-Scroll-Szenen. Generierte Dateien nie von Hand ändern. Jede Funktion mit tatsächlichen Zuständen prüfen. Bestehende fremde Änderungen und Daten bewahren.
+
+**Übergabestatus:** Automatischer Start über `claude --bg --permission-mode acceptEdits` versucht. Claude Code lehnt den neuen Arbeitsbereich mit „Workspace not trusted“ ab und verlangt einmalig die interaktive Bestätigung des Inhabers. Keine Freigabe umgangen. Finaler gezielter Lauf: 23/23 bestanden; Kontextprüfung ebenfalls bestanden. Für den Start im oben genannten Arbeitsbereich `claude` öffnen und nach Workspace-Freigabe diese Übergabe lesen lassen.
+
+**Claude Code, 15.10.2026 — Schritt 1 abgeschlossen:** Codex' Gesamtlauf (gestartet vor den letzten Korrekturen) endete 1377 grün / 12 rot. Zwei Ursachen lagen in dieser Änderung selbst: (a) der englische Kommentar „in-flight" in `60-freunde-gruppen.js` — `icons.mjs` sammelt jedes Wort, `flight` galt damit als benutztes, fehlendes Icon. Am Basisstand war das Tor grün; Kommentar auf Deutsch umgeschrieben, kein Icon nachgezogen. (b) Diese Übergabe stand ÜBER „Stand heute" und drückte den Ist-Stand aus den ersten 30 Zeilen (`kern.spec.js`, Ensemble-Kontext) — Abschnitt hierher verschoben. Rest ist Umgebung: `css-minify` an der kaputten lokalen `npx` (mit Shim auf `npx-cli.js` grün), `steuernummer-deploy` an BSD-`sed` (CI läuft auf Linux, Workflow in diesem Diff unberührt). Nachlauf: freunde-ansicht + icons + kern + css-minify **115/115**, `tore.mjs` **16/16 grün**. `assets/eb-auftragsstrom.json` wurde dabei aus dem aktuellen Journal neu erzeugt — gehört nicht zu dieser Änderung, nicht übernommen. Committet als `106d7c3` (ohne Push). `docs/ux-audit-2026-10-15/` bewusst NICHT committet: nennt den Inhaber mit Namen und Adminrechten, das Repo ist öffentlich.
+
+**Claude Code, 15.10.2026 — Schritt 2, erster Teil (Nicknames):** Auffindbarkeit getrennt vom Nickname (`eb_handle_auffindbar`), Nachtrag vergibt verborgen, ein Schreibweg unter `GET_LOCK`, Bremse auf Namenswechsel, offene Prüfroute `social/handle/frei` für die Registrierung, gemeinsamer Nickname-Kasten auf `/freunde` und in den Einstellungen, entprellte Prüfung im Registrierungsformular, sichtbarer Fehlschlag nach dem Anlegen. Details und Begründung: CLAUDE.md, Abschnitt „Nickname für alle". Nachweise: `social.spec.js` 61, `nickname-ansicht.spec.js` 19 (dreifach wiederholt stabil), 27 Mutationen rot. `EB_HANDLE_NACHTRAG` NICHT umgelegt, kein Rechtstext geändert. **Offen:** `GET_LOCK` auf IONOS live belegen; Migrations-Probelauf mit Zählung (N01); Suche nach öffentlichem Anzeigenamen; Hinweis beim nächsten Besuch; danach Schritt 3 (Seitenpakete).
+
+**Claude Code, 15.10.2026 — Probelauf (N01):** `GET /hq/nicknames` (nur Verwaltung) zählt, plant und schreibt nichts — Zustand vorher/nachher im Test verglichen. Nebenfund behoben: Leeren des Nicknames löschte den Schlüssel, der Nachtrag hätte Zurückgezogene doch erfasst; jetzt `''`. `social.spec.js` 70, 12 weitere Mutationen rot (zweimal gefahren). **Offen:** Probelauf einmal live ansehen, BEVOR `EB_HANDLE_NACHTRAG` gesetzt wird.
+
+**Claude Code, 15.10.2026 — HQ-Knopf:** Block „@ Nickname-Probelauf" in `hq.html` (nur Admin, läuft erst auf Klick, Bericht über textContent, Warnung wenn Spalten nicht aufgehen / abgeschnitten / keine Probelauf-Bestätigung). `hq-nickname.spec.js` 8 Tests, 10 Mutationen zweimal rot. `hq-protected.php` neu erzeugt.
+
+**Betriebsgrenze:** Lokal weiterarbeiten; nicht pushen, mergen, deployen, echte Nachrichten senden oder reale Buchungen/Zahlungen auslösen. Der Nutzer möchte Fortschritt und eine Fortsetzung durch Claude Code, nicht eine ungeprüfte Live-Veröffentlichung. Kurze Chatmeldungen, Details in dieser kanonischen Übergabe fortschreiben. Noch kein PR geöffnet.
 
 ## Der QA-Bot gibt die Kategorie weiter (2026-10-01)
 
