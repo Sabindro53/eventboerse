@@ -1,7 +1,7 @@
 {
   "version": 2,
   "hinweis": "Erzeugt von scripts/aktivitaeten.mjs. Nicht von Hand bearbeiten.",
-  "stand": "2026-10-23T03:40:15.512Z",
+  "stand": "2026-10-24T03:37:14.935Z",
   "gebiete": [
     {
       "stadt": "Köln",
@@ -71,31 +71,11 @@
     }
   ],
   "anzahl": {
-    "gesamt": 939,
-    "sport": 139,
+    "gesamt": 938,
+    "sport": 138,
     "orte": 800
   },
   "eintraege": [
-    {
-      "id": "openligadb:83212",
-      "art": "sport",
-      "titel": "VfB Stuttgart – Borussia Mönchengladbach",
-      "beginn": "2026-10-23T18:30:00.000Z",
-      "gebiet": "Stuttgart",
-      "ort": {
-        "name": "Stadion",
-        "stadt": "Stuttgart",
-        "lat": 48.7758,
-        "lon": 9.1829,
-        "ungefaehr": true
-      },
-      "quelle": {
-        "name": "OpenLigaDB",
-        "url": "https://www.openligadb.de/",
-        "lizenz": "frei (openligadb.de)"
-      },
-      "partner": false
-    },
     {
       "id": "openligadb:83217",
       "art": "sport",
