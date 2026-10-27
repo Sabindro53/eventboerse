@@ -1,7 +1,7 @@
 {
   "version": 2,
   "hinweis": "Erzeugt von scripts/aktivitaeten.mjs. Nicht von Hand bearbeiten.",
-  "stand": "2026-10-25T03:41:04.246Z",
+  "stand": "2026-10-27T03:41:15.549Z",
   "gebiete": [
     {
       "stadt": "Köln",
@@ -14903,23 +14903,23 @@
       "partner": false
     },
     {
-      "id": "osm:way/10053440",
+      "id": "osm:way/150797531",
       "art": "ort",
-      "titel": "Pinakothek der Moderne",
+      "titel": "Haus der Kunst",
       "kategorie": "Museum",
       "beginn": null,
       "gebiet": "München",
       "ort": {
-        "name": "Pinakothek der Moderne",
-        "stadt": "München",
-        "lat": 48.14716,
-        "lon": 11.57223
+        "name": "Haus der Kunst",
+        "stadt": "",
+        "lat": 48.14412,
+        "lon": 11.58596
       },
       "entfernungKm": 1.1,
-      "webseite": "https://www.pinakothek-der-moderne.de/",
+      "webseite": "https://www.hausderkunst.de/",
       "quelle": {
         "name": "OpenStreetMap",
-        "url": "https://www.openstreetmap.org/way/10053440",
+        "url": "https://www.openstreetmap.org/way/150797531",
         "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
       },
       "partner": false
@@ -14991,28 +14991,6 @@
       "partner": false
     },
     {
-      "id": "osm:node/11099726845",
-      "art": "ort",
-      "titel": "Museum Brandhorst",
-      "kategorie": "Museum",
-      "beginn": null,
-      "gebiet": "München",
-      "ort": {
-        "name": "Museum Brandhorst",
-        "stadt": "München",
-        "lat": 48.14812,
-        "lon": 11.57409
-      },
-      "entfernungKm": 1.2,
-      "webseite": "https://www.museum-brandhorst.de/",
-      "quelle": {
-        "name": "OpenStreetMap",
-        "url": "https://www.openstreetmap.org/node/11099726845",
-        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
-      },
-      "partner": false
-    },
-    {
       "id": "osm:node/11935589855",
       "art": "ort",
       "titel": "Die neue Sammlung",
@@ -15074,50 +15052,6 @@
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/639108906",
-        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
-      },
-      "partner": false
-    },
-    {
-      "id": "osm:node/654580309",
-      "art": "ort",
-      "titel": "Kunstbau",
-      "kategorie": "Museum",
-      "beginn": null,
-      "gebiet": "München",
-      "ort": {
-        "name": "Kunstbau",
-        "stadt": "",
-        "lat": 48.14577,
-        "lon": 11.56344
-      },
-      "entfernungKm": 1.3,
-      "webseite": "https://www.lenbachhaus.de/",
-      "quelle": {
-        "name": "OpenStreetMap",
-        "url": "https://www.openstreetmap.org/node/654580309",
-        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
-      },
-      "partner": false
-    },
-    {
-      "id": "osm:way/4647135",
-      "art": "ort",
-      "titel": "Alte Pinakothek",
-      "kategorie": "Museum",
-      "beginn": null,
-      "gebiet": "München",
-      "ort": {
-        "name": "Alte Pinakothek",
-        "stadt": "München",
-        "lat": 48.14829,
-        "lon": 11.56996
-      },
-      "entfernungKm": 1.3,
-      "webseite": "https://www.pinakothek.de/de/alte-pinakothek",
-      "quelle": {
-        "name": "OpenStreetMap",
-        "url": "https://www.openstreetmap.org/way/4647135",
         "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
       },
       "partner": false
@@ -15312,6 +15246,7 @@
         "lon": 11.56362
       },
       "entfernungKm": 1.5,
+      "webseite": "https://bspg.snsb.de/palaeontologisches-museum-muenchen/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/way/28026044",
@@ -15821,6 +15756,71 @@
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/370745201",
+        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
+      },
+      "partner": false
+    },
+    {
+      "id": "osm:node/315953391",
+      "art": "ort",
+      "titel": "Blutenburg-Theater",
+      "kategorie": "Theater",
+      "beginn": null,
+      "gebiet": "München",
+      "ort": {
+        "name": "Blutenburg-Theater",
+        "stadt": "",
+        "lat": 48.14941,
+        "lon": 11.54201
+      },
+      "entfernungKm": 2.8,
+      "webseite": "https://www.blutenburg-theater.de/willkommen.html",
+      "quelle": {
+        "name": "OpenStreetMap",
+        "url": "https://www.openstreetmap.org/node/315953391",
+        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
+      },
+      "partner": false
+    },
+    {
+      "id": "osm:node/338175108",
+      "art": "ort",
+      "titel": "ABC Kino",
+      "kategorie": "Kino",
+      "beginn": null,
+      "gebiet": "München",
+      "ort": {
+        "name": "ABC Kino",
+        "stadt": "München",
+        "lat": 48.16186,
+        "lon": 11.58547
+      },
+      "entfernungKm": 2.8,
+      "webseite": "https://leopold-abckinos.de/",
+      "quelle": {
+        "name": "OpenStreetMap",
+        "url": "https://www.openstreetmap.org/node/338175108",
+        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
+      },
+      "partner": false
+    },
+    {
+      "id": "osm:node/387455916",
+      "art": "ort",
+      "titel": "Heppel & Ettlich",
+      "kategorie": "Theater",
+      "beginn": null,
+      "gebiet": "München",
+      "ort": {
+        "name": "Heppel & Ettlich",
+        "stadt": "München",
+        "lat": 48.16122,
+        "lon": 11.5888
+      },
+      "entfernungKm": 2.8,
+      "quelle": {
+        "name": "OpenStreetMap",
+        "url": "https://www.openstreetmap.org/node/387455916",
         "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
       },
       "partner": false
