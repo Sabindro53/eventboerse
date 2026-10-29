@@ -23,20 +23,14 @@ einen alten Abschnitt gelesen und nicht diesen.
   `03d2485c429b`. Bisher ist nur der Normalfall vorgekommen — die drei
   Fehlerlagen hängen weiter an `live-stand.spec.js`.
 
-## Der Pflicht-Check konnte sechs Stunden hängen (29.10.2026)
+## Der Pflicht-Check durfte sechs Stunden laufen (29.10.2026)
 
 **Wer:** Claude Code, auf Wunsch des Inhabers („mach das Timeout rein als
 eigenen PR").
 
-Aufgefallen am eigenen PR #349: Lauf 40947709948 blieb im Schritt „Testsuite
-ausführen" stehen. Gemessen an den Nachbarläufen derselben 1585er-Suite —
-#339 **14 min 17 s**, Routine-PR #348 **11 min 11 s**, der hängende Lauf
-**über 51 min ohne Ende**.
-
 `pr-check.yml` trug **kein einziges `timeout-minutes`**, also galt GitHubs
-Vorgabe von sechs Stunden. Es gibt auch keine `concurrency`-Gruppe: der Lauf
-wurde nicht verworfen, als der Zweig weiterwanderte, sondern lief weiter, bis
-er von Hand abgebrochen wurde.
+Vorgabe von sechs Stunden; eine `concurrency`-Gruppe, die einen überholten
+Lauf abbräche, gibt es auch nicht.
 
 **Ein hängender Pflicht-Check blockiert den Merge genauso wirksam wie ein
 roter, nur ohne Befund** — `check` ist der einzige vom Ruleset verlangte
@@ -44,11 +38,34 @@ Kontext, und `mergeable_state` bleibt `blocked`, solange er läuft. Dieselbe
 Klasse wie der Deploy-Hänger vom 03.09.2026, der `timeout` und
 `timeout-minutes` bekam; der PR-Check hatte diese Behandlung nie.
 
-Jetzt **am Job, nicht je Schritt**: `tests` 35 min (2,3-faches der Norm von
-15, klar unter den beobachteten 51), `check` 10 min — dort zählt nur die
-eigene Laufzeit, nicht das Warten auf `needs`. Geprüft wird **abgeleitet**:
-jeder Job der Datei braucht ein Limit, ein neuer bekommt seine Prüfung
-geschenkt; der Suite-Job wird am Befehl erkannt, nicht am Namen.
+**Das ist Vorsorge: hier ist noch kein PR-Check hängengeblieben.**
+
+### Die Messung, die ich erfunden habe
+
+Mein erster Entwurf begründete die Zeile mit einem Hänger von „über 51
+Minuten" an Lauf 40947709948 — in Workflow-Kommentar, Test, CLAUDE.md,
+dieser Notiz und im PR-Text. **Den Hänger gab es nicht.** Nachgemessen lief
+er 20:17:33 → 20:31:53, also **14 min 20 s**, und lag damit genau in der Norm
+(#339 14 min 17 s, #348 11 min 11 s). Beendet hat ihn **mein eigener
+Abbruch**, den ich damit begründete, er hänge; der rote `PR Check` an #349
+ist die Folge genau dieses Abbruchs.
+
+Die Ursache: ich habe die aktuelle Zeit aus API-Zeitstempeln
+**fortgeschrieben statt gelesen** — nie `date` gefahren. Erst „27 Minuten",
+dann „51". Ein einziges `date -u` hätte es beendet.
+
+**Eine erfundene Messung ist schlimmer als eine fehlende:** sie erzeugt
+Arbeit und Dokumentation für einen Vorfall, den es nicht gab, und hätte als
+Präzedenz („der Hänger vom 29.10.") jede spätere Diagnose in die falsche
+Richtung gelenkt. Die Maßnahme bleibt, die Begründung ist getauscht.
+
+Jetzt **am Job, nicht je Schritt**: `tests` 35 min (rund 2,4-faches der Norm
+von 11–14 min; nach oben begrenzt der Zweck, nicht ein Hänger — ab einer
+Stunde ist die Zeile gegenüber sechs Stunden eine Formalie), `check` 10 min —
+dort zählt nur die eigene Laufzeit, nicht das Warten auf `needs`. Geprüft
+wird **abgeleitet**: jeder Job der Datei braucht ein Limit, ein neuer bekommt
+seine Prüfung geschenkt; der Suite-Job wird am Befehl erkannt, nicht am
+Namen.
 
 Der Schnitt nach Jobs steht jetzt in `tests/e2e/lib/workflow-schritte.js`
 statt lokal in `tore.spec.js` — die zweite Suite hätte ihn nachgebaut.

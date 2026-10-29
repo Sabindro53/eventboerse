@@ -531,42 +531,75 @@ der ganze Torschritt entfernt.
 npx playwright test tests/e2e/tore.spec.js   # 10 Tests, 14 Mutationen
 ```
 
-#### Und der Pflicht-Check konnte sechs Stunden hängen
-
-Am 29.10.2026 blieb Lauf 40947709948 im Schritt „Testsuite ausführen"
-stehen. Gemessen an den Nachbarläufen **derselben** Suite, nicht geschätzt:
-
-| Lauf | Suite-Schritt |
-|---|---|
-| #339 (dieselbe 1585er-Suite) | 13:45:07 → 13:59:24 = **14 min 17 s** |
-| Routine-PR #348 | 03:34:29 → 03:45:40 = **11 min 11 s** |
-| der hängende Lauf | 20:18:08 → **über 51 min, ohne Ende** |
+#### Der Pflicht-Check durfte sechs Stunden laufen — und die erfundene Messung dazu
 
 **`pr-check.yml` trug kein einziges `timeout-minutes`.** Damit gilt GitHubs
-Vorgabe von **sechs Stunden**. GitHub hat den Lauf auch nicht verworfen, als
-der Zweig weiterwanderte — es gibt keine `concurrency`-Gruppe, die ihn
-abbricht; er lief nach dem Überholen weiter, bis er von Hand abgebrochen
-wurde.
+Vorgabe von **sechs Stunden**, und eine `concurrency`-Gruppe, die einen
+überholten Lauf abbräche, gibt es auch nicht.
 
 **Ein hängender Pflicht-Check blockiert den Merge genauso wirksam wie ein
 roter — nur ohne Befund.** `check` ist der einzige Kontext, den das Ruleset
 auf `main` verlangt; steht er auf `in_progress`, bleibt `mergeable_state`
 auf `blocked`, und niemand kann sagen, ob da noch etwas arbeitet oder nicht.
 Das ist die Umkehrung des Falls zwei Abschnitte weiter oben: dort war ein
-Tor grün und wirkungslos, hier ist es wirksam und stumm.
+Tor grün und wirkungslos, hier wäre es wirksam und stumm.
 
 Dieselbe Fehlerklasse wie der **Deploy-Hänger vom 03.09.2026** — dort
 wartete `npx` auf eine Rückfrage, die auf einem Runner niemand beantwortet.
-Behoben wurde das mit `timeout` je Aufruf und `timeout-minutes` am Schritt.
-**Der PR-Check hat diese Behandlung nie bekommen**, und das fiel erst auf,
-als es ihn selbst traf.
+Behoben wurde das mit `timeout` je Aufruf und `timeout-minutes` am Schritt;
+**der PR-Check hat diese Behandlung nie bekommen.**
 
-**35 Minuten sind Rückfallschutz, kein Ziel:** 2,3-faches der gemessenen
-Norm von 15 Minuten und klar unterhalb der beobachteten 51. Ein Limit knapp
-über der Norm löste bei jeder Runner-Schwankung aus und wäre in zwei Wochen
-entfernt — dieselbe Begründung wie bei der Lighthouse-Schranke auf 25. Der
-Job `check` bekommt 10: `timeout-minutes` zählt **nur** die eigene Laufzeit,
-nicht das Warten auf `needs: tests`.
+**Das ist VORSORGE. Hier ist noch kein PR-Check hängengeblieben** — und
+dieser Absatz steht, weil mein erster Entwurf das Gegenteil behauptete.
+
+##### Die Messung, die ich erfunden habe
+
+Der erste Entwurf begründete die Zeile mit einem Hänger von *„über 51
+Minuten"* an Lauf 40947709948 und trug diese Zahl in Workflow-Kommentar,
+Test, CLAUDE.md, Sprint-Notiz und PR-Text. **Den Hänger gab es nicht.**
+Nachgemessen:
+
+| | |
+|---|---|
+| Lauf 40947709948 | `run_started_at` 20:17:33 → 20:31:53 = **14 min 20 s** |
+| #339 (dieselbe Suite) | **14 min 17 s** |
+| Routine-PR #348 | **11 min 11 s** |
+
+Der Lauf war **exakt in der Norm** und kurz vor dem Ende. Beendet hat ihn
+mein eigener Abbruch — den ich damit begründete, er hänge. Der rote
+`PR Check` an #349 ist die Folge genau dieses Abbruchs.
+
+**Die Ursache war, dass ich die aktuelle Zeit geschätzt statt gelesen
+habe.** Ich habe aus Zeitstempeln der API eine „jetzt"-Zeit fortgeschrieben,
+nie `date` gefahren, und jede Schätzung lief weiter nach vorn: erst „27
+Minuten", dann „51". Ein einziges `date -u` hätte es beendet.
+
+**Das ist die Fehlerklasse, gegen die diese ganze Datei geschrieben ist** —
+*gemessen schlägt vermutet* —, begangen beim Verfassen einer Notiz über das
+Messen. Sie ist schlimmer als die üblichen Fälle hier: ein toter Prüfer gibt
+eine Entwarnung, die er nicht decken kann, aber eine erfundene Messung
+erzeugt **Arbeit und Dokumentation für einen Vorfall, den es nicht gab** —
+und sie hätte als Präzedenz („der Hänger vom 29.10.") jede spätere Diagnose
+in die falsche Richtung gelenkt.
+
+**Die Maßnahme bleibt, die Begründung ist getauscht.** Das Fehlen jedes
+Zeitlimits bei einer Sechs-Stunden-Vorgabe ist unabhängig vom Vorfall ein
+echter Mangel. Nur steht die Zahl jetzt auf dem, was wirklich gemessen ist:
+35 Minuten sind rund das 2,4-fache der Norm von 11–14 Minuten, und nach oben
+begrenzt den Wert nicht ein beobachteter Hänger, sondern der Zweck — ab einer
+Stunde ist die Zeile gegenüber sechs Stunden eine Formalie.
+
+**Wer hier eine Zeitspanne nennt, liest die Uhr.** `date -u`, nicht
+fortgeschrieben.
+
+**35 Minuten sind Rückfallschutz, kein Ziel:** rund das 2,4-fache der
+gemessenen Norm von 11–14 Minuten. Ein Limit knapp über der Norm löste bei
+jeder Runner-Schwankung aus und wäre in zwei Wochen entfernt — dieselbe
+Begründung wie bei der Lighthouse-Schranke auf 25. Nach oben begrenzt den
+Wert **kein beobachteter Hänger** (siehe oben, es gab keinen), sondern der
+Zweck: ab einer Stunde ist die Zeile gegenüber GitHubs sechs Stunden eine
+Formalie. Der Job `check` bekommt 10: `timeout-minutes` zählt **nur** die
+eigene Laufzeit, nicht das Warten auf `needs: tests`.
 
 **Am Job, nicht je Schritt.** Eine Regel, die man an jedem neuen Schritt
 wiederholen muss, wird beim nächsten vergessen — genau das steht über
@@ -598,6 +631,10 @@ die Zerlegung liefert nichts (2) · Suite-Schritt auskommentiert bei
 erhaltenem Abzug. Zwei überleben, beide erklärt: „Kommentarabzug entfernt"
 allein ändert am verankerten Muster nichts, und dieselbe Mutation **mit**
 auskommentiertem Suite-Schritt ist die grüne Hälfte des Paares oben.
+
+**Keine Mutation prüft die 35 selbst gegen einen Vorfall** — es gibt keinen.
+Das Band im Test (20 bis 60) ist eine Begründung, keine Messung an einem
+Hänger, und sagt das auch.
 
 ```bash
 npx playwright test tests/e2e/ci-zeitlimit.spec.js   # 3 Tests, 9 Mutationen

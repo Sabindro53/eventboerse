@@ -117,19 +117,17 @@ jobs:
 
     # ── WARUM HIER EIN ZEITLIMIT STEHT ─────────────────────────────────
     #
-    # Am 29.10.2026 blieb der Lauf 40947709948 im Schritt „Testsuite
-    # ausfuehren" haengen. Gemessen, nicht geschaetzt:
+    # Diese Zeile ist VORSORGE, kein Nachtrag zu einem Vorfall. Es ist in
+    # diesem Repository noch kein PR-Check haengengeblieben.
     #
-    #   #339 (dieselbe 1585er-Suite)  13:45:07 -> 13:59:24  = 14 min 17 s
-    #   Routine-PR #348               03:34:29 -> 03:45:40  = 11 min 11 s
-    #   der haengende Lauf            20:18:08 -> ueber 51 min, ohne Ende
-    #
-    # Ohne diese Zeile gilt GitHubs Vorgabe von SECHS STUNDEN. GitHub hat
-    # den Lauf auch nicht verworfen, als der Zweig weiterwanderte -- es gibt
-    # keine `concurrency`-Gruppe, die ihn abbricht. Ein Pflicht-Check, der
-    # sechs Stunden „in_progress" steht, blockiert den Merge genauso
-    # wirksam wie ein roter, nur ohne Befund: `mergeable_state` bleibt
-    # `blocked`, und niemand kann sagen, ob da noch etwas arbeitet.
+    # Der Grund ist GitHubs Vorgabe: ohne `timeout-minutes` darf ein Job
+    # SECHS STUNDEN laufen. `check` ist der einzige Kontext, den das
+    # Ruleset auf `main` verlangt -- solange er auf `in_progress` steht,
+    # bleibt `mergeable_state` auf `blocked`. Ein haengender Pflicht-Check
+    # blockiert den Merge also genauso wirksam wie ein roter, nur ohne
+    # Befund: niemand kann unterscheiden, ob da noch etwas arbeitet oder
+    # nichts mehr. Eine `concurrency`-Gruppe, die einen ueberholten Lauf
+    # abbraeche, gibt es ebenfalls nicht.
     #
     # Dieselbe Fehlerklasse wie der Deploy-Haenger vom 03.09.2026 -- dort
     # wartete `npx` auf eine Rueckfrage, die auf einem Runner niemand
@@ -137,11 +135,17 @@ jobs:
     # `timeout-minutes` am Schritt; der PR-Check hat diese Behandlung nie
     # bekommen. Ein Haenger endet jetzt als Fehler, nicht als Dauerlauf.
     #
-    # 35 Minuten sind Rueckfallschutz, KEIN Ziel: 2,3-fache der gemessenen
-    # Norm von 15 Minuten, und klar unterhalb der beobachteten 51. Ein
-    # Limit knapp ueber der Norm loeste bei jeder Runner-Schwankung aus und
-    # waere in zwei Wochen wieder entfernt -- dieselbe Begruendung wie bei
-    # der Lighthouse-Schranke auf 25.
+    # 35 Minuten sind Rueckfallschutz, KEIN Ziel. Gemessen an echten
+    # Laeufen derselben Suite:
+    #
+    #   #339 (1585 Tests)   13:45:07 -> 13:59:24  = 14 min 17 s
+    #   Routine-PR #348     03:34:29 -> 03:45:40  = 11 min 11 s
+    #
+    # Das ist rund das 2,4-fache der Norm. Ein Limit knapp darueber loeste
+    # bei jeder Runner-Schwankung aus und waere in zwei Wochen wieder
+    # entfernt -- dieselbe Begruendung wie bei der Lighthouse-Schranke auf
+    # 25. Nach oben muss es deutlich unter GitHubs sechs Stunden bleiben,
+    # sonst ist die Zeile eine Formalie und kein Limit.
     #
     # Am JOB, nicht je Schritt: eine Regel, die man an jedem neuen Schritt
     # wiederholen muss, wird beim naechsten vergessen. Genau das steht

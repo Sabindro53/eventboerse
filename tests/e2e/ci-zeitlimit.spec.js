@@ -2,24 +2,26 @@
 //
 // ── WARUM ES DIESE SUITE GIBT ──────────────────────────────────────────
 //
-// Am 29.10.2026 blieb der Lauf 40947709948 im Schritt „Testsuite
-// ausfuehren" haengen. Gemessen an den Nachbarlaeufen derselben Suite:
+// VORSORGE, kein Nachtrag zu einem Vorfall: in diesem Repository ist noch
+// kein PR-Check haengengeblieben. Das gehoert hierher, weil der erste
+// Entwurf dieser Datei einen Haenger von „ueber 51 Minuten" behauptete.
+// Den gab es nicht — die Zahl entstand, weil ich die aktuelle Zeit
+// GESCHAETZT statt gelesen habe. Nachgemessen lief der betroffene Lauf
+// 40947709948 genau 14 min 20 s (20:17:33 -> 20:31:53) und war damit in
+// der Norm; abgebrochen hat ihn mein eigener Eingriff. Eine Begruendung
+// aus einer erfundenen Messung ist schlimmer als keine.
 //
-//   #339 (dieselbe 1585er-Suite)  13:45:07 -> 13:59:24  = 14 min 17 s
-//   Routine-PR #348               03:34:29 -> 03:45:40  = 11 min 11 s
-//   der haengende Lauf            20:18:08 -> ueber 51 min, ohne Ende
+// Der echte Grund ist GitHubs Vorgabe: ohne `timeout-minutes` darf ein Job
+// SECHS STUNDEN laufen, und `pr-check.yml` trug keines. Der Job `check`
+// ist der EINZIGE Kontext, den das Ruleset auf `main` verlangt — steht er
+// auf `in_progress`, bleibt `mergeable_state` auf `blocked`. Ein
+// haengender Pflicht-Check blockiert den Merge also genauso wirksam wie
+// ein roter, nur ohne Befund. Eine `concurrency`-Gruppe, die einen
+// ueberholten Lauf abbraeche, gibt es ebenfalls nicht.
 //
-// `pr-check.yml` trug kein einziges `timeout-minutes`. Damit gilt GitHubs
-// Vorgabe von SECHS STUNDEN, und GitHub hat den Lauf auch nicht verworfen,
-// als der Zweig weiterwanderte — es gibt keine `concurrency`-Gruppe.
-//
-// Der Job `check` ist der EINZIGE Kontext, den das Ruleset auf `main`
-// verlangt. Steht er sechs Stunden auf `in_progress`, bleibt
-// `mergeable_state` auf `blocked` — er blockiert den Merge also genauso
-// wirksam wie ein roter Check, nur ohne Befund. Dieselbe Fehlerklasse wie
-// der Deploy-Haenger vom 03.09.2026, der mit `timeout` und
-// `timeout-minutes` behoben wurde; der PR-Check hat diese Behandlung nie
-// bekommen.
+// Dieselbe Fehlerklasse wie der Deploy-Haenger vom 03.09.2026, der mit
+// `timeout` und `timeout-minutes` behoben wurde; der PR-Check hat diese
+// Behandlung nie bekommen.
 //
 // ── WARUM NACH ABZUG DER KOMMENTARE GEMESSEN WIRD ──────────────────────
 //
@@ -51,11 +53,14 @@ function jobs() {
 // neuen Schritt nicht, und genau darum geht es hier.
 const AM_JOB = /^ {4}timeout-minutes:[ \t]*(\d+)[ \t]*$/m;
 
-// Gemessene Norm des Suite-Jobs: rund 15 Minuten. Beobachteter Haenger:
-// ueber 51. Ein Limit unter 20 loeste bei Runner-Schwankung aus und waere
-// in zwei Wochen entfernt; eines ab 51 haette den Haenger nicht gefangen.
+// Gemessene Norm des Suite-Jobs: 11 bis 14 Minuten (#348 11 min 11 s,
+// #339 14 min 17 s). Ein Limit unter 20 loeste bei Runner-Schwankung aus
+// und waere in zwei Wochen entfernt. Nach oben begrenzt NICHT ein
+// beobachteter Haenger — es gab keinen —, sondern der Zweck: ab einer
+// Stunde ist die Zeile gegenueber GitHubs sechs Stunden eine Formalie und
+// kein Limit mehr.
 const NORM_MIN = 20;
-const NORM_MAX = 50;
+const NORM_MAX = 60;
 
 test.describe('Der PR-Check kann nicht sechs Stunden haengen', () => {
   test('die Zerlegung findet ueberhaupt Jobs', () => {
@@ -79,7 +84,7 @@ test.describe('Der PR-Check kann nicht sechs Stunden haengen', () => {
       expect(m, `der Job \`${j.id}\` in pr-check.yml hat kein `
         + '`timeout-minutes` auf Job-Ebene. Ohne das gilt GitHubs Vorgabe von '
         + 'sechs Stunden, und ein haengender Pflicht-Check blockiert den Merge '
-        + 'ohne Befund (Lauf 40947709948 am 29.10.2026, ueber 51 min).').not.toBeNull();
+        + 'ohne Befund: `mergeable_state` bleibt `blocked`.').not.toBeNull();
       expect(Number(m[1]),
         `das Zeitlimit des Jobs \`${j.id}\` ist keine sinnvolle Zahl`)
         .toBeGreaterThan(0);
@@ -102,11 +107,11 @@ test.describe('Der PR-Check kann nicht sechs Stunden haengen', () => {
     const min = Number(m[1]);
     expect(min, `das Limit des Suite-Jobs liegt bei ${min} min. Unter `
       + `${NORM_MIN} min loest es bei Runner-Schwankung aus (gemessene Norm: `
-      + '15 min) — ein Tor, das grundlos rot wird, ist in zwei Wochen '
+      + '11 bis 14 min) — ein Tor, das grundlos rot wird, ist in zwei Wochen '
       + 'abgeschaltet.').toBeGreaterThanOrEqual(NORM_MIN);
     expect(min, `das Limit des Suite-Jobs liegt bei ${min} min. Ab `
-      + `${NORM_MAX + 1} min haette es den Haenger vom 29.10.2026 (ueber 51 min) `
-      + 'nicht gefangen — dann ist die Zeile Zierrat.')
+      + `${NORM_MAX + 1} min ist es gegenueber GitHubs Vorgabe von sechs `
+      + 'Stunden eine Formalie und kein Limit mehr.')
       .toBeLessThanOrEqual(NORM_MAX);
   });
 });
