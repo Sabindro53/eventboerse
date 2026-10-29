@@ -47,10 +47,59 @@ operative Sprache" wackelt (1 von 3 Wiederholungen rot, `#nn-orb` „not
 stable" unter Last) und ist gegenüber `main` unverändert. Maßgeblich ist die
 Linux-CI an #339.
 
+**Erledigt 29.10., 14:22 UTC:** #339 ist auf `main` (`c055d28`), der Deploy
+lief grün, und **Schritt 12 hat wirklich verglichen**: erwartet und gemessen
+`94d2228fa573`. Der Fingerabdruck der lokalen `app-shell.html` ist derselbe —
+die ausgelieferte Hülle ist also byte-gleich mit diesem Baum, und damit steht
+die Autofill-Reparatur aus #311 nachweislich live. Zweiter bewährter
+Normalfall des Live-Stand-Tors nach #1108. `kontext.mjs --check` gegen den
+gemergten Stand grün (33 Module, 139 Routen, 107 Suiten, **1585 Tests**, 57
+Suitenzahlen). Gezielter Nachlauf `autofill.spec.js` **10/10** — der
+Cherry-Pick hat die Reparatur durch eine 78-Dateien-Zusammenführung heil
+gebracht.
+
 **Offen:** 113 Branches ohne eigenen Inhalt (80 `routine/*`, Rest auf `main`
 enthalten) sind gelistet, aber noch nicht gelöscht — die Massenlöschung
-macht der Inhaber selbst. #339 vor dem Entwurfsstatus auf `main` bringen und
-die volle Suite fahren.
+macht der Inhaber selbst.
+
+## Die drei Claude-Routinen laufen nicht mehr (29.10.2026)
+
+**Wer: Inhaber** — von hier aus nicht behebbar, und genau deshalb steht es hier.
+
+Beim Abschluss der #311-Überwachung gemessen. Alle drei geplanten Aufgaben
+dieses Kontos stehen auf `enabled: true`, mit gültiger Zeitangabe und einem
+`next_run_at` in der Zukunft — und **jede** hat heute mit
+`ACCESS_DENIED` abgebrochen:
+
+| Aufgabe | Zeit (UTC) | letzter Lauf |
+|---|---|---|
+| Eventbörse · Täglicher Betriebslauf | 05:07 | **FAILED**, nach 8 s |
+| Eventbörse — Täglicher Brain-Ausbau | 04:06 | **FAILED**, nach 8 s |
+| Tägliches Code Review | 11:12 | **FAILED**, nach 11 s |
+
+Acht Sekunden bis zum Abbruch heißt: die Sitzung kam nicht einmal zustande.
+Es ist kein Fehler *in* der Arbeit, sondern der Zugang zur Arbeit.
+
+**Das ist die Signatur-Fehlerklasse dieses Projekts, ein Stockwerk über dem
+Code.** Dieselbe Mechanik wie der tote Gitleaks-Scan und die vier
+Phantom-Workflows: die Oberfläche zeigt `aktiv`, einen Zeitplan und ein
+nächstes Datum — und es arbeitet nichts. Ein grüner Haken daneben gibt es
+hier nicht einmal; es gibt gar keinen Haken, den jemand ansieht.
+
+**Nicht betroffen ist die GitHub-Seite.** `tagesroutine.yml` läuft weiter:
+#346, #347 und #348 sind an den drei Tagen 27.–29.10. erzeugt, gemergt und
+grün deployt. Was ausfällt, ist die **Claude-Routine daneben** — also
+Aufgabe 1 „den Tagesstand einholen und PRÜFEN", die Workflow-Gesundheit und
+das tägliche Abarbeiten eines Postens dieser Tabelle. Der Unterschied ist
+wichtig: der Stand kommt an, aber **niemand prüft ihn mehr**, und der
+Wächter über den roten Workflows ist weg.
+
+**Wie lange schon, ist von hier aus NICHT feststellbar** — die Schnittstelle
+gibt nur den letzten Lauf heraus, nicht die Historie. Dass alle drei am
+selben Tag mit demselben Grund abbrechen, spricht für eine gemeinsame
+Ursache (Repository- oder Umgebungsfreigabe der Routine-Sitzungen), nicht für
+drei Zufälle. Eine Zahl zu nennen wäre geraten, und geraten ist hier schon
+zweimal teuer gewesen.
 
 ## Gemeinsame Plattformbasis (21.10.2026)
 
