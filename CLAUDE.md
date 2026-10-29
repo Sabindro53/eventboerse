@@ -531,6 +531,78 @@ der ganze Torschritt entfernt.
 npx playwright test tests/e2e/tore.spec.js   # 10 Tests, 14 Mutationen
 ```
 
+#### Und der Pflicht-Check konnte sechs Stunden hängen
+
+Am 29.10.2026 blieb Lauf 40947709948 im Schritt „Testsuite ausführen"
+stehen. Gemessen an den Nachbarläufen **derselben** Suite, nicht geschätzt:
+
+| Lauf | Suite-Schritt |
+|---|---|
+| #339 (dieselbe 1585er-Suite) | 13:45:07 → 13:59:24 = **14 min 17 s** |
+| Routine-PR #348 | 03:34:29 → 03:45:40 = **11 min 11 s** |
+| der hängende Lauf | 20:18:08 → **über 51 min, ohne Ende** |
+
+**`pr-check.yml` trug kein einziges `timeout-minutes`.** Damit gilt GitHubs
+Vorgabe von **sechs Stunden**. GitHub hat den Lauf auch nicht verworfen, als
+der Zweig weiterwanderte — es gibt keine `concurrency`-Gruppe, die ihn
+abbricht; er lief nach dem Überholen weiter, bis er von Hand abgebrochen
+wurde.
+
+**Ein hängender Pflicht-Check blockiert den Merge genauso wirksam wie ein
+roter — nur ohne Befund.** `check` ist der einzige Kontext, den das Ruleset
+auf `main` verlangt; steht er auf `in_progress`, bleibt `mergeable_state`
+auf `blocked`, und niemand kann sagen, ob da noch etwas arbeitet oder nicht.
+Das ist die Umkehrung des Falls zwei Abschnitte weiter oben: dort war ein
+Tor grün und wirkungslos, hier ist es wirksam und stumm.
+
+Dieselbe Fehlerklasse wie der **Deploy-Hänger vom 03.09.2026** — dort
+wartete `npx` auf eine Rückfrage, die auf einem Runner niemand beantwortet.
+Behoben wurde das mit `timeout` je Aufruf und `timeout-minutes` am Schritt.
+**Der PR-Check hat diese Behandlung nie bekommen**, und das fiel erst auf,
+als es ihn selbst traf.
+
+**35 Minuten sind Rückfallschutz, kein Ziel:** 2,3-faches der gemessenen
+Norm von 15 Minuten und klar unterhalb der beobachteten 51. Ein Limit knapp
+über der Norm löste bei jeder Runner-Schwankung aus und wäre in zwei Wochen
+entfernt — dieselbe Begründung wie bei der Lighthouse-Schranke auf 25. Der
+Job `check` bekommt 10: `timeout-minutes` zählt **nur** die eigene Laufzeit,
+nicht das Warten auf `needs: tests`.
+
+**Am Job, nicht je Schritt.** Eine Regel, die man an jedem neuen Schritt
+wiederholen muss, wird beim nächsten vergessen — genau das steht über
+`defaults: run: shell: bash` schon einmal, und die Mutation „Limit nur je
+Schritt" macht die Suite rot.
+
+**Geprüft wird abgeleitet, nicht aufgezählt:** *jeder* Job der Datei braucht
+ein Limit, ein neuer bekommt seine Prüfung geschenkt. Welcher Job die Suite
+fährt, entscheidet `npx playwright test` — nicht der Jobname, denn an einer
+Umbenennung hing schon einmal die ganze Lücke.
+
+**Der Kommentarabzug trägt hier nur eine der beiden Regeln, und das steht
+so im Test.** Für das Limit selbst hat er kein Subjekt: `^ {4}timeout-minutes:`
+ist verankert, eine Kommentarzeile beginnt nach vier Leerzeichen mit `#` und
+kann nie treffen. Für die **Suche nach dem Suite-Job** trägt er — belegt als
+Paar: Suite-Schritt auskommentiert mit Abzug → **rot**, derselbe Zustand ohne
+Abzug → **grün**. Ohne ihn gälte ein auskommentiertes `npx playwright test`
+weiter als Suite.
+
+Der Schnitt nach Jobs steht seit diesem Tag in
+`tests/e2e/lib/workflow-schritte.js` statt lokal in `tore.spec.js` — die
+zweite Suite hätte ihn sonst nachgebaut, denselben Weg sind die
+Schritt-Werkzeuge schon gegangen.
+
+Neun Mutationen, sieben machen die Suite rot: Limit des Suite-Jobs entfernt
+(**2 rot**) · Limit des `check`-Jobs entfernt · Limit nur je Schritt (2) ·
+Limit zu knapp (5 min) · Limit zu weit (360 min) · Gegenprobe entfernt und
+die Zerlegung liefert nichts (2) · Suite-Schritt auskommentiert bei
+erhaltenem Abzug. Zwei überleben, beide erklärt: „Kommentarabzug entfernt"
+allein ändert am verankerten Muster nichts, und dieselbe Mutation **mit**
+auskommentiertem Suite-Schritt ist die grüne Hälfte des Paares oben.
+
+```bash
+npx playwright test tests/e2e/ci-zeitlimit.spec.js   # 3 Tests, 9 Mutationen
+```
+
 ### Der Ausstieg aus `unsafe-inline`
 
 Die CSP trug `script-src 'unsafe-inline'` — damit ist sie als XSS-Schutz
@@ -6336,7 +6408,7 @@ npm run test:smoke      # nur Routen-Smoke-Tests
 npm run test:css        # CSS-Minify-Regression (Verlaufsschrift)
 ```
 
-1585 Tests in 107 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
+1588 Tests in 108 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
 Sätze), Gebühren (centgenau, JS↔PHP-Parität), Wissensbasis (Antworten +
 Leckage-Schutz), Zufluss (Quarantäne-Tor + Demo-Feed-Ehrlichkeit),
 Verbindungen (HQ-Zugang + Connector-Katalog), Auftragsstrom (Herkunft +

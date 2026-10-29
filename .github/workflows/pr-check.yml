@@ -13,6 +13,10 @@ jobs:
     # Exact context required by the active main-protection ruleset.
     name: PR Check / PR-Validierung (pull_request)
     runs-on: ubuntu-latest
+    # Eigene Arbeit: ein PHP-Syntaxcheck und zwei Kommentare, neun Sekunden.
+    # `timeout-minutes` zaehlt NUR die eigene Laufzeit, nicht das Warten auf
+    # `needs: tests` -- die Zehn sind deshalb kein Deckel auf die Suite.
+    timeout-minutes: 10
 
     # ── WARUM DIESER JOB AUF `tests` WARTET ────────────────────────────
     #
@@ -110,6 +114,40 @@ jobs:
   tests:
     name: E2E-Testsuite (Playwright)
     runs-on: ubuntu-latest
+
+    # ── WARUM HIER EIN ZEITLIMIT STEHT ─────────────────────────────────
+    #
+    # Am 29.10.2026 blieb der Lauf 40947709948 im Schritt „Testsuite
+    # ausfuehren" haengen. Gemessen, nicht geschaetzt:
+    #
+    #   #339 (dieselbe 1585er-Suite)  13:45:07 -> 13:59:24  = 14 min 17 s
+    #   Routine-PR #348               03:34:29 -> 03:45:40  = 11 min 11 s
+    #   der haengende Lauf            20:18:08 -> ueber 51 min, ohne Ende
+    #
+    # Ohne diese Zeile gilt GitHubs Vorgabe von SECHS STUNDEN. GitHub hat
+    # den Lauf auch nicht verworfen, als der Zweig weiterwanderte -- es gibt
+    # keine `concurrency`-Gruppe, die ihn abbricht. Ein Pflicht-Check, der
+    # sechs Stunden „in_progress" steht, blockiert den Merge genauso
+    # wirksam wie ein roter, nur ohne Befund: `mergeable_state` bleibt
+    # `blocked`, und niemand kann sagen, ob da noch etwas arbeitet.
+    #
+    # Dieselbe Fehlerklasse wie der Deploy-Haenger vom 03.09.2026 -- dort
+    # wartete `npx` auf eine Rueckfrage, die auf einem Runner niemand
+    # beantwortet. Behoben wurde das mit `timeout` je Aufruf und
+    # `timeout-minutes` am Schritt; der PR-Check hat diese Behandlung nie
+    # bekommen. Ein Haenger endet jetzt als Fehler, nicht als Dauerlauf.
+    #
+    # 35 Minuten sind Rueckfallschutz, KEIN Ziel: 2,3-fache der gemessenen
+    # Norm von 15 Minuten, und klar unterhalb der beobachteten 51. Ein
+    # Limit knapp ueber der Norm loeste bei jeder Runner-Schwankung aus und
+    # waere in zwei Wochen wieder entfernt -- dieselbe Begruendung wie bei
+    # der Lighthouse-Schranke auf 25.
+    #
+    # Am JOB, nicht je Schritt: eine Regel, die man an jedem neuen Schritt
+    # wiederholen muss, wird beim naechsten vergessen. Genau das steht
+    # zwei Absaetze weiter unten schon einmal, fuer `defaults`.
+    timeout-minutes: 35
+
     # EIN TOR, DAS IN `tee` PIPET, BLOCKIERT OHNE DIESE ZEILE NICHT.
     #
     # Ohne `shell:` startet GitHub `bash -e {0}` -- OHNE `pipefail`. Der

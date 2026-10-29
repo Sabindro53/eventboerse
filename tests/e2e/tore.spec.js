@@ -21,6 +21,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { spawnSync } = require('node:child_process');
 const { ohneJsKommentare } = require('./lib/js-code');
+const { workflowJobs } = require('./lib/workflow-schritte');
 
 const WURZEL = path.join(__dirname, '..', '..');
 const WORKFLOW = path.join(WURZEL, '.github', 'workflows', 'pr-check.yml');
@@ -185,22 +186,13 @@ test.describe('Tor-Läufer: was CI fährt, fährt auch lokal', () => {
 /**
  * Zerlegt `pr-check.yml` in seine Jobs.
  *
- * Geschnitten wird ab `jobs:`, nicht über die ganze Datei: `on:` trägt
- * einen Schlüssel `pull_request`, und der sieht auf zwei Ebenen Einrückung
- * aus wie ein Job. Genau daran hat ein erster Entwurf einen Job erfunden,
- * der keiner ist.
+ * Der Schnitt selbst steht seit dem 29.10.2026 in
+ * `lib/workflow-schritte.js` — `ci-zeitlimit.spec.js` braucht dieselbe
+ * Zerlegung, und zwei Fassungen davon wären genau die Drift, gegen die
+ * die geteilten Griffe dieses Projekts gebaut sind.
  */
 function jobBloecke() {
-  const text = workflowText();
-  const ab = text.indexOf('\njobs:');
-  if (ab < 0) return [];
-  const rumpf = text.slice(ab);
-  const kopf = [...rumpf.matchAll(/^ {2}([A-Za-z0-9_-]+):[ \t]*$/gm)];
-  return kopf.map((m, i) => ({
-    id: m[1],
-    block: rumpf.slice(m.index + m[0].length,
-      i + 1 < kopf.length ? kopf[i + 1].index : rumpf.length),
-  }));
+  return workflowJobs(WORKFLOW);
 }
 
 /** Die `run: |`-Blöcke eines Jobs, Einrückung abgezogen. */

@@ -63,4 +63,33 @@ function fahreWieGithub(skript, cwd, env = {}) {
 /** Ausdrücke, die einen Eingabewert in den Shell-Quelltext kopieren würden. */
 const EINGABE_IM_SKRIPT = /\$\{\{\s*(github\.event\.inputs|inputs|steps\.[\w-]+\.outputs)\./;
 
-module.exports = { workflowSchritte, laufBlock, fahreWieGithub, EINGABE_IM_SKRIPT };
+/**
+ * Zerlegt eine Workflow-Datei in ihre Jobs: `[{ id, block }]`.
+ *
+ * Stand bis zum 29.10.2026 als lokale Fassung in `tore.spec.js`. Als
+ * `ci-zeitlimit.spec.js` dieselbe Zerlegung brauchte, ist sie hierher
+ * gewandert statt ein zweites Mal entstanden — denselben Weg sind die
+ * Schnittwerkzeuge oben schon gegangen, und der JS-Kommentar-Entferner
+ * zweimal nicht.
+ *
+ * Geschnitten wird ab `jobs:`, nicht über die ganze Datei: `on:` trägt
+ * einen Schlüssel `pull_request`, und der sieht auf zwei Ebenen Einrückung
+ * aus wie ein Job. Genau daran hat ein erster Entwurf in `tore.spec.js`
+ * einen Job erfunden, der keiner ist.
+ */
+function workflowJobs(datei) {
+  const text = fs.readFileSync(datei, 'utf8');
+  const ab = text.indexOf('\njobs:');
+  if (ab < 0) return [];
+  const rumpf = text.slice(ab);
+  const kopf = [...rumpf.matchAll(/^ {2}([A-Za-z0-9_-]+):[ \t]*$/gm)];
+  return kopf.map((m, i) => ({
+    id: m[1],
+    block: rumpf.slice(m.index + m[0].length,
+      i + 1 < kopf.length ? kopf[i + 1].index : rumpf.length),
+  }));
+}
+
+module.exports = {
+  workflowSchritte, laufBlock, fahreWieGithub, EINGABE_IM_SKRIPT, workflowJobs,
+};

@@ -16,12 +16,53 @@ Zahlen ihrer Zeit — die sind Historie, kein Ist-Stand. Der Ensemble-Kontext
 liest diese Datei von oben; ein Modell, das „68 Tests" als aktuell meldet, hat
 einen alten Abschnitt gelesen und nicht diesen.
 
-- **Playwright-Suite: 1585 Tests in 107 Suiten**, blockierendes Gate in `pr-check.yml`.
+- **Playwright-Suite: 1588 Tests in 108 Suiten**, blockierendes Gate in `pr-check.yml`.
   Läuft seit dem Self-Hosting auch ohne Netzzugang vollständig durch
 - **Live-Stand-Tor: am echten Server bewährt** (Lauf #1108, 01.10.2026,
   Commit `f02b18c`). Erster Anlauf, eine Sekunde, erwartet und gemessen
   `03d2485c429b`. Bisher ist nur der Normalfall vorgekommen — die drei
   Fehlerlagen hängen weiter an `live-stand.spec.js`.
+
+## Der Pflicht-Check konnte sechs Stunden hängen (29.10.2026)
+
+**Wer:** Claude Code, auf Wunsch des Inhabers („mach das Timeout rein als
+eigenen PR").
+
+Aufgefallen am eigenen PR #349: Lauf 40947709948 blieb im Schritt „Testsuite
+ausführen" stehen. Gemessen an den Nachbarläufen derselben 1585er-Suite —
+#339 **14 min 17 s**, Routine-PR #348 **11 min 11 s**, der hängende Lauf
+**über 51 min ohne Ende**.
+
+`pr-check.yml` trug **kein einziges `timeout-minutes`**, also galt GitHubs
+Vorgabe von sechs Stunden. Es gibt auch keine `concurrency`-Gruppe: der Lauf
+wurde nicht verworfen, als der Zweig weiterwanderte, sondern lief weiter, bis
+er von Hand abgebrochen wurde.
+
+**Ein hängender Pflicht-Check blockiert den Merge genauso wirksam wie ein
+roter, nur ohne Befund** — `check` ist der einzige vom Ruleset verlangte
+Kontext, und `mergeable_state` bleibt `blocked`, solange er läuft. Dieselbe
+Klasse wie der Deploy-Hänger vom 03.09.2026, der `timeout` und
+`timeout-minutes` bekam; der PR-Check hatte diese Behandlung nie.
+
+Jetzt **am Job, nicht je Schritt**: `tests` 35 min (2,3-faches der Norm von
+15, klar unter den beobachteten 51), `check` 10 min — dort zählt nur die
+eigene Laufzeit, nicht das Warten auf `needs`. Geprüft wird **abgeleitet**:
+jeder Job der Datei braucht ein Limit, ein neuer bekommt seine Prüfung
+geschenkt; der Suite-Job wird am Befehl erkannt, nicht am Namen.
+
+Der Schnitt nach Jobs steht jetzt in `tests/e2e/lib/workflow-schritte.js`
+statt lokal in `tore.spec.js` — die zweite Suite hätte ihn nachgebaut.
+
+**Neun Mutationen, sieben rot.** Die zwei Überlebenden sind erklärt, nicht
+übergangen: „Kommentarabzug entfernt" ändert am verankerten Muster
+`^ {4}timeout-minutes:` nichts (eine Kommentarzeile beginnt nach vier
+Leerzeichen mit `#`), und für die Suche nach dem Suite-Job ist der Abzug
+**als Paar** belegt — auskommentierter Suite-Schritt mit Abzug rot, ohne
+Abzug grün.
+
+**Offen, nicht in diesem PR:** `tagesroutine.yml` und die übrigen Workflows
+sind nicht angesehen worden. Die Regel im Test gilt ausdrücklich nur für
+`pr-check.yml`; sie auf alle zu weiten ist eine eigene Messung.
 
 ## Konsolidierung (29.10.2026)
 
