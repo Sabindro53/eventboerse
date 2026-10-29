@@ -53,13 +53,23 @@ function jobs() {
 // neuen Schritt nicht, und genau darum geht es hier.
 const AM_JOB = /^ {4}timeout-minutes:[ \t]*(\d+)[ \t]*$/m;
 
-// Gemessene Norm des Suite-Jobs: 11 bis 14 Minuten (#348 11 min 11 s,
-// #339 14 min 17 s). Ein Limit unter 20 loeste bei Runner-Schwankung aus
-// und waere in zwei Wochen entfernt. Nach oben begrenzt NICHT ein
-// beobachteter Haenger — es gab keinen —, sondern der Zweck: ab einer
-// Stunde ist die Zeile gegenueber GitHubs sechs Stunden eine Formalie und
-// kein Limit mehr.
-const NORM_MIN = 20;
+// Gemessene Norm des Suite-Jobs — vier echte Laeufe, nicht geschaetzt:
+//
+//   #348 (1585 Tests)   03:34:29 -> 03:45:40  = 11 min 11 s
+//   #339 (1585 Tests)   13:45:07 -> 13:59:24  = 14 min 17 s
+//   #349 (1585 Tests)   20:31:38 -> 20:48:10  = 16 min 32 s
+//   #350 (1588 Tests)   20:47:21 -> 21:03:38  = 16 min 17 s
+//
+// Die beiden jungsten liegen bei rund 16,5 min. Hier stand zuerst „11 bis
+// 14 min" mit einer Untergrenze von 20 — das waren nur 21 % Luft ueber dem
+// echten Wert, und nach der eigenen Begruendung („ein Limit knapp ueber der
+// Norm loest bei Runner-Schwankung aus") zu wenig. Die Untergrenze liegt
+// deshalb beim 1,5-fachen der gemessenen Norm.
+//
+// Nach oben begrenzt NICHT ein beobachteter Haenger — es gab keinen —,
+// sondern der Zweck: ab einer Stunde ist die Zeile gegenueber GitHubs sechs
+// Stunden eine Formalie und kein Limit mehr.
+const NORM_MIN = 25;
 const NORM_MAX = 60;
 
 test.describe('Der PR-Check kann nicht sechs Stunden haengen', () => {
@@ -107,8 +117,9 @@ test.describe('Der PR-Check kann nicht sechs Stunden haengen', () => {
     const min = Number(m[1]);
     expect(min, `das Limit des Suite-Jobs liegt bei ${min} min. Unter `
       + `${NORM_MIN} min loest es bei Runner-Schwankung aus (gemessene Norm: `
-      + '11 bis 14 min) — ein Tor, das grundlos rot wird, ist in zwei Wochen '
-      + 'abgeschaltet.').toBeGreaterThanOrEqual(NORM_MIN);
+      + '11 bis 17 min, die beiden jungsten Laeufe bei rund 16,5) — ein Tor, '
+      + 'das grundlos rot wird, ist in zwei Wochen abgeschaltet.')
+      .toBeGreaterThanOrEqual(NORM_MIN);
     expect(min, `das Limit des Suite-Jobs liegt bei ${min} min. Ab `
       + `${NORM_MAX + 1} min ist es gegenueber GitHubs Vorgabe von sechs `
       + 'Stunden eine Formalie und kein Limit mehr.')

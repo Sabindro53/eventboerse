@@ -59,9 +59,11 @@ Arbeit und Dokumentation für einen Vorfall, den es nicht gab, und hätte als
 Präzedenz („der Hänger vom 29.10.") jede spätere Diagnose in die falsche
 Richtung gelenkt. Die Maßnahme bleibt, die Begründung ist getauscht.
 
-Jetzt **am Job, nicht je Schritt**: `tests` 35 min (rund 2,4-faches der Norm
-von 11–14 min; nach oben begrenzt der Zweck, nicht ein Hänger — ab einer
-Stunde ist die Zeile gegenüber sechs Stunden eine Formalie), `check` 10 min —
+Jetzt **am Job, nicht je Schritt**: `tests` 35 min (rund das Doppelte der
+gemessenen Norm; vier Läufe: 11 min 11 s · 14 min 17 s · 16 min 32 s ·
+16 min 17 s, die beiden jüngsten also bei ~16,5 — nach oben begrenzt der
+Zweck, nicht ein Hänger: ab einer Stunde ist die Zeile gegenüber sechs
+Stunden eine Formalie), `check` 10 min —
 dort zählt nur die eigene Laufzeit, nicht das Warten auf `needs`. Geprüft
 wird **abgeleitet**: jeder Job der Datei braucht ein Limit, ein neuer bekommt
 seine Prüfung geschenkt; der Suite-Job wird am Befehl erkannt, nicht am
@@ -76,6 +78,16 @@ statt lokal in `tore.spec.js` — die zweite Suite hätte ihn nachgebaut.
 Leerzeichen mit `#`), und für die Suche nach dem Suite-Job ist der Abzug
 **als Paar** belegt — auskommentierter Suite-Schritt mit Abzug rot, ohne
 Abzug grün.
+
+**Und die Norm selbst war beim ersten Schreiben schon überholt.** Dort stand
+„11–14 min" aus zwei Läufen, während zwei weitere desselben Tages bei ~16,5
+lagen; die Untergrenze im Test lag dadurch bei 20 — nur 21 % über dem echten
+Wert, also genau das knappe Limit, das die eigene Begründung verbietet. Jetzt
+1,5-faches der Norm (25). Zweite Zahl in diesem PR, die ich ohne vollständige
+Messung hingeschrieben habe.
+
+**Die Suite wächst messbar:** 11 min (Ende Sept.) → 16,5 min. Das Limit 35
+hält beim nächsten Zuwachs noch, aber nicht beliebig.
 
 **Offen, nicht in diesem PR:** `tagesroutine.yml` und die übrigen Workflows
 sind nicht angesehen worden. Die Regel im Test gilt ausdrücklich nur für

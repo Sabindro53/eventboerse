@@ -135,17 +135,24 @@ jobs:
     # `timeout-minutes` am Schritt; der PR-Check hat diese Behandlung nie
     # bekommen. Ein Haenger endet jetzt als Fehler, nicht als Dauerlauf.
     #
-    # 35 Minuten sind Rueckfallschutz, KEIN Ziel. Gemessen an echten
-    # Laeufen derselben Suite:
+    # 35 Minuten sind Rueckfallschutz, KEIN Ziel. Gemessen an vier echten
+    # Laeufen, nicht geschaetzt:
     #
-    #   #339 (1585 Tests)   13:45:07 -> 13:59:24  = 14 min 17 s
-    #   Routine-PR #348     03:34:29 -> 03:45:40  = 11 min 11 s
+    #   Routine-PR #348   03:34:29 -> 03:45:40  = 11 min 11 s
+    #   #339              13:45:07 -> 13:59:24  = 14 min 17 s
+    #   #349              20:31:38 -> 20:48:10  = 16 min 32 s
+    #   #350              20:47:21 -> 21:03:38  = 16 min 17 s
     #
-    # Das ist rund das 2,4-fache der Norm. Ein Limit knapp darueber loeste
-    # bei jeder Runner-Schwankung aus und waere in zwei Wochen wieder
-    # entfernt -- dieselbe Begruendung wie bei der Lighthouse-Schranke auf
-    # 25. Nach oben muss es deutlich unter GitHubs sechs Stunden bleiben,
-    # sonst ist die Zeile eine Formalie und kein Limit.
+    # Die beiden jungsten liegen bei rund 16,5 min; 35 ist also etwa das
+    # Doppelte. Ein Limit knapp darueber loeste bei jeder
+    # Runner-Schwankung aus und waere in zwei Wochen wieder entfernt --
+    # dieselbe Begruendung wie bei der Lighthouse-Schranke auf 25. Nach
+    # oben muss es deutlich unter GitHubs sechs Stunden bleiben, sonst ist
+    # die Zeile eine Formalie und kein Limit.
+    #
+    # WAECHST DIE SUITE WEITER, WAECHST DIESE ZAHL MIT. Bei 11 auf 16,5
+    # Minuten in sieben Wochen ist das keine ferne Frage; `ci-zeitlimit.spec.js`
+    # haelt die Untergrenze beim 1,5-fachen der gemessenen Norm.
     #
     # Am JOB, nicht je Schritt: eine Regel, die man an jedem neuen Schritt
     # wiederholen muss, wird beim naechsten vergessen. Genau das steht

@@ -592,14 +592,34 @@ Stunde ist die Zeile gegenüber sechs Stunden eine Formalie.
 **Wer hier eine Zeitspanne nennt, liest die Uhr.** `date -u`, nicht
 fortgeschrieben.
 
-**35 Minuten sind Rückfallschutz, kein Ziel:** rund das 2,4-fache der
-gemessenen Norm von 11–14 Minuten. Ein Limit knapp über der Norm löste bei
-jeder Runner-Schwankung aus und wäre in zwei Wochen entfernt — dieselbe
-Begründung wie bei der Lighthouse-Schranke auf 25. Nach oben begrenzt den
-Wert **kein beobachteter Hänger** (siehe oben, es gab keinen), sondern der
-Zweck: ab einer Stunde ist die Zeile gegenüber GitHubs sechs Stunden eine
-Formalie. Der Job `check` bekommt 10: `timeout-minutes` zählt **nur** die
-eigene Laufzeit, nicht das Warten auf `needs: tests`.
+**35 Minuten sind Rückfallschutz, kein Ziel.** Vier echte Läufe des
+Suite-Schritts:
+
+| Lauf | Dauer |
+|---|---|
+| Routine-PR #348 | **11 min 11 s** |
+| #339 | **14 min 17 s** |
+| #349 | **16 min 32 s** |
+| #350 | **16 min 17 s** |
+
+Die beiden jüngsten liegen bei rund **16,5 min**; 35 ist also etwa das
+Doppelte. Ein Limit knapp über der Norm löste bei jeder Runner-Schwankung aus
+und wäre in zwei Wochen entfernt — dieselbe Begründung wie bei der
+Lighthouse-Schranke auf 25. Nach oben begrenzt den Wert **kein beobachteter
+Hänger** (siehe oben, es gab keinen), sondern der Zweck: ab einer Stunde ist
+die Zeile gegenüber GitHubs sechs Stunden eine Formalie. Der Job `check`
+bekommt 10: `timeout-minutes` zählt **nur** die eigene Laufzeit, nicht das
+Warten auf `needs: tests`.
+
+**Hier stand zuerst „11–14 Minuten", und das war schon beim Schreiben
+überholt.** Die Untergrenze im Test lag dadurch bei 20 — nur 21 % über dem
+echten Wert, also genau das knappe Limit, das derselbe Absatz verbietet. Die
+Zahl kam aus zwei Läufen, während zwei weitere am selben Tag vorlagen und
+höher waren. **Wer eine Norm angibt, zählt alle Läufe, die er hat.** Die
+Untergrenze ist jetzt das 1,5-fache der Norm (25).
+
+**Wächst die Suite weiter, wächst diese Zahl mit** — von 11 auf 16,5 Minuten
+in sieben Wochen ist das keine ferne Frage.
 
 **Am Job, nicht je Schritt.** Eine Regel, die man an jedem neuen Schritt
 wiederholen muss, wird beim nächsten vergessen — genau das steht über
