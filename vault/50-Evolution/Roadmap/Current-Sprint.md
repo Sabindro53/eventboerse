@@ -16,12 +16,32 @@ Zahlen ihrer Zeit — die sind Historie, kein Ist-Stand. Der Ensemble-Kontext
 liest diese Datei von oben; ein Modell, das „68 Tests" als aktuell meldet, hat
 einen alten Abschnitt gelesen und nicht diesen.
 
-- **Playwright-Suite: 1567 Tests in 105 Suiten**, blockierendes Gate in `pr-check.yml`.
+- **Playwright-Suite: 1585 Tests in 107 Suiten**, blockierendes Gate in `pr-check.yml`.
   Läuft seit dem Self-Hosting auch ohne Netzzugang vollständig durch
 - **Live-Stand-Tor: am echten Server bewährt** (Lauf #1108, 01.10.2026,
   Commit `f02b18c`). Erster Anlauf, eine Sekunde, erwartet und gemessen
   `03d2485c429b`. Bisher ist nur der Normalfall vorgekommen — die drei
   Fehlerlagen hängen weiter an `live-stand.spec.js`.
+
+## Konsolidierung (29.10.2026)
+
+**Wer:** Claude Code, auf Wunsch des Inhabers („alles sauber haben, kein Redesign").
+
+**Übernommen in `codex/platform-unified`:** #308 (Auftragsstrom in der
+Tagesroutine), #311 (Chrome-Autofill im Suchfeld, zwei Commits), #320
+(Parole in Normalschrift, keine Werbezahlen aus Demo-Daten). Konflikte nur in
+Testzahlen und Übergabetext; erzeugte Dateien neu gebaut, nicht von Hand
+gemischt. Gezielter Lauf 76/76, `kontext.mjs --check` grün. Noch KEIN
+Gesamtlauf über die Suite.
+
+**Geschlossen:** #46, #199, #228 (überholt), #328 (steckt in #339). Branches
+bleiben erhalten. Alle Branch-Stände liegen ausserhalb des Repos in zwei
+Git-Bundles (`~/Documents/eventboerse-backups/2026-10-29/`).
+
+**Offen:** 113 Branches ohne eigenen Inhalt (80 `routine/*`, Rest auf `main`
+enthalten) sind gelistet, aber noch nicht gelöscht — die Massenlöschung
+macht der Inhaber selbst. #339 vor dem Entwurfsstatus auf `main` bringen und
+die volle Suite fahren.
 
 ## Gemeinsame Plattformbasis (21.10.2026)
 
