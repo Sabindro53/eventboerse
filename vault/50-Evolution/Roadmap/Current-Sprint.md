@@ -38,6 +38,15 @@ Gesamtlauf über die Suite.
 bleiben erhalten. Alle Branch-Stände liegen ausserhalb des Repos in zwei
 Git-Bundles (`~/Documents/eventboerse-backups/2026-10-29/`).
 
+**Nachtrag 29.10.:** `main` (Routine-Stände bis 29.10.) eingemergt; einziger
+Konflikt war die erzeugte `eb-rechtsunterlagen-data.php`, neu erzeugt statt
+gemischt. **16/16 Tore grün.** Gesamtsuite lokal **1568 grün, 17 rot** —
+7× `steuernummer-deploy` (lokales BSD-`sed`, CI läuft auf Linux) und 9× `webp`
+(lokales PHP ohne `imagewebp`) sind Umgebung; 1× `vision-release` „HQ zeigt
+operative Sprache" wackelt (1 von 3 Wiederholungen rot, `#nn-orb` „not
+stable" unter Last) und ist gegenüber `main` unverändert. Maßgeblich ist die
+Linux-CI an #339.
+
 **Offen:** 113 Branches ohne eigenen Inhalt (80 `routine/*`, Rest auf `main`
 enthalten) sind gelistet, aber noch nicht gelöscht — die Massenlöschung
 macht der Inhaber selbst. #339 vor dem Entwurfsstatus auf `main` bringen und
