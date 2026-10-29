@@ -47,10 +47,85 @@ operative Sprache" wackelt (1 von 3 Wiederholungen rot, `#nn-orb` „not
 stable" unter Last) und ist gegenüber `main` unverändert. Maßgeblich ist die
 Linux-CI an #339.
 
+**Erledigt 29.10., 14:22 UTC:** #339 ist auf `main` (`c055d28`), der Deploy
+lief grün, und **Schritt 12 hat wirklich verglichen**: erwartet und gemessen
+`94d2228fa573`. Der Fingerabdruck der lokalen `app-shell.html` ist derselbe —
+die ausgelieferte Hülle ist also byte-gleich mit diesem Baum, und damit steht
+die Autofill-Reparatur aus #311 nachweislich live. Zweiter bewährter
+Normalfall des Live-Stand-Tors nach #1108. `kontext.mjs --check` gegen den
+gemergten Stand grün (33 Module, 139 Routen, 107 Suiten, **1585 Tests**, 57
+Suitenzahlen). Gezielter Nachlauf `autofill.spec.js` **10/10** — der
+Cherry-Pick hat die Reparatur durch eine 78-Dateien-Zusammenführung heil
+gebracht.
+
 **Offen:** 113 Branches ohne eigenen Inhalt (80 `routine/*`, Rest auf `main`
 enthalten) sind gelistet, aber noch nicht gelöscht — die Massenlöschung
-macht der Inhaber selbst. #339 vor dem Entwurfsstatus auf `main` bringen und
-die volle Suite fahren.
+macht der Inhaber selbst.
+
+## Die drei Claude-Routinen laufen nicht mehr (29.10.2026)
+
+**Wer: Inhaber** — von hier aus nicht behebbar, und genau deshalb steht es hier.
+
+Beim Abschluss der #311-Überwachung gemessen. Alle drei geplanten Aufgaben
+dieses Kontos stehen auf `enabled: true`, mit gültiger Zeitangabe und einem
+`next_run_at` in der Zukunft — und **jede** hat heute mit
+`ACCESS_DENIED` abgebrochen:
+
+| Aufgabe | Zeit (UTC) | letzter Lauf |
+|---|---|---|
+| Eventbörse · Täglicher Betriebslauf | 05:07 | **FAILED**, nach 8 s |
+| Eventbörse — Täglicher Brain-Ausbau | 04:06 | **FAILED**, nach 8 s |
+| Tägliches Code Review | 11:12 | **FAILED**, nach 11 s |
+
+Acht Sekunden bis zum Abbruch heißt: die Sitzung kam nicht einmal zustande.
+Es ist kein Fehler *in* der Arbeit, sondern der Zugang zur Arbeit.
+
+**Das ist die Signatur-Fehlerklasse dieses Projekts, ein Stockwerk über dem
+Code.** Dieselbe Mechanik wie der tote Gitleaks-Scan und die vier
+Phantom-Workflows: die Oberfläche zeigt `aktiv`, einen Zeitplan und ein
+nächstes Datum — und es arbeitet nichts. Ein grüner Haken daneben gibt es
+hier nicht einmal; es gibt gar keinen Haken, den jemand ansieht.
+
+**Nicht betroffen ist die GitHub-Seite.** `tagesroutine.yml` läuft weiter:
+#346, #347 und #348 sind an den drei Tagen 27.–29.10. erzeugt, gemergt und
+grün deployt. Was ausfällt, ist die **Claude-Routine daneben** — also
+Aufgabe 1 „den Tagesstand einholen und PRÜFEN", die Workflow-Gesundheit und
+das tägliche Abarbeiten eines Postens dieser Tabelle. Der Unterschied ist
+wichtig: der Stand kommt an, aber **niemand prüft ihn mehr**, und der
+Wächter über den roten Workflows ist weg.
+
+**Die Ursache ist gemessen, und sie ist NICHT der Repository-Zugang.** Hier
+stand zuerst „Repository- oder Umgebungsfreigabe der Routine-Sitzungen" — das
+war geraten und ist falsch. Alle drei Sitzungen nennen in ihrem
+`post_turn_summary` wörtlich denselben Satz:
+
+> *„Your organization has disabled Claude subscription access for Claude Code ·
+> Use an Anthropic API key instead, or ask your admin to enable access"*
+
+Es ist also eine **Kontoeinstellung der Organisation**, keine Freigabe am
+Repository und keine an der Umgebung. Gegenprobe, die es belegt: die
+Umgebung `Default` ist `active`, und die Code-Review-Sitzung trug das
+Repository ausdrücklich als `sources.git_repository` — Zugang zum Code war nie
+die Frage. Die beiden anderen starteten sogar mit `config:no-git-repo`, also
+ohne Checkout, und scheiterten an derselben Stelle.
+
+**Der Weg dorthin steht in der Meldung selbst:** entweder ein
+Anthropic-API-Schlüssel für die Routine-Sitzungen, oder
+„Claude subscription access for Claude Code" in den Kontoeinstellungen wieder
+freigeben. Beides kann nur der Inhaber.
+
+**Dass die falsche Ursache hier stand, ist der eigentliche Lehrsatz.** Sie
+hätte den Inhaber in die Repository-Einstellungen geschickt, wo nichts zu
+finden ist — *ein Prüfer, der aus dem falschen Grund meldet, kostet mehr als
+keiner.* Dieselbe Klasse wie die Diagnose „Allow auto-merge ist nicht
+aktiviert" bei den vierzehn Routine-PRs, wo in Wahrheit die Freigabe im
+Branch-Schutz fehlte. Zu wissen, DASS etwas rot ist, und zu wissen, WARUM,
+sind zwei Messungen; die zweite habe ich zuerst übersprungen.
+
+**Wie lange schon, ist von hier aus weiterhin NICHT feststellbar** — die
+Schnittstelle gibt nur den letzten Lauf heraus, nicht die Historie. Eine Zahl
+zu nennen wäre geraten, und genau das ist einen Absatz weiter oben schon
+schiefgegangen.
 
 ## Gemeinsame Plattformbasis (21.10.2026)
 
