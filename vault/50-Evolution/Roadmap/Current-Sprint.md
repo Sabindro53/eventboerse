@@ -16,12 +16,82 @@ Zahlen ihrer Zeit — die sind Historie, kein Ist-Stand. Der Ensemble-Kontext
 liest diese Datei von oben; ein Modell, das „68 Tests" als aktuell meldet, hat
 einen alten Abschnitt gelesen und nicht diesen.
 
-- **Playwright-Suite: 1585 Tests in 107 Suiten**, blockierendes Gate in `pr-check.yml`.
+- **Playwright-Suite: 1588 Tests in 108 Suiten**, blockierendes Gate in `pr-check.yml`.
   Läuft seit dem Self-Hosting auch ohne Netzzugang vollständig durch
 - **Live-Stand-Tor: am echten Server bewährt** (Lauf #1108, 01.10.2026,
   Commit `f02b18c`). Erster Anlauf, eine Sekunde, erwartet und gemessen
   `03d2485c429b`. Bisher ist nur der Normalfall vorgekommen — die drei
   Fehlerlagen hängen weiter an `live-stand.spec.js`.
+
+## Der Pflicht-Check durfte sechs Stunden laufen (29.10.2026)
+
+**Wer:** Claude Code, auf Wunsch des Inhabers („mach das Timeout rein als
+eigenen PR").
+
+`pr-check.yml` trug **kein einziges `timeout-minutes`**, also galt GitHubs
+Vorgabe von sechs Stunden; eine `concurrency`-Gruppe, die einen überholten
+Lauf abbräche, gibt es auch nicht.
+
+**Ein hängender Pflicht-Check blockiert den Merge genauso wirksam wie ein
+roter, nur ohne Befund** — `check` ist der einzige vom Ruleset verlangte
+Kontext, und `mergeable_state` bleibt `blocked`, solange er läuft. Dieselbe
+Klasse wie der Deploy-Hänger vom 03.09.2026, der `timeout` und
+`timeout-minutes` bekam; der PR-Check hatte diese Behandlung nie.
+
+**Das ist Vorsorge: hier ist noch kein PR-Check hängengeblieben.**
+
+### Die Messung, die ich erfunden habe
+
+Mein erster Entwurf begründete die Zeile mit einem Hänger von „über 51
+Minuten" an Lauf 40947709948 — in Workflow-Kommentar, Test, CLAUDE.md,
+dieser Notiz und im PR-Text. **Den Hänger gab es nicht.** Nachgemessen lief
+er 20:17:33 → 20:31:53, also **14 min 20 s**, und lag damit genau in der Norm
+(#339 14 min 17 s, #348 11 min 11 s). Beendet hat ihn **mein eigener
+Abbruch**, den ich damit begründete, er hänge; der rote `PR Check` an #349
+ist die Folge genau dieses Abbruchs.
+
+Die Ursache: ich habe die aktuelle Zeit aus API-Zeitstempeln
+**fortgeschrieben statt gelesen** — nie `date` gefahren. Erst „27 Minuten",
+dann „51". Ein einziges `date -u` hätte es beendet.
+
+**Eine erfundene Messung ist schlimmer als eine fehlende:** sie erzeugt
+Arbeit und Dokumentation für einen Vorfall, den es nicht gab, und hätte als
+Präzedenz („der Hänger vom 29.10.") jede spätere Diagnose in die falsche
+Richtung gelenkt. Die Maßnahme bleibt, die Begründung ist getauscht.
+
+Jetzt **am Job, nicht je Schritt**: `tests` 35 min (rund das Doppelte der
+gemessenen Norm; vier Läufe: 11 min 11 s · 14 min 17 s · 16 min 32 s ·
+16 min 17 s, die beiden jüngsten also bei ~16,5 — nach oben begrenzt der
+Zweck, nicht ein Hänger: ab einer Stunde ist die Zeile gegenüber sechs
+Stunden eine Formalie), `check` 10 min —
+dort zählt nur die eigene Laufzeit, nicht das Warten auf `needs`. Geprüft
+wird **abgeleitet**: jeder Job der Datei braucht ein Limit, ein neuer bekommt
+seine Prüfung geschenkt; der Suite-Job wird am Befehl erkannt, nicht am
+Namen.
+
+Der Schnitt nach Jobs steht jetzt in `tests/e2e/lib/workflow-schritte.js`
+statt lokal in `tore.spec.js` — die zweite Suite hätte ihn nachgebaut.
+
+**Neun Mutationen, sieben rot.** Die zwei Überlebenden sind erklärt, nicht
+übergangen: „Kommentarabzug entfernt" ändert am verankerten Muster
+`^ {4}timeout-minutes:` nichts (eine Kommentarzeile beginnt nach vier
+Leerzeichen mit `#`), und für die Suche nach dem Suite-Job ist der Abzug
+**als Paar** belegt — auskommentierter Suite-Schritt mit Abzug rot, ohne
+Abzug grün.
+
+**Und die Norm selbst war beim ersten Schreiben schon überholt.** Dort stand
+„11–14 min" aus zwei Läufen, während zwei weitere desselben Tages bei ~16,5
+lagen; die Untergrenze im Test lag dadurch bei 20 — nur 21 % über dem echten
+Wert, also genau das knappe Limit, das die eigene Begründung verbietet. Jetzt
+1,5-faches der Norm (25). Zweite Zahl in diesem PR, die ich ohne vollständige
+Messung hingeschrieben habe.
+
+**Die Suite wächst messbar:** 11 min (Ende Sept.) → 16,5 min. Das Limit 35
+hält beim nächsten Zuwachs noch, aber nicht beliebig.
+
+**Offen, nicht in diesem PR:** `tagesroutine.yml` und die übrigen Workflows
+sind nicht angesehen worden. Die Regel im Test gilt ausdrücklich nur für
+`pr-check.yml`; sie auf alle zu weiten ist eine eigene Messung.
 
 ## Konsolidierung (29.10.2026)
 

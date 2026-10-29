@@ -531,6 +531,135 @@ der ganze Torschritt entfernt.
 npx playwright test tests/e2e/tore.spec.js   # 10 Tests, 14 Mutationen
 ```
 
+#### Der Pflicht-Check durfte sechs Stunden laufen — und die erfundene Messung dazu
+
+**`pr-check.yml` trug kein einziges `timeout-minutes`.** Damit gilt GitHubs
+Vorgabe von **sechs Stunden**, und eine `concurrency`-Gruppe, die einen
+überholten Lauf abbräche, gibt es auch nicht.
+
+**Ein hängender Pflicht-Check blockiert den Merge genauso wirksam wie ein
+roter — nur ohne Befund.** `check` ist der einzige Kontext, den das Ruleset
+auf `main` verlangt; steht er auf `in_progress`, bleibt `mergeable_state`
+auf `blocked`, und niemand kann sagen, ob da noch etwas arbeitet oder nicht.
+Das ist die Umkehrung des Falls zwei Abschnitte weiter oben: dort war ein
+Tor grün und wirkungslos, hier wäre es wirksam und stumm.
+
+Dieselbe Fehlerklasse wie der **Deploy-Hänger vom 03.09.2026** — dort
+wartete `npx` auf eine Rückfrage, die auf einem Runner niemand beantwortet.
+Behoben wurde das mit `timeout` je Aufruf und `timeout-minutes` am Schritt;
+**der PR-Check hat diese Behandlung nie bekommen.**
+
+**Das ist VORSORGE. Hier ist noch kein PR-Check hängengeblieben** — und
+dieser Absatz steht, weil mein erster Entwurf das Gegenteil behauptete.
+
+##### Die Messung, die ich erfunden habe
+
+Der erste Entwurf begründete die Zeile mit einem Hänger von *„über 51
+Minuten"* an Lauf 40947709948 und trug diese Zahl in Workflow-Kommentar,
+Test, CLAUDE.md, Sprint-Notiz und PR-Text. **Den Hänger gab es nicht.**
+Nachgemessen:
+
+| | |
+|---|---|
+| Lauf 40947709948 | `run_started_at` 20:17:33 → 20:31:53 = **14 min 20 s** |
+| #339 (dieselbe Suite) | **14 min 17 s** |
+| Routine-PR #348 | **11 min 11 s** |
+
+Der Lauf war **exakt in der Norm** und kurz vor dem Ende. Beendet hat ihn
+mein eigener Abbruch — den ich damit begründete, er hänge. Der rote
+`PR Check` an #349 ist die Folge genau dieses Abbruchs.
+
+**Die Ursache war, dass ich die aktuelle Zeit geschätzt statt gelesen
+habe.** Ich habe aus Zeitstempeln der API eine „jetzt"-Zeit fortgeschrieben,
+nie `date` gefahren, und jede Schätzung lief weiter nach vorn: erst „27
+Minuten", dann „51". Ein einziges `date -u` hätte es beendet.
+
+**Das ist die Fehlerklasse, gegen die diese ganze Datei geschrieben ist** —
+*gemessen schlägt vermutet* —, begangen beim Verfassen einer Notiz über das
+Messen. Sie ist schlimmer als die üblichen Fälle hier: ein toter Prüfer gibt
+eine Entwarnung, die er nicht decken kann, aber eine erfundene Messung
+erzeugt **Arbeit und Dokumentation für einen Vorfall, den es nicht gab** —
+und sie hätte als Präzedenz („der Hänger vom 29.10.") jede spätere Diagnose
+in die falsche Richtung gelenkt.
+
+**Die Maßnahme bleibt, die Begründung ist getauscht.** Das Fehlen jedes
+Zeitlimits bei einer Sechs-Stunden-Vorgabe ist unabhängig vom Vorfall ein
+echter Mangel. Nur steht die Zahl jetzt auf dem, was wirklich gemessen ist:
+35 Minuten sind rund das 2,4-fache der Norm von 11–14 Minuten, und nach oben
+begrenzt den Wert nicht ein beobachteter Hänger, sondern der Zweck — ab einer
+Stunde ist die Zeile gegenüber sechs Stunden eine Formalie.
+
+**Wer hier eine Zeitspanne nennt, liest die Uhr.** `date -u`, nicht
+fortgeschrieben.
+
+**35 Minuten sind Rückfallschutz, kein Ziel.** Vier echte Läufe des
+Suite-Schritts:
+
+| Lauf | Dauer |
+|---|---|
+| Routine-PR #348 | **11 min 11 s** |
+| #339 | **14 min 17 s** |
+| #349 | **16 min 32 s** |
+| #350 | **16 min 17 s** |
+
+Die beiden jüngsten liegen bei rund **16,5 min**; 35 ist also etwa das
+Doppelte. Ein Limit knapp über der Norm löste bei jeder Runner-Schwankung aus
+und wäre in zwei Wochen entfernt — dieselbe Begründung wie bei der
+Lighthouse-Schranke auf 25. Nach oben begrenzt den Wert **kein beobachteter
+Hänger** (siehe oben, es gab keinen), sondern der Zweck: ab einer Stunde ist
+die Zeile gegenüber GitHubs sechs Stunden eine Formalie. Der Job `check`
+bekommt 10: `timeout-minutes` zählt **nur** die eigene Laufzeit, nicht das
+Warten auf `needs: tests`.
+
+**Hier stand zuerst „11–14 Minuten", und das war schon beim Schreiben
+überholt.** Die Untergrenze im Test lag dadurch bei 20 — nur 21 % über dem
+echten Wert, also genau das knappe Limit, das derselbe Absatz verbietet. Die
+Zahl kam aus zwei Läufen, während zwei weitere am selben Tag vorlagen und
+höher waren. **Wer eine Norm angibt, zählt alle Läufe, die er hat.** Die
+Untergrenze ist jetzt das 1,5-fache der Norm (25).
+
+**Wächst die Suite weiter, wächst diese Zahl mit** — von 11 auf 16,5 Minuten
+in sieben Wochen ist das keine ferne Frage.
+
+**Am Job, nicht je Schritt.** Eine Regel, die man an jedem neuen Schritt
+wiederholen muss, wird beim nächsten vergessen — genau das steht über
+`defaults: run: shell: bash` schon einmal, und die Mutation „Limit nur je
+Schritt" macht die Suite rot.
+
+**Geprüft wird abgeleitet, nicht aufgezählt:** *jeder* Job der Datei braucht
+ein Limit, ein neuer bekommt seine Prüfung geschenkt. Welcher Job die Suite
+fährt, entscheidet `npx playwright test` — nicht der Jobname, denn an einer
+Umbenennung hing schon einmal die ganze Lücke.
+
+**Der Kommentarabzug trägt hier nur eine der beiden Regeln, und das steht
+so im Test.** Für das Limit selbst hat er kein Subjekt: `^ {4}timeout-minutes:`
+ist verankert, eine Kommentarzeile beginnt nach vier Leerzeichen mit `#` und
+kann nie treffen. Für die **Suche nach dem Suite-Job** trägt er — belegt als
+Paar: Suite-Schritt auskommentiert mit Abzug → **rot**, derselbe Zustand ohne
+Abzug → **grün**. Ohne ihn gälte ein auskommentiertes `npx playwright test`
+weiter als Suite.
+
+Der Schnitt nach Jobs steht seit diesem Tag in
+`tests/e2e/lib/workflow-schritte.js` statt lokal in `tore.spec.js` — die
+zweite Suite hätte ihn sonst nachgebaut, denselben Weg sind die
+Schritt-Werkzeuge schon gegangen.
+
+Neun Mutationen, sieben machen die Suite rot: Limit des Suite-Jobs entfernt
+(**2 rot**) · Limit des `check`-Jobs entfernt · Limit nur je Schritt (2) ·
+Limit zu knapp (5 min) · Limit zu weit (360 min) · Gegenprobe entfernt und
+die Zerlegung liefert nichts (2) · Suite-Schritt auskommentiert bei
+erhaltenem Abzug. Zwei überleben, beide erklärt: „Kommentarabzug entfernt"
+allein ändert am verankerten Muster nichts, und dieselbe Mutation **mit**
+auskommentiertem Suite-Schritt ist die grüne Hälfte des Paares oben.
+
+**Keine Mutation prüft die 35 selbst gegen einen Vorfall** — es gibt keinen.
+Das Band im Test (20 bis 60) ist eine Begründung, keine Messung an einem
+Hänger, und sagt das auch.
+
+```bash
+npx playwright test tests/e2e/ci-zeitlimit.spec.js   # 3 Tests, 9 Mutationen
+```
+
 ### Der Ausstieg aus `unsafe-inline`
 
 Die CSP trug `script-src 'unsafe-inline'` — damit ist sie als XSS-Schutz
@@ -6336,7 +6465,7 @@ npm run test:smoke      # nur Routen-Smoke-Tests
 npm run test:css        # CSS-Minify-Regression (Verlaufsschrift)
 ```
 
-1585 Tests in 107 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
+1588 Tests in 108 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
 Sätze), Gebühren (centgenau, JS↔PHP-Parität), Wissensbasis (Antworten +
 Leckage-Schutz), Zufluss (Quarantäne-Tor + Demo-Feed-Ehrlichkeit),
 Verbindungen (HQ-Zugang + Connector-Katalog), Auftragsstrom (Herkunft +
