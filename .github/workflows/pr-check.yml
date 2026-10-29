@@ -150,9 +150,12 @@ jobs:
     # oben muss es deutlich unter GitHubs sechs Stunden bleiben, sonst ist
     # die Zeile eine Formalie und kein Limit.
     #
-    # WAECHST DIE SUITE WEITER, WAECHST DIESE ZAHL MIT. Bei 11 auf 16,5
-    # Minuten in sieben Wochen ist das keine ferne Frage; `ci-zeitlimit.spec.js`
-    # haelt die Untergrenze beim 1,5-fachen der gemessenen Norm.
+    # DIE STREUUNG IST DER BEFUND, NICHT EIN TREND. Hier stand zuerst „die
+    # Suite waechst messbar, 11 -> 16,5 min" -- ein Trend aus zwei Punkten,
+    # den der naechste Lauf widerlegt hat: `e24c9de` brauchte 12 min 39 s
+    # fuer MEHR Tests als die 16 min 32 s von #349. Fuenf Laeufe streuen
+    # zwischen 11 und 17 Minuten. `ci-zeitlimit.spec.js` haelt die
+    # Untergrenze beim 1,5-fachen des oberen Rands.
     #
     # Am JOB, nicht je Schritt: eine Regel, die man an jedem neuen Schritt
     # wiederholen muss, wird beim naechsten vergessen. Genau das steht

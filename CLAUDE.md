@@ -595,15 +595,18 @@ fortgeschrieben.
 **35 Minuten sind Rückfallschutz, kein Ziel.** Vier echte Läufe des
 Suite-Schritts:
 
-| Lauf | Dauer |
-|---|---|
-| Routine-PR #348 | **11 min 11 s** |
-| #339 | **14 min 17 s** |
-| #349 | **16 min 32 s** |
-| #350 | **16 min 17 s** |
+| Lauf | Tests | Dauer |
+|---|---|---|
+| Routine-PR #348 | 1585 | **11 min 11 s** |
+| #339 | 1585 | **14 min 17 s** |
+| #349 | 1585 | **16 min 32 s** |
+| #350 `7b4e1b1` | 1588 | **16 min 17 s** |
+| #350 `e24c9de` | 1588 | **12 min 39 s** |
 
-Die beiden jüngsten liegen bei rund **16,5 min**; 35 ist also etwa das
-Doppelte. Ein Limit knapp über der Norm löste bei jeder Runner-Schwankung aus
+**Die Streuung ist der Befund, nicht ein Trend.** Fünf Läufe liegen zwischen
+11 und 17 Minuten, und der **schnellste nach dem ersten** lief auf der
+**größten** Suite. 35 ist also etwa das Doppelte des oberen Rands. Ein Limit
+knapp über der Norm löste bei jeder Runner-Schwankung aus
 und wäre in zwei Wochen entfernt — dieselbe Begründung wie bei der
 Lighthouse-Schranke auf 25. Nach oben begrenzt den Wert **kein beobachteter
 Hänger** (siehe oben, es gab keinen), sondern der Zweck: ab einer Stunde ist
@@ -618,8 +621,20 @@ Zahl kam aus zwei Läufen, während zwei weitere am selben Tag vorlagen und
 höher waren. **Wer eine Norm angibt, zählt alle Läufe, die er hat.** Die
 Untergrenze ist jetzt das 1,5-fache der Norm (25).
 
-**Wächst die Suite weiter, wächst diese Zahl mit** — von 11 auf 16,5 Minuten
-in sieben Wochen ist das keine ferne Frage.
+**Und der dritte Irrtum stand genau hier: „die Suite wächst messbar, 11 →
+16,5 Minuten".** Das war ein Trend aus **zwei** Punkten, und der nächste Lauf
+hat ihn widerlegt — `e24c9de` brauchte **12 min 39 s** für **mehr** Tests als
+die 16 min 32 s von #349. Es ist Runner-Streuung, kein Wachstum.
+
+Damit sind es in einem einzigen PR **drei** Zahlen, die ich ohne Deckung
+hingeschrieben habe: der erfundene 51-Minuten-Hänger, die zu niedrige Norm
+„11–14", und dieser Trend. Alle drei waren plausibel, keine war gemessen.
+**Zwei Punkte sind keine Reihe** — und eine Behauptung über die Zukunft
+(„wächst weiter") ist von hier aus ohnehin nicht prüfbar, also gehört sie
+nicht in diese Datei.
+
+Die Zahlen, die tragen, sind unverändert: Band 11–17, Untergrenze 25 (das
+1,5-fache des **oberen** Rands), Limit 35.
 
 **Am Job, nicht je Schritt.** Eine Regel, die man an jedem neuen Schritt
 wiederholen muss, wird beim nächsten vergessen — genau das steht über

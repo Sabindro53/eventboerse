@@ -86,7 +86,13 @@ Wert, also genau das knappe Limit, das die eigene Begründung verbietet. Jetzt
 1,5-faches der Norm (25). Zweite Zahl in diesem PR, die ich ohne vollständige
 Messung hingeschrieben habe.
 
-**Die Suite wächst messbar:** 11 min (Ende Sept.) → 16,5 min. Das Limit 35
+**Nachtrag, dritter Irrtum:** hier stand „die Suite wächst messbar, 11 min →
+16,5 min". Das war ein Trend aus zwei Punkten, und der nächste Lauf hat ihn
+widerlegt — `e24c9de` brauchte **12 min 39 s** für **mehr** Tests als die
+16 min 32 s von #349. Fünf Läufe streuen zwischen 11 und 17 Minuten; es ist
+Runner-Streuung, kein Wachstum. Damit sind es drei ungedeckte Zahlen in einem
+PR: der erfundene Hänger, die zu niedrige Norm, dieser Trend. **Zwei Punkte
+sind keine Reihe.** Das Limit 35
 hält beim nächsten Zuwachs noch, aber nicht beliebig.
 
 **Offen, nicht in diesem PR:** `tagesroutine.yml` und die übrigen Workflows
