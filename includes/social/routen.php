@@ -45,44 +45,126 @@ function eb_social_gegenueber( $params, $ich ) {
 function eb_social_ich( WP_REST_Request $request ) {
     $ich = get_current_user_id();
     return new WP_REST_Response( array(
-        'handle'  => eb_handle_von( $ich ),
-        'person'  => eb_person_karte( $ich ),
-        'friends' => count( eb_freunde_ids( $ich ) ),
+        'handle'     => eb_handle_von( $ich ),
+        'auffindbar' => eb_handle_auffindbar( $ich ),
+        'person'     => eb_person_karte( $ich ),
+        'friends'    => count( eb_freunde_ids( $ich ) ),
+    ), 200 );
+}
+
+/** Ein WP_Error aus dem Schreibweg in eine Antwort mit passendem Status. */
+function eb_social_handle_fehler( WP_Error $e ) {
+    $status = array(
+        'handle_ungueltig' => 400,
+        'handle_gesperrt'  => 409,
+        'handle_vergeben'  => 409,
+        'handle_sperre'    => 503,
+    );
+    $code = $e->get_error_code();
+    return eb_social_fehler( $code, $status[ $code ] ?? 400, $e->get_error_message() );
+}
+
+/**
+ * Nickname setzen, ändern oder löschen — und die Auffindbarkeit dazu.
+ *
+ * `auffindbar` ist optional: fehlt es, bleibt die bisherige Entscheidung
+ * stehen. Ein Namenswechsel darf niemanden still sichtbar machen.
+ *
+ * Ein leerer Handle ist weiterhin der Rückzug: kein Nickname, nicht
+ * auffindbar. Ohne diesen Weg wäre die Einwilligung einmalig und
+ * unwiderruflich, und das wäre keine.
+ *
+ * Nur ein WECHSEL des Namens zählt gegen die Bremse — die Auffindbarkeit
+ * umzuschalten, ist kein Missbrauchsweg, und wer nur sie ändert, darf nicht
+ * an einem Deckel scheitern, den er mit Tippfehlern verbraucht hat.
+ */
+function eb_social_handle_setzen( WP_REST_Request $request ) {
+    $ich        = get_current_user_id();
+    $params     = (array) $request->get_json_params();
+    $handle     = strtolower( trim( (string) ( $params['handle'] ?? '' ) ) );
+    $handle     = ltrim( $handle, '@' );
+    // JSON false must never become consent through PHP's truthy "false" string.
+    // Reject malformed values before changing either the nickname or visibility.
+    if ( array_key_exists( 'auffindbar', $params ) && ! is_bool( $params['auffindbar'] ) ) {
+        return eb_social_fehler( 'auffindbarkeit_ungueltig', 400,
+            'Auffindbarkeit muss ausdrücklich als wahr oder falsch angegeben werden.' );
+    }
+    $auffindbar = $params['auffindbar'] ?? null;
+
+    if ( $handle === '' ) {
+        // LEER schreiben, nicht loeschen. Der Nachtrag sucht Konten, bei
+        // denen der Schluessel FEHLT — ein geloeschter Schluessel sah fuer
+        // ihn aus wie „hatte nie einen", und wer sich bewusst zurueckgezogen
+        // hatte, bekam beim naechsten Lauf doch einen Namen. Der Kommentar am
+        // Nachtrag versprach seit dem 15.09.2026 das Gegenteil.
+        update_user_meta( $ich, 'eb_handle', '' );
+        update_user_meta( $ich, 'eb_handle_auffindbar', '0' );
+        return new WP_REST_Response( array( 'handle' => '', 'auffindbar' => false, 'success' => true ), 200 );
+    }
+
+    if ( $handle !== eb_handle_von( $ich ) ) {
+        $rl = eventboerse_check_rate_limit( 'social_handle', 10, DAY_IN_SECONDS, 'u' . $ich );
+        if ( is_wp_error( $rl ) ) {
+            return eb_social_fehler( 'rate_limit', 429,
+                'Du hast deinen Nickname heute schon oft geändert. Morgen geht es wieder.' );
+        }
+    }
+
+    $ok = eb_handle_beanspruchen( $ich, $handle, $auffindbar );
+    if ( is_wp_error( $ok ) ) {
+        return eb_social_handle_fehler( $ok );
+    }
+    return new WP_REST_Response( array(
+        'handle'     => $handle,
+        'auffindbar' => eb_handle_auffindbar( $ich ),
+        'success'    => true,
     ), 200 );
 }
 
 /**
- * Handle setzen oder löschen.
+ * Ist dieser Nickname frei? — für die Registrierung, also OHNE Anmeldung.
  *
- * Ein leerer Handle ist kein Fehler, sondern der Rückzug: er macht den
- * Nutzer wieder unauffindbar. Ohne diesen Weg wäre die Einwilligung
- * einmalig und unwiderruflich, und das wäre keine.
+ * ── WAS DIESE ROUTE VERRÄT, UND WARUM DAS VERTRETBAR IST ────────────────
+ *
+ * Sie sagt, ob ein NAME vergeben ist, nie an wen. Das ist jeder Namensraum
+ * mit eindeutigen Namen: wer „max.mustermann" registrieren will und
+ * „vergeben" liest, weiss, dass jemand so heisst. Er erfährt weder das
+ * Konto noch ob es auffindbar ist — dafür gibt es die Suche, und die zeigt
+ * Verborgene nicht.
+ *
+ * Gedeckelt an der Leitung, weil es kein Konto gibt, an das man den Eimer
+ * hängen könnte. Hinter einem Proxy weitet `eventboerse_check_rate_limit`
+ * den Deckel selbst.
+ *
+ * „Frei" ist eine Vorschau, kein Versprechen: entschieden wird beim
+ * Speichern, unter der Sperre.
  */
-function eb_social_handle_setzen( WP_REST_Request $request ) {
-    $ich    = get_current_user_id();
-    $params = (array) $request->get_json_params();
-    $handle = strtolower( trim( (string) ( $params['handle'] ?? '' ) ) );
+function eb_social_handle_frei( WP_REST_Request $request ) {
+    $ich = get_current_user_id();
+    $h   = ltrim( strtolower( trim( (string) $request->get_param( 'h' ) ) ), '@' );
 
-    if ( $handle === '' ) {
-        delete_user_meta( $ich, 'eb_handle' );
-        return new WP_REST_Response( array( 'handle' => '', 'success' => true ), 200 );
+    $rl = eventboerse_check_rate_limit( 'social_handle_frei', 60, HOUR_IN_SECONDS, $ich ? 'u' . $ich : null );
+    if ( is_wp_error( $rl ) ) {
+        return eb_social_fehler( 'rate_limit', 429, 'Zu viele Prüfungen. Bitte warte einen Moment.' );
     }
 
-    if ( ! eb_handle_gueltig( $handle ) ) {
-        return eb_social_fehler( 'handle_ungueltig', 400,
-            '3 bis 24 Zeichen, nur Kleinbuchstaben, Ziffern, Punkt und Unterstrich.' );
+    if ( ! eb_handle_gueltig( $h ) ) {
+        return new WP_REST_Response( array( 'status' => 'ungueltig', 'vorschlaege' => array() ), 200 );
     }
-    if ( in_array( $handle, eb_handle_gesperrt(), true ) ) {
-        return eb_social_fehler( 'handle_gesperrt', 409, 'Dieser Name ist reserviert.' );
+    if ( $h !== eb_handle_von( $ich ) && eb_handle_reserviert( $h ) ) {
+        return new WP_REST_Response( array(
+            'status'      => 'gesperrt',
+            'vorschlaege' => array(),
+        ), 200 );
     }
-
-    $besitzer = eb_handle_besitzer( $handle );
+    $besitzer = eb_handle_besitzer( $h );
     if ( $besitzer && $besitzer !== (int) $ich ) {
-        return eb_social_fehler( 'handle_vergeben', 409, 'Dieser Name ist schon vergeben.' );
+        return new WP_REST_Response( array(
+            'status'      => 'vergeben',
+            'vorschlaege' => eb_handle_vorschlaege( $h, $ich ),
+        ), 200 );
     }
-
-    update_user_meta( $ich, 'eb_handle', $handle );
-    return new WP_REST_Response( array( 'handle' => $handle, 'success' => true ), 200 );
+    return new WP_REST_Response( array( 'status' => 'frei', 'vorschlaege' => array() ), 200 );
 }
 
 /**
@@ -96,15 +178,18 @@ function eb_social_handle_setzen( WP_REST_Request $request ) {
  * Anzeigenamen ist dasselbe eine Stufe unschärfer — jeder hat einen, und
  * niemand hat ihm zugestimmt, gefunden zu werden.
  *
- * Der Handle dagegen wird gesetzt, um gefunden zu werden. Das Setzen IST
- * die Einwilligung, und sie ist zurücknehmbar.
+ * Gefunden wird nur, wer es will: seit dem 15.10.2026 hat jedes Konto einen
+ * Nickname, aber nur wer `eb_handle_auffindbar()` erfüllt, steht in der
+ * Trefferliste — auch beim genauen Namen. Bestandskonten, die ihren Handle
+ * selbst gesetzt haben, bleiben auffindbar; ein vom Nachtrag vergebener
+ * Name ist es nicht. Die Einwilligung ist zurücknehmbar.
  *
  * Gesperrte bleiben unsichtbar — sonst wäre die Sperre umgehbar, indem man
  * einfach wieder sucht.
  */
 function eb_social_suche( WP_REST_Request $request ) {
     $ich = get_current_user_id();
-    $q   = strtolower( trim( (string) $request->get_param( 'q' ) ) );
+    $q   = ltrim( strtolower( trim( (string) $request->get_param( 'q' ) ) ), '@' );
 
     // Unter drei Zeichen ist keine Suche, sondern ein Abzug der Liste.
     if ( strlen( $q ) < 3 || ! preg_match( '/^[a-z0-9._]{3,24}$/', $q ) ) {
@@ -116,6 +201,10 @@ function eb_social_suche( WP_REST_Request $request ) {
         return eb_social_fehler( 'rate_limit', 429, $rl->get_error_message() );
     }
 
+    // Der genaue Treffer zuerst und unabhaengig vom Deckel: bei zehn
+    // „anna…"-Konten fiel „anna" sonst genau dann heraus, wenn jemand den
+    // vollstaendigen Namen kannte.
+    $genau   = eb_handle_besitzer( $q );
     $treffer = get_users( array(
         'meta_key'     => 'eb_handle',
         'meta_value'   => $q,
@@ -123,6 +212,11 @@ function eb_social_suche( WP_REST_Request $request ) {
         'number'       => 10,
         'fields'       => 'ID',
     ) );
+    $treffer = array_values( array_unique( array_merge(
+        $genau ? array( (int) $genau ) : array(),
+        array_map( 'intval', (array) $treffer )
+    ) ) );
+    $treffer = array_slice( $treffer, 0, 10 );
 
     $raus = array();
     foreach ( (array) $treffer as $uid ) {
@@ -132,6 +226,9 @@ function eb_social_suche( WP_REST_Request $request ) {
         }
         if ( eb_freund_gesperrt( $ich, $uid ) ) {
             continue;   // eine Sperre, die man umsuchen kann, ist keine
+        }
+        if ( ! eb_handle_auffindbar( $uid ) ) {
+            continue;   // ein vergebener Name ist keine Zustimmung, gefunden zu werden
         }
         $karte = eb_person_karte( $uid );
         if ( ! $karte || $karte['handle'] === '' ) {
@@ -806,6 +903,13 @@ function eb_social_routen_registrieren() {
         'methods'             => 'POST',
         'callback'            => 'eb_social_handle_setzen',
         'permission_callback' => $auf,
+    ) );
+    register_rest_route( $ns, '/social/handle/frei', array(
+        'methods'             => 'GET',
+        'callback'            => 'eb_social_handle_frei',
+        // Offen, weil die Registrierung vor der Anmeldung prueft. Die Route
+        // schreibt nichts und nennt nie einen Besitzer.
+        'permission_callback' => '__return_true',
     ) );
     register_rest_route( $ns, '/social/suche', array(
         'methods'             => 'GET',

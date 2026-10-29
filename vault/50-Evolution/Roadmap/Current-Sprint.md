@@ -9,15 +9,150 @@ tags: [layer/L5, domain/evolution, share/internal]
 
 > Ziel: Die beste und funktionalste Eventplattform für jedermann
 
-## Stand heute (2026-08-26)
+## Stand heute (2026-10-21)
 
 Diese Zahlen gelten JETZT. Weiter unten stehen abgeschlossene Sprints mit den
 Zahlen ihrer Zeit — die sind Historie, kein Ist-Stand. Der Ensemble-Kontext
 liest diese Datei von oben; ein Modell, das „68 Tests" als aktuell meldet, hat
 einen alten Abschnitt gelesen und nicht diesen.
 
-- **Playwright-Suite: 1405 Tests in 95 Suiten**, blockierendes Gate in `pr-check.yml`.
+- **Playwright-Suite: 1585 Tests in 107 Suiten**, blockierendes Gate in `pr-check.yml`.
   Läuft seit dem Self-Hosting auch ohne Netzzugang vollständig durch
+- **Live-Stand-Tor: am echten Server bewährt** (Lauf #1108, 01.10.2026,
+  Commit `f02b18c`). Erster Anlauf, eine Sekunde, erwartet und gemessen
+  `03d2485c429b`. Bisher ist nur der Normalfall vorgekommen — die drei
+  Fehlerlagen hängen weiter an `live-stand.spec.js`.
+
+## Konsolidierung (29.10.2026)
+
+**Wer:** Claude Code, auf Wunsch des Inhabers („alles sauber haben, kein Redesign").
+
+**Übernommen in `codex/platform-unified`:** #308 (Auftragsstrom in der
+Tagesroutine), #311 (Chrome-Autofill im Suchfeld, zwei Commits), #320
+(Parole in Normalschrift, keine Werbezahlen aus Demo-Daten). Konflikte nur in
+Testzahlen und Übergabetext; erzeugte Dateien neu gebaut, nicht von Hand
+gemischt. Gezielter Lauf 76/76, `kontext.mjs --check` grün. Noch KEIN
+Gesamtlauf über die Suite.
+
+**Geschlossen:** #46, #199, #228 (überholt), #328 (steckt in #339). Branches
+bleiben erhalten. Alle Branch-Stände liegen ausserhalb des Repos in zwei
+Git-Bundles (`~/Documents/eventboerse-backups/2026-10-29/`).
+
+**Nachtrag 29.10.:** `main` (Routine-Stände bis 29.10.) eingemergt; einziger
+Konflikt war die erzeugte `eb-rechtsunterlagen-data.php`, neu erzeugt statt
+gemischt. **16/16 Tore grün.** Gesamtsuite lokal **1568 grün, 17 rot** —
+7× `steuernummer-deploy` (lokales BSD-`sed`, CI läuft auf Linux) und 9× `webp`
+(lokales PHP ohne `imagewebp`) sind Umgebung; 1× `vision-release` „HQ zeigt
+operative Sprache" wackelt (1 von 3 Wiederholungen rot, `#nn-orb` „not
+stable" unter Last) und ist gegenüber `main` unverändert. Maßgeblich ist die
+Linux-CI an #339.
+
+**Offen:** 113 Branches ohne eigenen Inhalt (80 `routine/*`, Rest auf `main`
+enthalten) sind gelistet, aber noch nicht gelöscht — die Massenlöschung
+macht der Inhaber selbst. #339 vor dem Entwurfsstatus auf `main` bringen und
+die volle Suite fahren.
+
+## Gemeinsame Plattformbasis (21.10.2026)
+
+**Auftrag des Inhabers:** Redesign und Event-Assistent als eine Plattform für
+Planer und Dienstleister führen. Autonome Umsetzung beauftragt; keine echten
+Nutzerdaten, Zahlungsaktionen oder Zugangsdaten verändern.
+
+**Wer:** Codex koordiniert. Rollenabgleich und lokaler Legacy-Abgleich sind
+abgeschlossen; der Claude-Versuch endete am Turn-Limit und wurde nicht wiederholt.
+Ein Implementierungsauftrag gleichzeitig, keine doppelten Aufträge.
+
+**Arbeitsort:** `Documents/eventboerse-platform`, Zweig `codex/platform-unified`.
+Redesign (`01364e1`) + GitHub-main (`242131ae`) + sieben offene
+Redesign-Dateien übernommen. Ein generierter PHP/JSON-Konflikt reproduzierbar
+aufgelöst. Alter Juni-Patch gesichert und separat im Abgleich; nie blind über
+neuere Auth- oder Migrationslogik legen. Alte Kopien noch nicht gelöscht.
+`START-HERE.md` erklärt Quellen, Betriebsgrenzen und Arbeitsfolge.
+
+**Prüfung:** Finaler Gesamtlauf: **1566/1566 bestanden (11,6 Minuten)**,
+alle **16/16 Tore grün**, npm audit **0 bekannte Befunde**. Zwei Mutationsproben
+belegen die neue Mausfolge und die Typprüfung der Auffindbarkeit. Die beiden
+vorhandenen Desktop-Korrekturen an kern.spec.js und stimme.spec.js sind übernommen.
+Die lokale Prüflaufumgebung nutzt funktionierendes npm/npx, GNU sed und PHP mit
+WebP, ohne die globalen Werkzeuge zu ersetzen.
+
+**Im Review korrigiert:** Der Textwert `"false"` darf kein Opt-in auslösen.
+Die Nickname-Route akzeptiert nur echte JSON-Booleans; sieben ungültige Typen
+bleiben ohne Schreibwirkung. Der PHP-Prüfstand bestätigt Status 400 und die
+unveränderte versteckte Einstellung. Es wurden keine echten Konten verändert.
+
+**CI-Abschluss, Codex (21.10.2026):** Alle fünf GitHub-Prüfungen für
+`4c1686350396d64e3528f9d1a4eb49a70f624e84` erfolgreich abgeschlossen:
+E2E, PR-Validierung, Lint und beide CodeQL-Prüfungen. Remote-PR-Head und
+lokaler Head stimmen überein; keine laufenden Mission-Control-Aufträge.
+Die bestehenden lokalen Nachweise bleiben 1566/1566 Tests und 16/16 Tore.
+Kein erneuter Gesamtlauf und keine Produktänderung in diesem Prüfpaket.
+
+**Ablauf-Anzeige, Codex (21.10.2026):** Auftrag `20261021-162711-1a71`
+lokal umgesetzt. Zwei Browser-Gegenproben waren vor der Änderung rot.
+`renderBoardTimeline` nimmt jetzt den bestehenden Status `angebot` („Gebucht“)
+zusätzlich zu erfüllt/bezahlt auf; geplant/kontaktiert bleiben ausgeschlossen.
+Fehlende Zeiten zeigen „Zeit offen“. Mehrfachzeiten, Kartenreihenfolge und
+Projektdaten bleiben erhalten. Kein Statusübergang und kein Backend geändert.
+
+**Abschlussprüfung, Codex (21.10.2026):** Gesamtsuite **1567/1567 bestanden
+(11,0 Minuten)**, alle **16/16 Projekttore grün**. Zuvor Board-Zeiten 30/30
+bestanden und beide Mutationen (Gebucht-Filter entfernt / offene Zeit durch
+08:00 ersetzt) jeweils erkannt. Die Sammlung umfasst 1567 Tests in 105 Suiten.
+Protokolle: `timeline-full-tests.log`, `timeline-gates.log` und
+`timeline-mutations.json` im Mission-Control-Ordner. Der durch die Tore neu
+erzeugte Auftragsstrom ist nicht Bestandteil dieser Anzeigeänderung.
+
+**Lokaler Sprint abgeschlossen:** Gemeinsame Basis geprüft, erreichbare
+Legacy-Patches fachlich eingeordnet und beide reproduzierten Ablauf-Lücken
+korrigiert. Diff wird lokal als Commit gesichert; kein neuer Push, Merge oder
+Deploy. Die frühere GitHub-CI belegt ausschließlich Commit `4c168635`, nicht
+diesen lokalen Abschlussstand. Automatik nach Abschluss dieses Sprints pausieren;
+keine neue Funktionsfolge automatisch beginnen.
+
+**Offener Übergabepunkt, Codex:** Vor Live-Freigabe eine WordPress-Testumgebung
+mit Rücksetzpunkt herstellen und GET_LOCK sowie den vollständigen Rollenweg
+mit getrennten Testkonten prüfen. Die alten Kopien dürfen ohne vollständigen
+Vergleich weiterhin nicht entfernt werden. Das Blender-Modell und die
+visuelle Gesamtplanung bleiben Konzept/Prototyp, kein fertig integrierter
+Raumplaner. Für die nächste Ausbauphase einen konkreten Sprint abgrenzen.
+
+## Gesuche als Gesuche zeigen — F01–F03 (16.10.2026)
+
+**Wer:** claude, Branch `claude/plattform-redesign`.
+
+**Befund:** Live gemessen, beide Gesuche aus F02 tragen `listingType: offer`. Die Nachmarkierung aus Migration 2.3 (`functions.php`, `if ( ! $tcol )`) lief nie, weil dbDelta die Spalte vorher anlegt. Keine Karte las den Typ.
+
+**Umgesetzt (nur Darstellung, Q3):** `ebIstGesuch()` / `ebGesuchBudgetText()` in `core/00-basis.js`; Karte, Laufband und „Meine Inserate" zeigen „Gesuch" und Budget statt Stern und „ab …". `gesuch-darstellung.spec.js`: 9 Tests, 10 Mutationen.
+
+**Nächster Schritt:** F01 ist gemessen; der Vorschlag steht in `PRODUCT_REDESIGN.md` Abschnitt 1.5 und wartet auf die Antworten P1–P4. Der Profilkopf kommt aus dem ersten Inserat; das Konto aus F01 hat live die Rolle „Admin"; die gespeicherte `tagline` wird nie angezeigt. Datenkorrektur nur nach Entscheidung des Inhabers.
+
+## Übergabe Codex → Claude Code: UX und Nicknames (15.10.2026)
+
+**Wer:** claude übernimmt nach ausdrücklichem Nutzerauftrag. Weiterarbeiten im Arbeitsbereich `/Users/sandro/.codex/worktrees/eventboerse-ux-nicknames/eventbörse.de`, Branch `codex/eventboerse-friend-search`, Basis `378719d232b2e9cf8e67551b3a482a0ceab89e20`. Der ursprüngliche Projektordner enthält einen alten Juni-Checkout mit fremden Änderungen und ist NICHT der Implementierungsort.
+
+**Befund:** Live-Produktaudit mit 32 konkreten Befunden liegt unter `docs/ux-audit-2026-10-15/`. Die Kontotabs teilten nach Reload die Sitzung: künftige Rollentests in getrennten Kontexten, regulären Planer ohne Adminrechte einschließen. Nickname-Feld bei Registrierung und nachgelagerter POST existieren bereits; Bestandsmigration ist opt-in gesperrt. Die vorhandene Freundessuche stand unter der Suchnamen-Einrichtung, verlor Eingaben beim Neuzeichnen und ließ veraltete Fehlerantworten in die aktuelle Suche hinein.
+
+**Lokal umgesetzt:** `js/modules/social/60-freunde-gruppen.js`: Suche zuerst, zugängliche Statusregion, @-/Teilnickname-Hilfe, Eingabe und Suchmeldung bei Re-Render erhalten, Konto-Reset löscht Suchtext, überholte Antworten/Fehler ignoriert, empfangene und gesendete Anfragen mit passenden Aktionen, Ergebnisse nach Antwort erneut laden. Generiertes `app.js` gebaut. Fünf Regressionstests in `tests/e2e/freunde-ansicht.spec.js` ergänzt. Dokumentierte Suite-Zahlen in CLAUDE.md und hier an reale Sammlung angepasst.
+
+**Nachweise:** Gezielter Lauf zunächst 23/23 bestanden (`/tmp/eventboerse-friends-test.log`). Finaler Wiederholungslauf nach ergänzter Toast-Zusicherung: `/tmp/eventboerse-friends-final.log`. Isolierte Mutationsprobe `/tmp/eventboerse-mutation.cjs`: Original besteht, entfernte Sperre für veraltete Fehler wird erkannt. Gesamtsuite läuft im Übergabemoment (`/tmp/eventboerse-full-test.log`); noch KEINE Freigabe behaupten. Tore-Lauf `/tmp/eventboerse-gates.log`: fehlendes Icon `flight` im bestehenden Schriftzuschnitt; Testzahldrift anschließend korrigiert. Kein neues Icon durch diese Änderung. `npm` im PATH ist lokal defekt (../lib/cli.js fehlt); funktionsfähiger Aufruf: `node /Users/sandro/.local/lib/node_modules/npm/bin/npm-cli.js`. Abhängigkeiten danach mit diesem npm und `ci --ignore-scripts` gemäß Lockdatei installiert. Keine Paketupdates vorgenommen. Vier vorhandene Audit-Warnungen nicht automatisch mit --force reparieren.
+
+**Nächster Schritt, konkret:**
+1. Laufende Prüfungen abschließen/Logs lesen und aktuelle Suchänderung kontrollieren; keine Quellmutationen parallel zur Gesamtsuite. In Prüfsubprozessen ggf. PATH für npm/npx auf die reguläre npm-Installation korrigieren. Das Icon-Gate am Basisstand vergleichen und ohne Abschalten lösen. `scripts/tore.mjs` erzeugt selbst `assets/eb-auftragsstrom.json`; unbeabsichtigte Generator-Diffs prüfen, nicht blind übernehmen.
+2. Nicknames aus Kapitel 11 des Briefings weiterbauen: einheitliches Feld auf Profilen und in Einstellungen, serverseitig atomare Eindeutigkeit samt sichtbaren Registrierungsfehlern, Auffindbarkeit getrennt vom automatisch zugewiesenen Nickname, wiederholbare Dry-Run-Migration. Bestehenden Code in `includes/social/freunde-gruppen.php`, `includes/social/routen.php`, `js/modules/core/30-auth.js` wiederverwenden. Keine echte Nutzermigration oder stillschweigende Suchfreigabe ausführen. Keine Auth-/Zahlungs-/Rechtstextänderungen außerhalb des ausdrücklich beauftragten Nickname-Flows.
+3. Danach die priorisierten Seitenpakete aus dem Briefing: Angebote/Gesuche, Rollen-Shell, Planerprojekt, Anbieterablauf, 3D-Scroll-Szenen. Generierte Dateien nie von Hand ändern. Jede Funktion mit tatsächlichen Zuständen prüfen. Bestehende fremde Änderungen und Daten bewahren.
+
+**Übergabestatus:** Automatischer Start über `claude --bg --permission-mode acceptEdits` versucht. Claude Code lehnt den neuen Arbeitsbereich mit „Workspace not trusted“ ab und verlangt einmalig die interaktive Bestätigung des Inhabers. Keine Freigabe umgangen. Finaler gezielter Lauf: 23/23 bestanden; Kontextprüfung ebenfalls bestanden. Für den Start im oben genannten Arbeitsbereich `claude` öffnen und nach Workspace-Freigabe diese Übergabe lesen lassen.
+
+**Claude Code, 15.10.2026 — Schritt 1 abgeschlossen:** Codex' Gesamtlauf (gestartet vor den letzten Korrekturen) endete 1377 grün / 12 rot. Zwei Ursachen lagen in dieser Änderung selbst: (a) der englische Kommentar „in-flight" in `60-freunde-gruppen.js` — `icons.mjs` sammelt jedes Wort, `flight` galt damit als benutztes, fehlendes Icon. Am Basisstand war das Tor grün; Kommentar auf Deutsch umgeschrieben, kein Icon nachgezogen. (b) Diese Übergabe stand ÜBER „Stand heute" und drückte den Ist-Stand aus den ersten 30 Zeilen (`kern.spec.js`, Ensemble-Kontext) — Abschnitt hierher verschoben. Rest ist Umgebung: `css-minify` an der kaputten lokalen `npx` (mit Shim auf `npx-cli.js` grün), `steuernummer-deploy` an BSD-`sed` (CI läuft auf Linux, Workflow in diesem Diff unberührt). Nachlauf: freunde-ansicht + icons + kern + css-minify **115/115**, `tore.mjs` **16/16 grün**. `assets/eb-auftragsstrom.json` wurde dabei aus dem aktuellen Journal neu erzeugt — gehört nicht zu dieser Änderung, nicht übernommen. Committet als `106d7c3` (ohne Push). `docs/ux-audit-2026-10-15/` bewusst NICHT committet: nennt den Inhaber mit Namen und Adminrechten, das Repo ist öffentlich.
+
+**Claude Code, 15.10.2026 — Schritt 2, erster Teil (Nicknames):** Auffindbarkeit getrennt vom Nickname (`eb_handle_auffindbar`), Nachtrag vergibt verborgen, ein Schreibweg unter `GET_LOCK`, Bremse auf Namenswechsel, offene Prüfroute `social/handle/frei` für die Registrierung, gemeinsamer Nickname-Kasten auf `/freunde` und in den Einstellungen, entprellte Prüfung im Registrierungsformular, sichtbarer Fehlschlag nach dem Anlegen. Details und Begründung: CLAUDE.md, Abschnitt „Nickname für alle". Nachweise: `social.spec.js` 61, `nickname-ansicht.spec.js` 19 (dreifach wiederholt stabil), 27 Mutationen rot. `EB_HANDLE_NACHTRAG` NICHT umgelegt, kein Rechtstext geändert. **Offen:** `GET_LOCK` auf IONOS live belegen; Migrations-Probelauf mit Zählung (N01); Suche nach öffentlichem Anzeigenamen; Hinweis beim nächsten Besuch; danach Schritt 3 (Seitenpakete).
+
+**Claude Code, 15.10.2026 — Probelauf (N01):** `GET /hq/nicknames` (nur Verwaltung) zählt, plant und schreibt nichts — Zustand vorher/nachher im Test verglichen. Nebenfund behoben: Leeren des Nicknames löschte den Schlüssel, der Nachtrag hätte Zurückgezogene doch erfasst; jetzt `''`. `social.spec.js` 70, 12 weitere Mutationen rot (zweimal gefahren). **Offen:** Probelauf einmal live ansehen, BEVOR `EB_HANDLE_NACHTRAG` gesetzt wird.
+
+**Claude Code, 15.10.2026 — HQ-Knopf:** Block „@ Nickname-Probelauf" in `hq.html` (nur Admin, läuft erst auf Klick, Bericht über textContent, Warnung wenn Spalten nicht aufgehen / abgeschnitten / keine Probelauf-Bestätigung). `hq-nickname.spec.js` 8 Tests, 10 Mutationen zweimal rot. `hq-protected.php` neu erzeugt.
+
+**Betriebsgrenze:** Lokal weiterarbeiten; nicht pushen, mergen, deployen, echte Nachrichten senden oder reale Buchungen/Zahlungen auslösen. Der Nutzer möchte Fortschritt und eine Fortsetzung durch Claude Code, nicht eine ungeprüfte Live-Veröffentlichung. Kurze Chatmeldungen, Details in dieser kanonischen Übergabe fortschreiben. Noch kein PR geöffnet.
 
 ## Die Recherche-Schleuse sah keine neuen Dateien (2026-10-21)
 
@@ -37,6 +172,36 @@ Löschung), kein Token in `.git/config`, kein volles Protokoll, Fokus über
 **Offen:** Beide Routinen laufen nur per Hand; die Verbesserungs-Routine
 scheitert seit Juli. Ob die Action `--add-dir` und die Werkzeugliste
 annimmt, zeigt erst ein echter Lauf.
+
+## Chrome bot im Suchfeld Zugangsdaten an (2026-10-08)
+
+Gemeldet vom Inhaber, mit Bild: die Konten-Liste des Chrome-Passwortmanagers
+lag über dem Suchfeld der Landeseite. **Die Panzerung am Feld war längst da**
+(`autocomplete="off"`, `data-lpignore`, `data-1p-ignore`,
+`data-form-type="other"`) — Chrome ignoriert sie absichtlich, sobald es ein
+Feld als Benutzernamen einstuft.
+
+Im echten Chromium gemessen: von 130 Formularfeldern der Hülle haben **58
+keinen `<form>`-Eigentümer**, darunter **3 Passwortfelder** und **21
+Text-/Suchfelder**. Chrome fasst genau diese zu EINER synthetischen Form
+zusammen — damit war jedes Suchfeld ein Benutzernamen-Kandidat.
+
+Behoben an den drei, nicht an den einundzwanzig: `#settingsPasswordForm`
+nimmt die Passwortfelder aus dem Pool. Nachher: **0 Passwortfelder** darin.
+Optisch ein Nullschritt (Box `672 × 452` vorher wie nachher). Dieselbe Lage
+im HQ behoben, wo `#pat-input` den GitHub-Token hält.
+
+**Zwei Instrumente mussten unterwegs ersetzt werden:** `requestSubmit()`
+misst am Knopf vorbei, und Tag-Zählen über HTML ist kein Parser — es fiel
+erst auf meinen eigenen Kommentar herein, dann auf ungleich verteilte
+`<form>`-Tags. Gemessen wird jetzt beidseits im Browser über `el.form`.
+
+**Nicht von hier aus prüfbar:** dass die Konten-Liste wirklich wegbleibt.
+Das ist Browser-Oberfläche; gemessen ist die Vorbedingung im DOM. Die
+Gegenprobe gehört dem Inhaber in seinem Chrome.
+
+`tests/e2e/autofill.spec.js` — 10 Tests, 11 Mutationen (10 rot, eine als Paar
+belegt). Volle Details in CLAUDE.md.
 
 ## Der QA-Bot gibt die Kategorie weiter (2026-10-01)
 
@@ -501,6 +666,54 @@ Zahlungspfad tut, ist die teuerste Sorte Drift, weil sie auf einem Geldweg
 liegt. Die Rückholung vom Dienstleister (`transfer_reversal`) ist technisch
 möglich und bleibt bewusst ungebaut: sie braucht zuerst die AGB-Klausel aus
 Punkt 5.
+
+## Der Auftragsstrom widersprach seiner eigenen Quelle — erledigt (2026-09-30)
+
+**Es gab für diesen Posten keine Warnung.** Er stand nirgends: nicht hier,
+nicht in CLAUDE.md, in keinem Tor. Aufgefallen ist er beim Nachziehen von
+`main` in einen Feature-Branch — und ein Befund, den nur ein Zufall sichtbar
+macht, ist genau die Klasse, die dieses Projekt sonst bekämpft. Deshalb steht
+er hier als Protokoll und nicht nur als Häkchen.
+
+`assets/eb-auftragsstrom.json` wird von `scripts/auftragsstrom.mjs` aus
+`assets/eb-arbeit.json` **erzeugt**. Die Tagesroutine erneuerte und committete
+die Quelle jede Nacht und nannte `auftragsstrom` an **keiner** Stelle:
+
+| auf `main`, am 30.09.2026 gemessen | |
+|---|---|
+| `eb-arbeit.json` (Quelle) | Stand **30.09.** |
+| `eb-auftragsstrom.json` (daraus erzeugt) | `journalStand` **24.09.** |
+| `ausserhalb` im committeten Strom | **0** |
+| `ausserhalb` nach echter Neuerzeugung | **3** |
+| `auftraege` | in beiden Fassungen leer |
+
+**Es entging keine Arbeit — es entging die GRENZE.** Drei Befunde ausserhalb
+des freigegebenen Rahmens (alle Nils Falk, Reliability) waren im HQ unsichtbar.
+*„Eine Schlange, die nur Aufnahmen führt, sieht aus wie ein Haus ohne
+Grenzen."* Dieselbe Klasse wie der Einzelfall vom 13.09.2026 („Nicht jedes Tor
+ist nur ein Prüfer"), nur als Dauerzustand.
+
+- [x] **Schritt in `tagesroutine.yml`**, nach dem Journal — der Strom liest es;
+      davor gebaut trüge er den Stand von gestern
+- [x] **`assets/eb-auftragsstrom.json` in der Commit-Liste** (`ERGEBNISSE`) —
+      ohne diese Zeile wäre der Schritt die bekannte stille Lücke: gemessen,
+      geschrieben, nie committet
+- [x] **Erzeugen ja, `--check` nein** — bewusst, Grund als Kommentar am
+      Schritt: die Routine hält den Zustand fest und wird nicht nachts rot,
+      der Commit kommt erst danach (ein Tor hier nähme Feed, Selbstcheck und
+      Rechtslage mit), und ein alter Stand entsteht durch eine ausgefallene
+      Routine, nicht durch einen Commit. Blockierend bleibt der PR-Check
+- [x] **Zwei Tests** in `auftragsstrom.spec.js`, gemessen an der
+      **Aufrufstelle** nach Abzug der YAML-Kommentare
+      (`tests/e2e/lib/yaml-code.js`, der fünfte Griff dieser Art) — die Datei
+      nennt `auftragsstrom` in ihren Absätzen mehrfach, und die
+      wahrscheinlichste Gestalt des Unfalls ist „Schritt entfernt, Kommentar
+      stehengelassen". Fünf Mutationen, jede macht die Suite rot
+
+**Was bewusst nicht angefasst wurde:** `ionos-deploy.yml` schliesst die Datei
+weiter vom SFTP-Upload aus, und `hq-operations.yml` schreibt den Live-Stand
+alle 30 Minuten direkt auf den Server. Repariert ist der Stand **im
+Repository** — der, aus dem jeder Branch abzweigt.
 
 ## Offen aus der Oberflächenprüfung (2026-09-15) — grösstenteils erledigt
 

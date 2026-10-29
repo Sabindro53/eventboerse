@@ -91,7 +91,26 @@ function eb_handle_gesperrt() {
     );
 }
 
-/** Den Handle eines Nutzers lesen (leer = nicht auffindbar). */
+/**
+ * Darf dieser Handle NEU vergeben werden?
+ *
+ * Die Liste oben trifft nur den genauen Namen — „eventboerse.support" oder
+ * „admin_team" kamen durch und sähen in einer Trefferliste aus wie wir.
+ * Ein Nickname ist nie ein Verifizierungszeichen; er darf also auch nicht
+ * so aussehen.
+ *
+ * Gilt nur beim Beanspruchen, nicht rückwirkend: ein Bestandskonto, das
+ * schon so heisst, verliert seinen Namen dadurch nicht.
+ */
+function eb_handle_reserviert( $handle ) {
+    $handle = (string) $handle;
+    if ( in_array( $handle, eb_handle_gesperrt(), true ) ) {
+        return true;
+    }
+    return (bool) preg_match( '/^(eventb(oe|o)rse|admin|administrator|support|moderator)([._0-9]|$)/', $handle );
+}
+
+/** Den Handle eines Nutzers lesen (leer = kein Nickname; auffindbar: eb_handle_auffindbar). */
 function eb_handle_von( $user_id ) {
     $h = get_user_meta( absint( $user_id ), 'eb_handle', true );
     return is_string( $h ) ? $h : '';
@@ -153,7 +172,22 @@ function eb_handle_vorschlag( $name ) {
  * ohne Ausstieg waere auf einem geteilten PHP-Pool genau die Sorte Last,
  * die am 22.08.2026 die Website haengen liess.
  */
-function eb_handle_freier( $wunsch, $user_id = 0 ) {
+function eb_handle_freier( $wunsch, $user_id = 0, $belegt = null, $mit_db = true ) {
+    // `$belegt` (Name => Konto) ist fuer den Probelauf: er schreibt nichts,
+    // also stehen seine eigenen Planungen nicht in der Datenbank — ohne die
+    // Liste bekaemen zwei „Max Mustermann" denselben Vorschlag, und der
+    // Probelauf meldete null Kollisionen fuer einen Lauf, der eine haette.
+    $frei = function ( $kandidat ) use ( $belegt, $mit_db, $user_id ) {
+        if ( is_array( $belegt ) && isset( $belegt[ $kandidat ] )
+            && (int) $belegt[ $kandidat ] !== (int) $user_id ) {
+            return false;
+        }
+        if ( ! $mit_db ) {
+            return true;
+        }
+        $besitzer = eb_handle_besitzer( $kandidat );
+        return ! $besitzer || (int) $besitzer === (int) $user_id;
+    };
     $basis = eb_handle_vorschlag( $wunsch );
     if ( strlen( $basis ) < 3 ) {
         $basis = 'eb.' . absint( $user_id );
@@ -167,12 +201,20 @@ function eb_handle_freier( $wunsch, $user_id = 0 ) {
         if ( ! eb_handle_gueltig( $kandidat ) ) {
             continue;
         }
-        if ( in_array( $kandidat, eb_handle_gesperrt(), true ) ) {
+        if ( eb_handle_reserviert( $kandidat ) ) {
             continue;
         }
-        $besitzer = eb_handle_besitzer( $kandidat );
-        if ( ! $besitzer || (int) $besitzer === (int) $user_id ) {
+        if ( $frei( $kandidat ) ) {
             return $kandidat;
+        }
+    }
+    // Ein Name, aus dem sich nichts Freies machen laesst („Support Team"
+    // ist reserviert, mit jeder Zahl dahinter), bekommt einen neutralen —
+    // sonst bliebe genau dieses Konto fuer immer ohne Nickname.
+    $neutral = 'eventfan.' . absint( $user_id );
+    if ( absint( $user_id ) && eb_handle_gueltig( $neutral ) && $neutral !== $basis ) {
+        if ( $frei( $neutral ) ) {
+            return $neutral;
         }
     }
     return '';
@@ -259,13 +301,151 @@ function eb_handles_nachtragen( $deckel = 200 ) {
         if ( $handle === '' ) {
             continue;
         }
-        update_user_meta( $u->ID, 'eb_handle', $handle );
+        // Ueber die Sperre, nicht an ihr vorbei — und VERBORGEN: ein
+        // vergebener Name ist keine Zustimmung, gefunden zu werden. Wer
+        // gefunden werden will, schaltet es selbst ein (Freunde, Einstellungen).
+        // Ein Konflikt mit einer gleichzeitigen Registrierung ist kein
+        // Fehler: das Konto bleibt ohne Namen und kommt beim naechsten Lauf.
+        if ( eb_handle_beanspruchen( $u->ID, $handle, false ) !== true ) {
+            continue;
+        }
         $gesetzt++;
     }
     if ( count( $nutzer ) < absint( $deckel ) ) {
         update_option( 'eb_handles_nachtrag_32', 'fertig' );
     }
     return $gesetzt;
+}
+
+/**
+ * Probelauf der Nickname-Vergabe — zählt, plant, SCHREIBT NICHTS.
+ *
+ * ── WARUM VOR DEM SCHALTER ──────────────────────────────────────────────
+ *
+ * Der Nachtrag (`eb_handles_nachtragen`) ist eine Änderung an echten
+ * Konten, und `EB_HANDLE_NACHTRAG` ist ein Schalter, den man umlegt, ohne
+ * vorher zu sehen, was er tut. Dieser Lauf beantwortet genau das:
+ * wie viele Konten haben einen gültigen Namen, wie viele keinen, wie
+ * viele einen ungültigen oder doppelten aus einer älteren Regel, und was
+ * bekämen die übrigen.
+ *
+ * ── WAS ER NICHT TUT ────────────────────────────────────────────────────
+ *
+ * Er ruft weder `update_user_meta` noch `update_option` noch die
+ * Namenssperre. Ein „Probelauf", der nebenbei eine Marke setzt oder eine
+ * Sperre hält, wäre keiner — der Test vergleicht deshalb den GESAMTEN
+ * Zustand vorher und nachher.
+ *
+ * ── WAS IM BERICHT STEHT ────────────────────────────────────────────────
+ *
+ * Zahlen, Konto-Kennungen und geplante Nicknames — keine E-Mail, kein
+ * Anzeigename. Der Vorschlag ist aus dem Anzeigenamen abgeleitet und damit
+ * so öffentlich wie dieser; die Vorschau ist trotzdem auf 20 gedeckelt.
+ * Die Route dazu ist Administratoren vorbehalten.
+ *
+ * `geleert` sind Konten, die ihren Namen SELBST zurückgezogen haben: der
+ * Schlüssel existiert, der Wert ist leer. Der Nachtrag lässt sie aus, und
+ * der Probelauf führt sie deshalb nicht unter „würde vergeben".
+ */
+function eb_handles_probelauf( $deckel = 5000 ) {
+    $deckel = max( 1, min( 20000, absint( $deckel ) ) );
+    $nutzer = get_users( array(
+        'number'  => $deckel + 1,
+        'fields'  => array( 'ID', 'display_name', 'user_login' ),
+        'orderby' => 'ID',
+        'order'   => 'ASC',
+    ) );
+    $abgeschnitten = count( $nutzer ) > $deckel;
+    if ( $abgeschnitten ) {
+        $nutzer = array_slice( $nutzer, 0, $deckel );
+    }
+
+    $z = array(
+        'konten' => count( $nutzer ), 'gueltig' => 0, 'auffindbar' => 0,
+        'verborgen' => 0, 'fehlt' => 0, 'geleert' => 0, 'ungueltig' => 0,
+        'doppelt' => 0, 'reserviert_bestand' => 0,
+    );
+    $belegt    = array();   // Name => Konto, Bestand UND Planung
+    $je_name   = array();   // Name => [Konten], für die Dopplungen
+    $fehlend   = array();
+    $ungueltig = array();
+
+    foreach ( $nutzer as $u ) {
+        $id  = (int) $u->ID;
+        $hat = metadata_exists( 'user', $id, 'eb_handle' );
+        $h   = $hat ? strtolower( trim( (string) get_user_meta( $id, 'eb_handle', true ) ) ) : '';
+        if ( ! $hat ) {
+            $z['fehlt']++;
+            $fehlend[] = $u;
+            continue;
+        }
+        if ( $h === '' ) {
+            $z['geleert']++;
+            continue;
+        }
+        if ( ! eb_handle_gueltig( $h ) ) {
+            $z['ungueltig']++;
+            $ungueltig[] = $id;
+            continue;
+        }
+        $z['gueltig']++;
+        $z[ eb_handle_auffindbar( $id ) ? 'auffindbar' : 'verborgen' ]++;
+        if ( eb_handle_reserviert( $h ) ) {
+            $z['reserviert_bestand']++;
+        }
+        $je_name[ $h ][] = $id;
+        $belegt[ $h ]    = $id;
+    }
+
+    $doppelt = array();
+    foreach ( $je_name as $name => $ids ) {
+        if ( count( $ids ) > 1 ) {
+            $z['doppelt']++;
+            $doppelt[] = $ids;
+        }
+    }
+
+    // Planung: dieselbe Ableitung wie der Nachtrag, gegen Bestand UND die
+    // bereits geplanten Namen. Die Datenbank wird nur gefragt, wenn der
+    // Bestand abgeschnitten ist — dann kennt `$belegt` nicht alle Namen.
+    $plan = array( 'wuerde_vergeben' => 0, 'davon_neutral' => 0, 'ohne_vorschlag' => 0 );
+    $vorschau = array();
+    foreach ( $fehlend as $u ) {
+        $name = trim( (string) $u->display_name );
+        if ( $name === '' ) {
+            $name = (string) $u->user_login;
+        }
+        $vorschlag = eb_handle_freier( $name, $u->ID, $belegt, $abgeschnitten );
+        if ( $vorschlag === '' ) {
+            $plan['ohne_vorschlag']++;
+            continue;
+        }
+        $belegt[ $vorschlag ] = (int) $u->ID;
+        $plan['wuerde_vergeben']++;
+        if ( strpos( $vorschlag, 'eventfan.' ) === 0 ) {
+            $plan['davon_neutral']++;
+        }
+        if ( count( $vorschau ) < 20 ) {
+            $vorschau[] = array( 'id' => (int) $u->ID, 'nickname' => $vorschlag );
+        }
+    }
+
+    return array(
+        'probelauf'     => true,
+        'abgeschnitten' => $abgeschnitten,
+        'zaehlung'      => $z,
+        'plan'          => $plan,
+        'ungueltig'     => array_slice( $ungueltig, 0, 50 ),
+        'doppelt'       => array_slice( $doppelt, 0, 50 ),
+        'vorschau'      => $vorschau,
+        'schalter'      => defined( 'EB_HANDLE_NACHTRAG' ) && EB_HANDLE_NACHTRAG,
+        'marke'         => get_option( 'eb_handles_nachtrag_32' ) === 'fertig',
+    );
+}
+
+/** REST: GET /hq/nicknames — der Probelauf, nur für Administratoren. */
+function eb_hq_nicknames_probelauf( $request ) {
+    return new WP_REST_Response( eb_handles_probelauf( 5000 ), 200 );
 }
 
 /** Wem gehört dieser Handle? 0 = niemandem. */
@@ -281,6 +461,141 @@ function eb_handle_besitzer( $handle ) {
         'fields'     => 'ID',
     ) );
     return $treffer ? (int) $treffer[0] : 0;
+}
+
+/**
+ * Ist dieser Nutzer über seinen Nickname auffindbar?
+ *
+ * ── NICKNAME UND AUFFINDBARKEIT SIND ZWEI ANGABEN ───────────────────────
+ *
+ * Bis zum 15.10.2026 waren sie eine: wer einen Handle hatte, war
+ * auffindbar, und der Handle-Kasten versprach jedem ohne ihn ausdrücklich
+ * „nicht auffindbar". Ein Nickname für JEDES Konto (Auftrag des Inhabers)
+ * hätte dieses Versprechen still aufgehoben.
+ *
+ * Deshalb steht die Einwilligung jetzt daneben, in `eb_handle_auffindbar`:
+ *
+ *  · '0'    — verborgen. So schreibt der Nachtrag: ein vergebener Name ist
+ *             keine Zustimmung, gefunden zu werden.
+ *  · fehlt  — auffindbar. Das ist der Bestand: jeder, der bisher einen
+ *             Handle hatte, hat ihn SELBST gesetzt, und genau das war die
+ *             Einwilligung. Ein Rückfall auf „verborgen" machte über Nacht
+ *             alle bisherigen Nutzer unsichtbar.
+ *  · '1'    — ausdrücklich auffindbar.
+ *
+ * Ohne Handle ist niemand auffindbar, egal was hier steht.
+ */
+function eb_handle_auffindbar( $user_id ) {
+    if ( eb_handle_von( $user_id ) === '' ) {
+        return false;
+    }
+    return (string) get_user_meta( absint( $user_id ), 'eb_handle_auffindbar', true ) !== '0';
+}
+
+/**
+ * Eine Sperre auf genau diesen Namen, über alle PHP-Prozesse hinweg.
+ *
+ * ── WARUM NICHT „ERST PRÜFEN, DANN SCHREIBEN" ───────────────────────────
+ *
+ * So stand es hier: `eb_handle_besitzer()` fragen, dann `update_user_meta()`.
+ * Zwei Registrierungen, die im selben Augenblick denselben Namen wollen,
+ * sehen beide „frei" und schreiben beide — danach heissen zwei Konten
+ * gleich, und die Suche liefert für einen Namen zwei Menschen. Bei einer
+ * Freundesliste ist das kein Schönheitsfehler, sondern der Weg, an eine
+ * fremde Planung zu kommen.
+ *
+ * `usermeta` hat keinen eindeutigen Index, und einen anzulegen hiesse, eine
+ * WordPress-Kerntabelle umzubauen. `GET_LOCK` ist die kleinere Antwort: die
+ * Datenbank ordnet die beiden Anfragen hintereinander, und die zweite sieht
+ * den Namen schon vergeben.
+ *
+ * Der Name der Sperre ist ein Hash: MySQL-Sperren gelten für den ganzen
+ * Server, nicht nur für unsere Datenbank, und sind auf 64 Zeichen begrenzt.
+ */
+function eb_handle_sperrname( $handle ) {
+    $db = defined( 'DB_NAME' ) ? DB_NAME : '';
+    return 'eb_h_' . md5( $db . '|' . (string) $handle );
+}
+
+function eb_handle_sperre_holen( $handle ) {
+    global $wpdb;
+    $ok = $wpdb->get_var( $wpdb->prepare( 'SELECT GET_LOCK(%s, %d)', eb_handle_sperrname( $handle ), 3 ) );
+    return (string) $ok === '1';
+}
+
+function eb_handle_sperre_freigeben( $handle ) {
+    global $wpdb;
+    $wpdb->query( $wpdb->prepare( 'SELECT RELEASE_LOCK(%s)', eb_handle_sperrname( $handle ) ) );
+}
+
+/**
+ * Einen Nickname für einen Nutzer beanspruchen — der EINZIGE Schreibweg.
+ *
+ * Route, Registrierung und Nachtrag gehen alle hier durch; ein zweiter Weg
+ * an der Sperre vorbei machte sie wertlos.
+ *
+ * Bekommt die Sperre niemand, ist das „gerade nicht prüfbar", nicht
+ * „vergeben": wer eine Netzstörung als Konflikt meldet, schickt Menschen
+ * auf die Suche nach einem anderen Namen, obwohl ihrer frei ist.
+ *
+ * @param bool|null $auffindbar null lässt die Einwilligung, wie sie ist.
+ * @return true|WP_Error
+ */
+function eb_handle_beanspruchen( $user_id, $handle, $auffindbar = null ) {
+    $user_id = absint( $user_id );
+    $handle  = strtolower( trim( (string) $handle ) );
+
+    if ( ! eb_handle_gueltig( $handle ) ) {
+        return new WP_Error( 'handle_ungueltig',
+            '3 bis 24 Zeichen, nur Kleinbuchstaben, Ziffern, Punkt und Unterstrich.' );
+    }
+    $bisher = eb_handle_von( $user_id );
+    if ( $handle !== $bisher && eb_handle_reserviert( $handle ) ) {
+        return new WP_Error( 'handle_gesperrt', 'Dieser Name ist reserviert.' );
+    }
+
+    if ( ! eb_handle_sperre_holen( $handle ) ) {
+        return new WP_Error( 'handle_sperre', 'Der Name kann gerade nicht geprüft werden. Bitte versuche es gleich noch einmal.' );
+    }
+    try {
+        $besitzer = eb_handle_besitzer( $handle );
+        if ( $besitzer && $besitzer !== $user_id ) {
+            return new WP_Error( 'handle_vergeben', 'Dieser Name ist schon vergeben.' );
+        }
+        update_user_meta( $user_id, 'eb_handle', $handle );
+        if ( $auffindbar !== null ) {
+            update_user_meta( $user_id, 'eb_handle_auffindbar', $auffindbar ? '1' : '0' );
+        }
+    } finally {
+        eb_handle_sperre_freigeben( $handle );
+    }
+    return true;
+}
+
+/**
+ * Bis zu drei freie Varianten eines Wunschnamens.
+ *
+ * Ohne Vorschlag ist „schon vergeben" eine Sackgasse: der Nutzer rät, und
+ * jeder Rateversuch kostet eine Prüfung. Reservierte Namen werden nie
+ * vorgeschlagen — auch nicht als „admin1".
+ */
+function eb_handle_vorschlaege( $wunsch, $user_id = 0, $anzahl = 3 ) {
+    $basis = eb_handle_vorschlag( $wunsch );
+    if ( strlen( $basis ) < 3 ) {
+        return array();
+    }
+    $raus = array();
+    for ( $i = 1; $i <= 30 && count( $raus ) < $anzahl; $i++ ) {
+        $kandidat = rtrim( substr( $basis, 0, 21 ), '._' ) . $i;
+        if ( ! eb_handle_gueltig( $kandidat ) || eb_handle_reserviert( $kandidat ) ) {
+            continue;
+        }
+        $besitzer = eb_handle_besitzer( $kandidat );
+        if ( ! $besitzer || $besitzer === absint( $user_id ) ) {
+            $raus[] = $kandidat;
+        }
+    }
+    return $raus;
 }
 
 /**

@@ -163,7 +163,7 @@ test.describe('Einstiege: die Landeseite bedient mehr als eine Absicht', () => {
       'es gibt gar keinen Jetzt-Reiter mehr').toBeGreaterThan(0);
   });
 
-  test('der Dienstleister hatte von hier aus KEINEN Weg zu seinem Geschäft', async ({ page }) => {
+  test('der Dienstleister hat von hier aus sichtbare Wege in sein Geschäft', async ({ page }) => {
     // ── DER BEFUND VOM 10.09.2026, IM BROWSER GEMESSEN ─────────────────
     //
     // Angemeldet als Dienstleister, auf der Landeseite stehend:
@@ -177,34 +177,30 @@ test.describe('Einstiege: die Landeseite bedient mehr als eine Absicht', () => {
     // für die halbe Marktseite führte zu „noch ein Inserat anlegen" — dem
     // Einzigen, was ein Anbieter schon getan hat.
     //
-    // Dieser Test hält den BEFUND fest: er misst, dass die drei Ziele
-    // weiterhin keinen eigenen sichtbaren Knopf auf der Landeseite haben.
-    // Verschwindet er, verschwindet die Stelle, an der steht, warum der
-    // dritte Weg für Anbieter umschaltet.
+    // Bis zum 15.10.2026 hielt dieser Test den BEFUND fest (null sichtbare
+    // Wege) und sollte rot werden, sobald sich das ändert. Das ist mit der
+    // Navigation je Rolle passiert — gewollt: der Hauptlink der Leiste heißt
+    // für Anbieter „Mein Geschäft", und am Telefon führt der dritte Platz zu
+    // den Aufträgen. Der Test misst jetzt diesen Zustand, per KLICK, nicht
+    // per Zählung: ein sichtbarer Knopf, der woandershin führt, wäre schlimmer
+    // als keiner.
     await openApp(page);
     await page.evaluate(() => {
       currentUser = { id: 5, name: 'DJ Julian', role: 'Dienstleister' };
       isLoggedIn = true;
       if (typeof _applyRoleNav === 'function') _applyRoleNav();
     });
-    const eigene = await page.evaluate(() => {
-      const sichtbar = (el) => {
-        const r = el.getBoundingClientRect();
-        const s = getComputedStyle(el);
-        return r.width > 0 && r.height > 0 && s.visibility !== 'hidden'
-          && s.display !== 'none' && s.opacity !== '0';
-      };
-      const raus = {};
-      for (const z of ['my-listings', 'auftraege', 'business']) {
-        raus[z] = [...document.querySelectorAll(`[onclick*="navigateTo('${z}'"]`)]
-          .filter(sichtbar).length;
-      }
-      return raus;
-    });
-    for (const [ziel, n] of Object.entries(eigene)) {
-      expect(n, `„${ziel}" hat jetzt einen eigenen sichtbaren Einstieg — dann ist `
-        + 'der Befund überholt und dieser Test anzupassen').toBe(0);
-    }
+    const haupt = page.locator('#navHauptLink');
+    await expect(haupt).toBeVisible();
+    await expect(haupt).toHaveText('Mein Geschäft');
+    await haupt.click();
+    await page.waitForTimeout(600);
+    expect(await activePageId(page), 'der Hauptlink führt nicht ins Geschäft').toBe('page-my-listings');
+
+    await page.setViewportSize({ width: 390, height: 844 });
+    const platz = page.locator('#mobileNav .mobile-nav-board');
+    await expect(platz).toBeVisible();
+    await expect(platz).toContainText('Aufträge');
   });
 
   test('für einen Anbieter führt der dritte Weg in sein Geschäft', async ({ page }) => {

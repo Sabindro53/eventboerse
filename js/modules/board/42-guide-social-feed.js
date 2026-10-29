@@ -370,18 +370,9 @@ window.addChecklistItem = addChecklistItem;
 
 function openAddProviderModal(defaultStage) {
   // Nur Dienstleister-Inserate (Angebote) anzeigen, KEINE Such-Inserate.
-  // Filter:
-  //  1. Explizites Feld (zukuenftig): listingType / kind / type === 'search' | 'gesuch' | 'suche-dienstleister' → ausblenden
-  //  2. Heuristik fuer Legacy-Daten: Titel/Kategorie enthaelt "gesucht" / beginnt mit "Suche " → Such-Inserat
+  // Die Erkennung steht EINMAL in ebIstGesuch() (core/00-basis.js).
   function _isSearchListing(l) {
-    if (!l) return true;
-    var t = (l.listingType || l.kind || l.type || '').toString().toLowerCase();
-    if (t === 'search' || t === 'gesuch' || t === 'such' || t.indexOf('suche') === 0) return true;
-    var title = (l.title || '').toString().toLowerCase();
-    var cat   = (l.categoryLabel || l.category || '').toString().toLowerCase();
-    if (/\bgesucht\b/.test(title) || /\bgesucht\b/.test(cat)) return true;
-    if (/^\s*suche\s/.test(title)) return true;
-    return false;
+    return !l || ebIstGesuch(l);
   }
   // Basis: BROWSE-PARITÄT — der Picker zeigt exakt das, was auch die Suche
   // zeigt: alle DB-Inserate PLUS Demo-Inserate, sofern sie nicht per

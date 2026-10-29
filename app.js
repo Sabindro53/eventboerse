@@ -208,6 +208,36 @@ function _ebBewegungQuelle() {
   return _ebBewegungMql;
 }
 
+/* ── Gesuch oder Angebot ────────────────────────────────────────────────
+ * Die EINE Erkennung für alle Stellen (Karten, Laufband, Meine Inserate,
+ * Board-Auswahl, Assistent). Vorher hatten zwei Stellen je eine eigene
+ * Fassung und alle Karten gar keine — Gesuche erschienen mit Stern und
+ * Anbieterpreis in der Suche (F01–F03, 15.10.2026).
+ *
+ * `listingType: 'offer'` ist KEINE Aussage: es ist der Vorgabewert der
+ * Spalte. Die Nachmarkierung alter Gesuche in Migration 2.3 lief nie, weil
+ * dbDelta die Spalte vorher selbst anlegt und `if ( ! $tcol )` danach nie
+ * wahr ist. Deshalb gilt die Titelregel der Migration hier als Rückfall.
+ * Daten werden dafür nicht umgeschrieben (Entscheidung Q3 des Inhabers). */
+function ebIstGesuch(l) {
+  if (!l) return false;
+  var t = String(l.listingType || l.kind || l.type || '').toLowerCase();
+  if (t === 'search' || t === 'gesuch' || t === 'such' || t.indexOf('suche') === 0) return true;
+  var titel = String(l.title || '').toLowerCase();
+  var kat = String(l.categoryLabel || l.category || '').toLowerCase();
+  return /\bgesucht\b/.test(titel) || /\bgesucht\b/.test(kat) || /^\s*suche\s/.test(titel);
+}
+
+/** Preiszeile eines Gesuchs: ein Budget, kein „ab … € / Event".
+ *  Ein schon als Budget gespeicherter Text bleibt; alte Zeilen tragen den
+ *  Anbieter-Text der Maske von damals und bekommen ihn aus dem Betrag. */
+function ebGesuchBudgetText(l) {
+  var label = String((l && l.priceLabel) || '');
+  if (/^\s*budget/i.test(label)) return label;
+  var betrag = parseInt(l && l.price, 10) || 0;
+  return betrag > 0 ? 'Budget: ' + betrag.toLocaleString('de-DE') + ' €' : 'Budget nach Absprache';
+}
+
 /** true, wenn der Nutzer weniger Bewegung wünscht. */
 function ebBewegungReduziert() {
   var q = _ebBewegungQuelle();
@@ -331,40 +361,38 @@ window.EB_DEMO_PROVIDER_IDS = window.EB_DEMO_PROVIDER_IDS || [90001,90002,90003,
 // Default: Demo-Inserate ausblenden. Backend kann window.EB_HIDE_DEMO=false setzen, um sie wieder anzuzeigen.
 window.EB_HIDE_DEMO = (typeof window.EB_HIDE_DEMO !== 'undefined') ? !!window.EB_HIDE_DEMO : true;
 // Einzige Quelle der Wahrheit für die Sichtbarkeit ALLER Demo-Daten
-// (Listings, Chats, Events, Marketing-Zahlen). Folgt dem Admin-Switch.
+// (Listings, Chats, Events). Folgt dem Admin-Switch — die Startseiten-Zahlen
+// nicht: sie zählen immer nur echte Inserate (updateHeroStats).
 function demoVisible() { return !window.EB_HIDE_DEMO; }
-// Berechnet die Startseiten-Marketing-Zahlen aus dem SICHTBAREN Listing-Set
-// (filterDemos respektiert window.EB_HIDE_DEMO → Zahlen folgen dem Switch).
+// Berechnet die Startseiten-Zahlen aus den ECHTEN Inseraten — Demo-Inserate
+// zählen nie mit, auch wenn der Admin-Switch sie einblendet. Eine Zahl über
+// Demo-Daten wäre eine Werbeaussage ohne Deckung (UWG). Gibt es noch kein
+// echtes Inserat, bleibt die Zeile verborgen statt „0 Dienstleister" zu sagen.
 function updateHeroStats() {
-  var visible = filterDemos(Array.isArray(LISTINGS) ? LISTINGS.slice() : []);
+  var row = document.querySelector('.ai-hero-stats');
+  if (!row) return;
+  var echte = (Array.isArray(LISTINGS) ? LISTINGS : []).filter(function(l) { return l && !isDemoListing(l); });
   var providerIds = {};
   var ratedSum = 0, ratedCount = 0;
-  visible.forEach(function(l) {
-    if (!l) return;
+  echte.forEach(function(l) {
     var pid = l.providerId != null ? l.providerId : (l.provider && l.provider.id);
     if (pid != null) providerIds[pid] = true;
     var r = parseFloat(l.rating);
     if (r > 0) { ratedSum += r; ratedCount++; }
   });
-  var providerCount = Object.keys(providerIds).length;
-  if (providerCount === 0) providerCount = visible.length; // Fallback: Listings zählen
+  var providerCount = Object.keys(providerIds).length || echte.length;
+  if (providerCount === 0) { row.hidden = true; return; }
 
-  var elProv = document.getElementById('statProviders');
-  if (elProv) elProv.textContent = String(providerCount);
-  var elSub = document.getElementById('heroSubProviders');
-  if (elSub) elSub.textContent = providerCount + ' Dienstleister';
-
+  document.getElementById('statProviders').textContent = String(providerCount);
+  document.getElementById('statCategories').textContent = String(AI_CATEGORIES.length);
   var elRatingItem = document.getElementById('statRatingItem');
-  if (elRatingItem) {
-    if (ratedCount > 0) {
-      var avg = Math.round((ratedSum / ratedCount) * 10) / 10;
-      elRatingItem.innerHTML = '<strong id="statRating">' + avg.toFixed(1) + '★</strong> Ø Bewertung';
-    } else {
-      elRatingItem.innerHTML = '<strong id="statRating">Neu</strong>';
-    }
+  if (ratedCount > 0) {
+    var avg = Math.round((ratedSum / ratedCount) * 10) / 10;
+    elRatingItem.innerHTML = '<strong>' + avg.toFixed(1).replace('.', ',') + '★</strong> Ø Bewertung';
+  } else {
+    elRatingItem.innerHTML = '<strong>Neu</strong> gestartet';
   }
-  var elSubRated = document.getElementById('heroSubRated');
-  if (elSubRated) elSubRated.textContent = ratedCount > 0 ? 'Top bewertet' : 'Neu gestartet';
+  row.hidden = false;
 }
 function isDemoListing(l) {
   if (!l) return false;
@@ -944,6 +972,8 @@ var EB_SPEICHER_KLASSEN = {
   // Der Sprachausgabe-Schalter des Assistenten. Funktional, nicht
   // profilbildend: er hält eine Bedieneinstellung, kein Verhalten.
   eb_assistent_stimme_v1: 'funktional',
+  // Die gewählte Figur des Event-Assistenten — nur '01' … '10'.
+  eb_assistent_figur_v1: 'funktional',
   eb_radar_ort: 'funktional',
 
   eb_kb_misses: 'profil',
@@ -1925,7 +1955,7 @@ function navigateTo(page, data, skipHistory) {
   }
 
   // Hide user menu
-  document.getElementById('userMenu').classList.remove('show');
+  if (typeof _userMenuSetzen === 'function') _userMenuSetzen(false); else document.getElementById('userMenu').classList.remove('show');
 
   // Push browser history state (unless triggered by popstate or explicit skip)
   if (!skipHistory) {
@@ -2074,6 +2104,14 @@ function navigateTo(page, data, skipHistory) {
         if (_csB) _csB.innerHTML = '<span class="material-icons-round">publish</span> <span id="clSubmitLabel">Inserat veröffentlichen</span>';
       }
       updateCreateFormForRole();
+      // Eine AUSDRÜCKLICHE Wahl über den Weg (`/create-listing/suche`,
+      // `/create-listing/angebot`) schlägt die Rollen-Voreinstellung aus
+      // `updateCreateFormForRole()` — darum steht sie danach. Ohne das öffnete
+      // „Gesuch aufgeben" bei einem Dienstleister die Maske auf „Ich biete":
+      // ein Knopf, der etwas anderes tut, als er sagt.
+      if (!window._isEditNavigation && (data === 'suche' || data === 'angebot')) {
+        try { _clSetType(data === 'suche' ? 'search' : 'offer'); } catch (e) {}
+      }
       break;
     case 'dashboard':
       navigateTo('profile');
@@ -2089,6 +2127,7 @@ function navigateTo(page, data, skipHistory) {
       break;
     case 'settings':
       loadSettings();
+      if (typeof ebNicknameEinstellungen === 'function') ebNicknameEinstellungen();
       break;
     case 'business':
       if (!isDienstleister() && !(currentUser && currentUser.isAdmin)) {
@@ -2237,8 +2276,15 @@ function renderListingCard(listing) {
   const isFav = favorites.has(listing.id);
   var imgs = Array.isArray(listing.images) && listing.images.length ? listing.images : [listing.image];
   var galleryId = 'gridGallery_' + listing.id;
+  // Ein Gesuch hat keine Bewertung und keinen Anbieterpreis — es nennt ein
+  // Budget. Stern und „ab … €" machten aus Nachfrage ein Angebot (F02).
+  var gesuch = ebIstGesuch(listing);
+  var kopfRechts = gesuch
+    ? '<span class="listing-card-art">Gesuch</span>'
+    : '<span class="listing-card-rating"><span class="material-icons-round">star</span> ' + (listing.rating || 0) + '</span>';
+  var preisText = gesuch ? ebGesuchBudgetText(listing) : listing.priceLabel;
   return `
-    <div class="listing-card" data-listing-id="${listing.id}"${_aiDisclosureAttrs(listing)}>
+    <div class="listing-card${gesuch ? ' is-gesuch' : ''}" data-listing-id="${listing.id}"${_aiDisclosureAttrs(listing)}>
       <div class="listing-card-img">
         <div class="grid-gallery-track" id="${galleryId}" tabindex="0" role="region" aria-label="Bildergalerie: ${_escHtml(listing.title)} – ${listing.id}">
           ${imgs.map(function(img, i) { return '<div class="grid-gallery-slide"><img src="' + _escHtml(img) + '" alt="' + _escHtml(listing.title) + '"' + window.EB_IMG_LAZY_ATTR + window.EB_IMG_ERR_ATTR + ' /></div>'; }).join('')}
@@ -2253,16 +2299,14 @@ function renderListingCard(listing) {
       <div class="listing-card-body">
         <div class="listing-card-top">
           <span class="listing-card-title">${_escHtml(listing.title)}</span>
-          <span class="listing-card-rating">
-            <span class="material-icons-round">star</span> ${listing.rating || 0}
-          </span>
+          ${kopfRechts}
         </div>
         ${_aiDisclosureLabelsHtml(listing, 'ai-disclosure-card')}
         <div class="listing-card-category">${_escHtml(listing.categoryLabel)}</div>
         <div class="listing-card-location">
           <span class="material-icons-round">location_on</span> ${_escHtml(listing.location)}
         </div>
-        <div class="listing-card-price">${_escHtml(listing.priceLabel)}</div>
+        <div class="listing-card-price">${_escHtml(preisText)}</div>
       </div>
     </div>
   `;
@@ -2315,7 +2359,9 @@ function renderHeroMarquees() {
       '<img src="' + _escHtml(l.image) + '" alt="' + _escHtml(l.title) + '"' + (priority ? window.EB_IMG_EAGER_ATTR : window.EB_IMG_LAZY_ATTR) + window.EB_IMG_ERR_ATTR + ' />' +
       '<div class="hero-marquee-card-info">' +
         '<h4>' + _escHtml(l.title) + '</h4>' +
-        '<span>' + _escHtml(l.priceLabel) + ' · ★ ' + (l.rating || 0) + '</span>' +
+        '<span>' + (ebIstGesuch(l)
+          ? 'Gesuch · ' + _escHtml(ebGesuchBudgetText(l))
+          : _escHtml(l.priceLabel) + ' · ★ ' + (l.rating || 0)) + '</span>' +
         _aiDisclosureLabelsHtml(l, 'ai-disclosure-marquee') +
       '</div></a>';
   }
@@ -4056,10 +4102,14 @@ function performSearch() {
 }
 
 // ========== BROWSE PAGE ==========
+var EB_BROWSE_START = 9;
 var _browseGridPaging = {
   rows: [],
   visible: 0,
-  step: 0
+  step: 0,
+  // Startmenge des ersten Zeichnens — dorthin klappt „Weniger anzeigen"
+  // zurück. Keine feste Zahl: sie hängt an der Spaltenzahl des Rasters.
+  start: 0
 };
 
 function _getBrowseGridColumnCount(grid) {
@@ -4109,7 +4159,20 @@ function _ensureBrowseLoadMoreUi() {
     wrap.appendChild(btn);
   }
 
-  return { wrap: wrap, btn: btn };
+  // Gegenfunktion (Besprechung 15.10.2026): aufgeklappte Treffer ließen sich
+  // nicht wieder einklappen — zurück ging es nur durch Hochscrollen.
+  var less = document.getElementById('browseShowLessBtn');
+  if (!less) {
+    less = document.createElement('button');
+    less.id = 'browseShowLessBtn';
+    less.type = 'button';
+    less.className = 'btn-outline browse-load-more-btn';
+    less.innerHTML = '<span class="material-icons-round" aria-hidden="true">expand_less</span> Weniger anzeigen';
+    less.addEventListener('click', browseShowLessResults);
+    wrap.appendChild(less);
+  }
+
+  return { wrap: wrap, btn: btn, less: less };
 }
 
 function _renderBrowseGridPage() {
@@ -4126,12 +4189,25 @@ function _renderBrowseGridPage() {
   if (!ui) return;
 
   var remaining = total - _browseGridPaging.visible;
+  var aufgeklappt = _browseGridPaging.visible > _browseGridPaging.start;
+  ui.btn.hidden = remaining <= 0;
+  ui.less.hidden = !aufgeklappt;
   if (remaining > 0) {
-    ui.wrap.style.display = '';
     var nextCount = Math.min(remaining, _browseGridPaging.step || remaining);
     ui.btn.innerHTML = '<span class="material-icons-round">expand_more</span> Mehr anzeigen (' + nextCount + ')';
-  } else {
-    ui.wrap.style.display = 'none';
+  }
+  ui.wrap.style.display = (remaining > 0 || aufgeklappt) ? '' : 'none';
+}
+
+function browseShowLessResults() {
+  _browseGridPaging.visible = _browseGridPaging.start;
+  _renderBrowseGridPage();
+  // Der gedrückte Knopf verschwindet; ohne neues Ziel fiele der Fokus auf
+  // <body>, und wer mit der Tastatur arbeitet, stünde wieder am Seitenanfang.
+  var btn = document.getElementById('browseLoadMoreBtn');
+  if (btn && !btn.hidden) {
+    btn.focus({ preventScroll: true });
+    btn.scrollIntoView({ block: 'center' });
   }
 }
 
@@ -4152,7 +4228,12 @@ function renderBrowseGrid(listings) {
   var cols = _getBrowseGridColumnCount(grid);
   _browseGridPaging.rows = rows;
   _browseGridPaging.step = Math.max(6, cols * 3);
-  _browseGridPaging.visible = _alignBrowseCountToRow(Math.min(rows.length, cols * 5), rows.length, cols);
+  // Startmenge: genau EB_BROWSE_START Treffer (Entscheidung des Inhabers,
+  // 16.10.2026). Vorher fünf volle Reihen — bei drei Spalten 15, bei fünf
+  // 25, also je nach Bildschirm eine andere Seite. „Mehr anzeigen" richtet
+  // die folgenden Schritte weiter an den Reihen aus.
+  _browseGridPaging.visible = Math.min(rows.length, EB_BROWSE_START);
+  _browseGridPaging.start = _browseGridPaging.visible;
   _renderBrowseGridPage();
 }
 
@@ -5637,6 +5718,132 @@ function _showProviderNotFound(pid) {
   }
 }
 
+/* ── Profilarten (PRODUCT_REDESIGN.md 1.5, Entscheidungen P1–P3) ─────────
+ * Vorher baute loadProvider() den Kopf aus dem ERSTEN INSERAT. Wer nur
+ * Gesuche hatte, bekam damit Kategorie, Preis und Spezialisierungen eines
+ * Anbieters (F01). Die Rolle allein trägt die Weiche nicht: das Konto aus
+ * F01 heißt live „Admin". */
+
+/** P1: Anbieterprofil, wenn mindestens ein Angebot ODER Rolle Dienstleister. */
+function ebProfilArt(anzahlAngebote, rolle) {
+  return (anzahlAngebote > 0 || rolle === 'Dienstleister') ? 'anbieter' : 'mitglied';
+}
+
+/** Das zuletzt gezeichnete Profil — eine späte Antwort für ein anderes
+ *  Profil darf nicht hineinzeichnen. */
+var _profilKontext = null;
+
+function _profilGesucheHtml(k) {
+  if (k.gesuche.length) return k.gesuche.map(renderListingCard).join('');
+  return '<div class="no-results-box" style="margin-top:12px">' +
+    '<span class="material-icons-round no-results-icon" aria-hidden="true">campaign</span>' +
+    '<div class="no-results-box-text"><h3>Noch keine Gesuche</h3>' +
+    (k.eigen
+      ? '<p>Beschreib, wen du suchst — Dienstleister melden sich bei dir.</p>' +
+        '<button class="btn-primary btn-sm" onclick="navigateTo(\'create-listing\', \'suche\')">Gesuch aufgeben</button>'
+      : '<p>Dieses Profil hat aktuell keine Gesuche veröffentlicht.</p>') +
+    '</div></div>';
+}
+
+/**
+ * Zeichnet alles, was von der Profilart abhängt. `ersterLauf` setzt die
+ * Inhalte und den Startreiter; ein zweiter Lauf (nach der Profil-Route)
+ * wechselt den Reiter nur, wenn sich die Art geändert hat.
+ */
+function _profilAnsichtZeichnen(k, ersterLauf) {
+  var art = ebProfilArt(k.angebote.length, k.rolle);
+  var artVorher = k.art;
+  k.art = art;
+  var anbieter = art === 'anbieter';
+  // Kopf, Preis, Highlights und Spezialisierungen kommen aus einem ANGEBOT,
+  // nie aus einem Gesuch. Ohne Angebot: der Profildatensatz selbst.
+  var kopf = k.angebote[0] || (_isProfileOnlyRecord(k.profil) ? k.profil : null);
+
+  // P2: die gespeicherte Unterzeile gilt für alle Profile.
+  var tagEl = document.getElementById('providerTagline');
+  if (tagEl && !_providerEditMode) {
+    var gespeichert = String(k.tagline || '').trim();
+    tagEl.textContent = gespeichert ||
+      (anbieter && kopf ? [kopf.categoryLabel, kopf.location].filter(Boolean).join(' · ') : (k.ort || ''));
+  }
+
+  document.getElementById('providerListingCount').textContent = anbieter ? k.angebote.length : k.gesuche.length;
+  var zl = document.getElementById('providerListingCountLabel');
+  if (zl) zl.textContent = anbieter ? 'Inserate' : 'Gesuche';
+
+  document.querySelectorAll('#page-provider [data-profil-nur="anbieter"]').forEach(function(el) {
+    el.hidden = !anbieter;
+  });
+  var gesucheReiter = document.getElementById('providerTabGesuche');
+  if (gesucheReiter) gesucheReiter.hidden = !(!anbieter || k.gesuche.length > 0);
+
+  // Auf einen Blick
+  var facts = [];
+  var ort = (anbieter && kopf && kopf.location) || k.ort;
+  if (ort) facts.push(['location_on', ort]);
+  if (k.demo) facts.push(['info', 'Beispielaccount für Demo-Beiträge']);
+  else if (anbieter && kopf) {
+    if (kopf.categoryLabel) facts.splice(1, 0, ['category', kopf.categoryLabel]);
+    if (k.angebote.length) {
+      if (kopf.priceLabel) facts.push(['euro', kopf.priceLabel]);
+      facts.push(['event_available', 'Termin und Verfügbarkeit im Chat klären']);
+    }
+  }
+  document.getElementById('providerFacts').innerHTML = facts.map(function(f) {
+    return '<li><span class="material-icons-round">' + f[0] + '</span><span>' + _escHtml(String(f[1])) + '</span></li>';
+  }).join('');
+
+  if (!ersterLauf && artVorher === art) return;
+
+  // Highlights und Spezialisierungen (nur sichtbar im Anbieterprofil)
+  var icons = ['check_circle', 'music_note', 'lightbulb', 'handshake', 'auto_awesome', 'mic'];
+  document.getElementById('providerHighlights').innerHTML = ((kopf && kopf.features) || []).map(function(f, i) {
+    return '<div class="prov-highlight"><span class="material-icons-round">' + icons[i % icons.length] + '</span> ' + _escHtml(f) + '</div>';
+  }).join('');
+  document.getElementById('providerSpecTags').innerHTML = ((kopf && kopf.tags) || []).map(function(t) {
+    return '<span class="provider-spec-tag">' + _escHtml(t) + '</span>';
+  }).join('');
+
+  // Reiter „Inserate": nur Angebote
+  var plGrid = document.getElementById('providerListings');
+  if (k.angebote.length) {
+    plGrid.innerHTML = k.angebote.map(renderListingCard).join('');
+    _initGridCards(plGrid);
+  } else if (k.eigen) {
+    plGrid.innerHTML =
+      '<div class="provider-add-listing" onclick="navigateTo(\'create-listing\')" style="' +
+        'display:flex;flex-direction:column;align-items:center;justify-content:center;' +
+        'border:2px dashed var(--border);border-radius:var(--radius-lg);' +
+        'padding:48px 24px;cursor:pointer;transition:all .2s ease;' +
+        'min-height:200px;color:var(--text-light);text-align:center;">' +
+        '<span class="material-icons-round" style="font-size:56px;margin-bottom:12px;color:var(--primary);">add_circle_outline</span>' +
+        '<span style="font-size:1.05rem;font-weight:600;color:var(--dark);">Erstes Inserat erstellen</span>' +
+        '<span style="font-size:0.85rem;margin-top:4px;">Zeig der Community was du anbietest</span>' +
+      '</div>';
+  } else {
+    plGrid.innerHTML =
+      '<div class="no-results-box" style="margin-top:12px">' +
+        '<span class="material-icons-round no-results-icon">inventory_2</span>' +
+        '<div class="no-results-box-text">' +
+          '<h3>Noch keine Inserate</h3>' +
+          '<p>Dieses Profil hat aktuell keine Inserate veröffentlicht.</p>' +
+        '</div>' +
+      '</div>';
+  }
+  // Reiter „Gesuche"
+  var gGrid = document.getElementById('providerGesuche');
+  if (gGrid) {
+    gGrid.innerHTML = _profilGesucheHtml(k);
+    if (k.gesuche.length) _initGridCards(gGrid);
+  }
+
+  // Startreiter: der erste sichtbare — Inserate beim Anbieter, Gesuche beim Mitglied.
+  var start = anbieter
+    ? document.querySelector('.provider-tabs .tab[onclick*="\'inserate\'"]')
+    : gesucheReiter;
+  if (start) switchProviderTab(start, anbieter ? 'inserate' : 'gesuche');
+}
+
 function loadProvider(providerId) {
   var pid = _toPositiveInt(providerId || (currentListing && currentListing.providerId));
   if (!pid) {
@@ -5683,6 +5890,8 @@ function loadProvider(providerId) {
         description: currentUser.bio || '',
         location: currentUser.location || '',
         categoryLabel: currentUser.role || 'Mitglied',
+        _rolle: (currentUser.baseRole === 'Dienstleister') ? 'Dienstleister' : (currentUser.role || ''),
+        _tagline: currentUser.tagline || '',
         priceLabel: '',
         images: currentUser.gallery || [],
         features: [],
@@ -5695,7 +5904,9 @@ function loadProvider(providerId) {
       fetch(_apiUrl('provider/' + pid) + '?_t=' + Date.now(), { credentials: 'same-origin', headers: _apiHeaders() })
         .then(function(r) { return r.json(); })
         .then(function(data) {
-          if (!data || data.message) return;
+          // 404 heißt seit N01 auch „nicht öffentlich“: die Seite sagt das,
+          // statt im Ladezustand stehen zu bleiben.
+          if (!data || data.message) { _showProviderNotFound(pid); return; }
           if (data.listings && data.listings.length > 0) {
             _mergeDbListingsIntoCache(data.listings);
           } else {
@@ -5710,6 +5921,8 @@ function loadProvider(providerId) {
               description: data.bio || '',
               location: data.location || '',
               categoryLabel: data.role || 'Anbieter',
+              _rolle: data.role || '',
+              _tagline: data.tagline || '',
               priceLabel: '',
               images: data.gallery || [],
               features: [],
@@ -5758,8 +5971,9 @@ function loadProvider(providerId) {
   // Profile Card
   document.getElementById('providerAvatar').src = _resolveAvatar(mainListing.providerImg, mainListing.providerName);
   document.getElementById('providerName').textContent = mainListing.providerName;
-  document.getElementById('providerTagline').textContent = `${mainListing.categoryLabel} · ${mainListing.location}`;
-  document.getElementById('providerListingCount').textContent = actualProviderListings.length;
+  // Unterzeile, Zähler, Fakten, Highlights, Spezialisierungen und Reiter
+  // zeichnet _profilAnsichtZeichnen() — weiter unten, und ein zweites Mal,
+  // wenn die Profil-Route Rolle und gespeicherte Unterzeile nachliefert.
   // Provider rating/reviews from aggregated DB data — filled after API call below
   var providerRating = mainListing.rating;
   var providerReviewCount = mainListing.reviews;
@@ -5834,59 +6048,23 @@ function loadProvider(providerId) {
     }
   });
 
-  // Highlights
-  const icons = ['check_circle', 'music_note', 'lightbulb', 'handshake', 'auto_awesome', 'mic'];
-  document.getElementById('providerHighlights').innerHTML = (mainListing.features || []).map((f, i) =>
-    `<div class="prov-highlight"><span class="material-icons-round">${icons[i % icons.length]}</span> ${_escHtml(f)}</div>`
-  ).join('');
-
   // Portfolio (admin-bewusst: auf fremden Profilen Lösch-Overlay für Admins)
   _renderProviderPortfolio();
 
-  // Show supplied facts; availability and response time require actual evidence.
-  var facts = [];
-  if (mainListing.location) facts.push(['location_on', mainListing.location]);
-  if (mainListing.categoryLabel) facts.push(['category', mainListing.categoryLabel]);
-  if (isDemoAccountProfile) facts.push(['info', 'Beispielaccount für Demo-Beiträge']);
-  else if (actualProviderListings.length) {
-    if (mainListing.priceLabel) facts.push(['euro', mainListing.priceLabel]);
-    facts.push(['event_available', 'Termin und Verfügbarkeit im Chat klären']);
-  }
-  document.getElementById('providerFacts').innerHTML = facts.map(function(f) {
-    return '<li><span class="material-icons-round">' + f[0] + '</span><span>' + _escHtml(String(f[1])) + '</span></li>';
-  }).join('');
-
-  // Spec Tags
-  document.getElementById('providerSpecTags').innerHTML = (mainListing.tags || []).map(t =>
-    `<span class="provider-spec-tag">${_escHtml(t)}</span>`
-  ).join('');
-
-  // Listings tab
-  if (actualProviderListings.length === 0 && _currentProviderIsOwn) {
-    document.getElementById('providerListings').innerHTML =
-      '<div class="provider-add-listing" onclick="navigateTo(\'create-listing\')" style="' +
-        'display:flex;flex-direction:column;align-items:center;justify-content:center;' +
-        'border:2px dashed var(--border);border-radius:var(--radius-lg);' +
-        'padding:48px 24px;cursor:pointer;transition:all .2s ease;' +
-        'min-height:200px;color:var(--text-light);text-align:center;">' +
-        '<span class="material-icons-round" style="font-size:56px;margin-bottom:12px;color:var(--primary);">add_circle_outline</span>' +
-        '<span style="font-size:1.05rem;font-weight:600;color:var(--dark);">Erstes Inserat erstellen</span>' +
-        '<span style="font-size:0.85rem;margin-top:4px;">Zeig der Community was du anbietest</span>' +
-      '</div>';
-  } else if (actualProviderListings.length === 0) {
-    document.getElementById('providerListings').innerHTML =
-      '<div class="no-results-box" style="margin-top:12px">' +
-        '<span class="material-icons-round no-results-icon">inventory_2</span>' +
-        '<div class="no-results-box-text">' +
-          '<h3>Noch keine Inserate</h3>' +
-          '<p>Dieses Profil hat aktuell keine Inserate veröffentlicht.</p>' +
-        '</div>' +
-      '</div>';
-  } else {
-    var plGrid = document.getElementById('providerListings');
-    plGrid.innerHTML = actualProviderListings.map(renderListingCard).join('');
-    _initGridCards(plGrid);
-  }
+  var eigen = !!(currentUser && _sameUserId(pid, currentUser.id));
+  var profilKtx = {
+    pid: pid,
+    profil: mainListing,
+    angebote: actualProviderListings.filter(function(l) { return !ebIstGesuch(l); }),
+    gesuche: actualProviderListings.filter(function(l) { return ebIstGesuch(l); }),
+    rolle: mainListing._rolle || '',
+    tagline: eigen ? (currentUser.tagline || '') : (mainListing._tagline || ''),
+    ort: mainListing.location || '',
+    eigen: eigen,
+    demo: isDemoAccountProfile
+  };
+  _profilKontext = profilKtx;
+  _profilAnsichtZeichnen(profilKtx, true);
 
   // Reviews tab — load from API
   var providerDbId = pid;
@@ -5895,13 +6073,23 @@ function loadProvider(providerId) {
     fetch(_apiUrl('provider/' + providerDbId) + '?_t=' + Date.now(), { credentials: 'same-origin', headers: _apiHeaders() })
       .then(function(r) { return r.json(); })
       .then(function(data) {
+        // Dieselbe Antwort trägt Rolle, Ort und gespeicherte Unterzeile. Sie
+        // kommen nach dem ersten Zeichnen an; gilt das Profil noch, wird mit
+        // ihnen neu gezeichnet (P1: Rolle Dienstleister ohne Angebot bleibt
+        // Anbieter; P2: die gespeicherte Zeile steht im Kopf).
+        if (data && _profilKontext === profilKtx) {
+          if (data.role) profilKtx.rolle = data.role;
+          if (data.location) profilKtx.ort = data.location;
+          if (!profilKtx.eigen && typeof data.tagline === 'string') profilKtx.tagline = data.tagline;
+          _profilAnsichtZeichnen(profilKtx, false);
+        }
         var reviews = data.reviews || [];
         if (reviews.length === 0) {
           document.getElementById('providerReviewsList').innerHTML =
             '<div style="text-align:center; padding: 40px 20px; color: var(--text-light);">' +
               '<span class="material-icons-round" style="font-size: 48px; margin-bottom: 12px; opacity: 0.4;">rate_review</span>' +
               '<p style="font-size: 1.05rem; font-weight: 600; color: var(--dark); margin-bottom: 6px;">Noch keine Bewertungen</p>' +
-              '<p style="font-size: 0.9rem;">Dieser Anbieter ist neu auf Eventbörse.</p>' +
+              '<p style="font-size: 0.9rem;">Dieses Profil ist neu auf Eventbörse.</p>' +
             '</div>';
         } else {
           document.getElementById('providerReviewsList').innerHTML = reviews.map(function(r) {
@@ -5935,7 +6123,7 @@ function loadProvider(providerId) {
       '<div style="text-align:center; padding: 40px 20px; color: var(--text-light);">' +
         '<span class="material-icons-round" style="font-size: 48px; margin-bottom: 12px; opacity: 0.4;">rate_review</span>' +
         '<p style="font-size: 1.05rem; font-weight: 600; color: var(--dark); margin-bottom: 6px;">Noch keine Bewertungen</p>' +
-        '<p style="font-size: 0.9rem;">Dieser Anbieter ist neu auf Eventbörse.</p>' +
+        '<p style="font-size: 0.9rem;">Dieses Profil ist neu auf Eventbörse.</p>' +
       '</div>';
   }
 
@@ -5976,8 +6164,6 @@ function loadProvider(providerId) {
     }
   }
 
-  // Reset to first tab
-  switchProviderTab(document.querySelector('.provider-tabs .tab'), 'inserate');
   loadProviderCollaborations(pid, isOwnProviderProfile);
   renderOwnProfileHub(pid);
 }
@@ -12911,6 +13097,20 @@ function renderFavorites() {
   }
 }
 // ========== MY LISTINGS ==========
+
+/** Kennzahlen einer Karte unter „Meine Inserate". Ein Gesuch wird nicht
+ *  bewertet — „0,0/5" und „0 Bewertungen" daran sind ein falscher
+ *  Erfolgsmaßstab (F03). Es trägt stattdessen seine Art. */
+function _meinInseratKennzahlen(l) {
+  if (ebIstGesuch(l)) {
+    return '<div class="my-listing-stats"><span><span class="material-icons-round" aria-hidden="true">campaign</span> Gesuch</span></div>';
+  }
+  return '<div class="my-listing-stats">' +
+    '<span><span class="material-icons-round">star</span> ' + (parseFloat(l.rating) || 0).toFixed(1) + '/5</span>' +
+    '<span><span class="material-icons-round">rate_review</span> ' + (parseInt(l.reviewCount, 10) || 0) + ' Bewertungen</span>' +
+  '</div>';
+}
+
 function renderMyListings() {
   var grid = document.getElementById('myListingsGrid');
   var emptyState = document.getElementById('myListingsEmpty');
@@ -12973,7 +13173,8 @@ function renderMyListings() {
               providerImg: l.providerImg,
               providerSince: l.providerSince,
               providerRole: l.providerRole,
-              baseRole: l.baseRole
+              baseRole: l.baseRole,
+              listingType: l.listingType
             };
           });
           renderEventGrid(myEvents);
@@ -13011,11 +13212,8 @@ function renderMyListings() {
                 '<h3>' + _escHtml(evt.title) + '</h3>' +
                 _aiDisclosureLabelsHtml(evt, 'ai-disclosure-admin') +
                 '<p>' + _escHtml(evt.categoryLabel) + ' · ' + _escHtml(evt.location) + '</p>' +
-                '<p class="my-listing-price">' + _escHtml(evt.priceLabel) + '</p>' +
-                '<div class="my-listing-stats">' +
-                  '<span><span class="material-icons-round">star</span> ' + (evt.rating || 0).toFixed(1) + '/5</span>' +
-                  '<span><span class="material-icons-round">rate_review</span> ' + (evt.reviewCount || 0) + ' Bewertungen</span>' +
-                '</div>' +
+                '<p class="my-listing-price">' + _escHtml(ebIstGesuch(evt) ? ebGesuchBudgetText(evt) : evt.priceLabel) + '</p>' +
+                _meinInseratKennzahlen(evt) +
               '</div>' +
               '<div class="my-listing-actions">' +
                 '<button class="btn-outline btn-sm" onclick="navigateTo(\'detail\', ' + evt.id + ')">' +
@@ -13082,8 +13280,7 @@ function renderMyListings() {
         grid.style.display = '';
         emptyState.style.display = 'none';
         grid.innerHTML = myListings.map(function(l) {
-          var rating = l.rating || 0;
-          var reviewCount = l.reviewCount || 0;
+          var gesuch = ebIstGesuch(l);
           return '<div class="my-listing-card">' +
             '<div class="my-listing-img"' + _aiDisclosureAttrs(l) + '>' +
               '<img src="' + _escHtml(l.image) + '" alt="' + _escHtml(l.title) + '" />' +
@@ -13093,11 +13290,8 @@ function renderMyListings() {
               '<h3>' + _escHtml(l.title) + '</h3>' +
               _aiDisclosureLabelsHtml(l, 'ai-disclosure-admin') +
               '<p>' + _escHtml(l.categoryLabel) + ' · ' + _escHtml(l.location) + '</p>' +
-              '<p class="my-listing-price">' + _escHtml(l.priceLabel) + '</p>' +
-              '<div class="my-listing-stats">' +
-                '<span><span class="material-icons-round">star</span> ' + rating.toFixed(1) + '/5</span>' +
-                '<span><span class="material-icons-round">rate_review</span> ' + reviewCount + ' Bewertungen</span>' +
-              '</div>' +
+              '<p class="my-listing-price">' + _escHtml(gesuch ? ebGesuchBudgetText(l) : l.priceLabel) + '</p>' +
+              _meinInseratKennzahlen(l) +
             '</div>' +
             '<div class="my-listing-actions">' +
               '<button class="btn-outline btn-sm" onclick="navigateTo(\'detail\', ' + l.id + ')">' +
@@ -13106,9 +13300,11 @@ function renderMyListings() {
               '<button class="btn-outline btn-sm" onclick="editListing(' + l.id + ')">' +
                 '<span class="material-icons-round">edit</span> Bearbeiten' +
               '</button>' +
+              // Verfügbarkeit ist eine Frage an den Anbieter, nicht an ein Gesuch (F03).
+              (gesuch ? '' :
               '<button class="btn-outline btn-sm" onclick="openAvailabilityModal(' + (l._dbId || l.id) + ')">' +
                 '<span class="material-icons-round">event_busy</span> Verfügbarkeit' +
-              '</button>' +
+              '</button>') +
               '<button class="btn-outline btn-sm btn-danger-outline" onclick="deleteListing(' + l.id + ')">' +
                 '<span class="material-icons-round">delete</span> Löschen' +
               '</button>' +
@@ -13161,7 +13357,8 @@ function renderMyListings() {
               providerImg: l.providerImg,
               providerSince: l.providerSince,
               providerRole: l.providerRole,
-              baseRole: l.baseRole
+              baseRole: l.baseRole,
+              listingType: l.listingType
             };
           });
           renderMyGrid(myListings);
@@ -15205,20 +15402,102 @@ function isEventPlaner() {
 /**
  * Den bei der Registrierung gewaehlten Nickname setzen.
  *
- * Bewusst ohne `await` im Anmeldepfad und ohne Fehlermeldung an den Nutzer:
- * das Konto steht bereits, und ein roter Kasten ueber einem geglueckten
- * Vorgang verwirrt mehr, als er hilft. Misslingt es (Name inzwischen
- * vergeben), traegt der Nutzer ihn unter Freunde nach.
+ * Das Konto steht bereits — eine Registrierung wegen eines Nicknames
+ * zurueckzurollen waere die schlechtere Antwort. Bis zum 15.10.2026 wurde
+ * ein Fehlschlag hier aber VERSCHLUCKT: wer in der Zwischenzeit denselben
+ * Namen bekommen hatte, stand ohne Nickname da und erfuhr es nie. Jetzt
+ * sagt eine Meldung, was passiert ist und wo man ihn waehlt.
+ *
+ * `auffindbar: true`, weil das Formular sagt, wozu der Name dient
+ * („Damit andere dich finden"). Abschalten geht in den Einstellungen.
  */
 function _regHandleSetzen(handle) {
+  var nachtragen = function (grund) {
+    showToast('Dein Nickname @' + handle + ' konnte nicht gesetzt werden'
+      + (grund ? ' (' + grund + ')' : '') + '. Du kannst ihn in den Einstellungen wählen.', 'info');
+  };
   try {
     fetch(_apiUrl('social/handle'), {
       method: 'POST',
       headers: _apiHeaders(),
       credentials: 'include',
-      body: JSON.stringify({ handle: handle }),
-    }).catch(function () { /* Konto steht, Nickname ist nachtragbar. */ });
-  } catch (e) { /* dito */ }
+      body: JSON.stringify({ handle: handle, auffindbar: true }),
+    }).then(function (r) {
+      if (r.ok) return;
+      return r.json().catch(function () { return {}; }).then(function (d) {
+        nachtragen(d && d.message ? String(d.message).replace(/\.$/, '') : '');
+      });
+    }).catch(function () { nachtragen(''); });
+  } catch (e) { nachtragen(''); }
+}
+
+/*
+ * Vorpruefung im Registrierungsformular — entprellt, und nur eine Vorschau.
+ *
+ * Entschieden wird beim Speichern, unter der Sperre (eb_handle_beanspruchen);
+ * „Verfuegbar" ist kein Versprechen. Deshalb blockiert das Absenden NUR bei
+ * einem sicheren „vergeben"/„reserviert" — eine Netzstoerung waere als
+ * Absage eine Falschaussage: der Name ist vielleicht frei, und die
+ * Registrierung scheiterte an einer Pruefung, die gar nicht stattfand.
+ */
+var _regHandleStand = { wert: '', status: '' };
+var _regHandleFolge = 0;
+var _regHandleUhr = null;
+
+function _regHandleMelden(html) {
+  var el = document.getElementById('regHandleStatus');
+  if (el) el.innerHTML = html || '';
+}
+
+function regHandlePruefen() {
+  var feld = document.getElementById('regHandle');
+  if (!feld) return;
+  var h = String(feld.value || '').trim().toLowerCase().replace(/^@/, '');
+  var folge = ++_regHandleFolge;
+  clearTimeout(_regHandleUhr);
+  _regHandleStand = { wert: h, status: '' };
+  if (h.length < 3) { _regHandleMelden(''); return; }
+  if (!/^[a-z0-9._]{3,24}$/.test(h)) {
+    _regHandleStand.status = 'ungueltig';
+    _regHandleMelden('Nur Kleinbuchstaben, Ziffern, Punkt und Unterstrich.');
+    return;
+  }
+  _regHandleUhr = setTimeout(function () {
+    _regHandleMelden('Wird geprüft …');
+    fetch(_apiUrl('social/handle/frei?h=' + encodeURIComponent(h)),
+      { headers: _apiHeaders(), credentials: 'include' })
+      .then(function (r) { if (!r.ok) throw new Error('http'); return r.json(); })
+      .then(function (d) {
+        if (folge !== _regHandleFolge) return;
+        var st = d && d.status;
+        _regHandleStand = { wert: h, status: st || '' };
+        if (st === 'frei') { _regHandleMelden('✓ Verfügbar'); return; }
+        if (st === 'gesperrt') { _regHandleMelden('Dieser Name ist reserviert. Bitte wähle einen anderen.'); return; }
+        if (st === 'ungueltig') { _regHandleMelden('3–24 Zeichen: Kleinbuchstaben, Ziffern, Punkt, Unterstrich.'); return; }
+        if (st === 'vergeben') {
+          var vs = ((d && d.vorschlaege) || []).filter(function (v) { return /^[a-z0-9._]{3,24}$/.test(v); });
+          _regHandleMelden('Schon vergeben.' + (vs.length ? ' Frei wären: ' + vs.map(function (v) {
+            return '<button type="button" class="btn-outline btn-sm" onclick="regHandleUebernehmen(\'' + v + '\')">@'
+              + _escHtml(v) + '</button>';
+          }).join('') : ''));
+          return;
+        }
+        _regHandleMelden('');
+      })
+      .catch(function () {
+        if (folge !== _regHandleFolge) return;
+        _regHandleStand = { wert: h, status: 'fehler' };
+        _regHandleMelden('Prüfung gerade nicht möglich — der Name wird beim Absenden geprüft.');
+      });
+  }, 350);
+}
+
+function regHandleUebernehmen(v) {
+  var feld = document.getElementById('regHandle');
+  if (!feld || !/^[a-z0-9._]{3,24}$/.test(String(v))) return;
+  feld.value = v;
+  regHandlePruefen();
+  feld.focus();
 }
 
 function isDienstleister() {
@@ -15240,27 +15519,60 @@ function isDienstleister() {
  * Desktop-Menü und kontextbezogene Buttons konsistent bleiben. Zeigt ein
  * Element mit '' (CSS-Default) und versteckt mit 'none'.
  */
+/**
+ * Der Hauptlink der Leiste — Ziel je Rolle, dieselbe Frage wie die
+ * Beschriftung in `_applyRoleNav()`. Abgemeldet geht es in die
+ * Registrierung als Anbieter (`ebAnbieterEinstieg`), nicht in die Anmeldung.
+ */
+function ebNavHauptweg() {
+  if (!isLoggedIn) { ebAnbieterEinstieg(); return; }
+  navigateTo(isDienstleister() ? 'my-listings' : 'board');
+}
+
 function _applyRoleNav() {
   var provider = isLoggedIn && isDienstleister();
 
-  // Auftragsboard nur für Dienstleister; Planungs-Board für alle sichtbar.
-  var auftraegeBtn = document.getElementById('auftraegeMenuBtn');
-  if (auftraegeBtn) auftraegeBtn.style.display = provider ? '' : 'none';
-  var businessBtn = document.getElementById('businessMenuBtn');
-  if (businessBtn) businessBtn.style.display = provider ? '' : 'none';
-  var boardBtn = document.getElementById('boardMenuBtn');
-  if (boardBtn) boardBtn.style.display = '';
+  // ── MENÜ IN ABSCHNITTEN (15.10.2026) ────────────────────────────────
+  //
+  // „Mein Geschäft" nur für Dienstleister, „Mein Event" für alle — auch
+  // Dienstleister planen eigene Events. Ein Planer sieht seine Gesuche als
+  // „Meine Gesuche"; ein Dienstleister hat dieselbe Seite schon als „Meine
+  // Inserate" im Geschäft, ein zweiter Eintrag wäre dort ein Doppel.
+  var geschaeft = document.getElementById('menuGeschaeft');
+  if (geschaeft) geschaeft.hidden = !provider;
+  var gesucheBtn = document.getElementById('gesucheMenuBtn');
+  if (gesucheBtn) gesucheBtn.hidden = provider;
 
-  // Mobile Bottom-Nav: der Board-Slot führt immer zum Planungs-Board.
-  // Das Auftragsboard erreichen Dienstleister über das Menü.
+  // ── HAUPTLINK IN DER LEISTE ─────────────────────────────────────────
+  //
+  // Hier stand für alle „Inserieren". Für einen Planer ist das die falsche
+  // Einladung: er bietet nichts an, er sucht — und genau diese Verwechslung
+  // erzeugte Gesuche mit Anbieterpreis. Beschriftung und Ziel kommen aus
+  // derselben Rollenfrage wie `ebNavHauptweg()`.
+  var hauptLink = document.getElementById('navHauptLink');
+  if (hauptLink) {
+    hauptLink.textContent = !isLoggedIn ? 'Für Dienstleister'
+      : provider ? 'Mein Geschäft' : 'Mein Event';
+  }
+
+  // ── MOBILLEISTE, DRITTER PLATZ ──────────────────────────────────────
+  //
+  // Bis zum 15.10.2026 führte er für ALLE zum Planungs-Board, und das
+  // Auftragsboard lag für Dienstleister hinter dem Menü — auf dem Gerät,
+  // auf dem man unterwegs nachsieht, was als Nächstes ansteht. Die Leiste
+  // war bewusst unangetastet geblieben, weil das eine Produktentscheidung
+  // des Inhabers ist; sie ist mit dem Überarbeitungsauftrag getroffen
+  // (PRODUCT_REDESIGN.md, Abschnitt 3.1). Das Planungs-Board bleibt für
+  // Dienstleister im Menü unter „Mein Event".
   var mobileBoardBtn = document.querySelector('#mobileNav .mobile-nav-board');
   if (mobileBoardBtn) {
     var icon = mobileBoardBtn.querySelector('.material-icons-round');
     var label = mobileBoardBtn.querySelector('span:last-child');
-    mobileBoardBtn.setAttribute('onclick', "navigateTo('board')");
-    mobileBoardBtn.dataset.page = 'board';
-    if (icon) icon.textContent = 'view_kanban';
-    if (label) label.textContent = 'Board';
+    var ziel = provider ? 'auftraege' : 'board';
+    mobileBoardBtn.setAttribute('onclick', "navigateTo('" + ziel + "')");
+    mobileBoardBtn.dataset.page = ziel;
+    if (icon) icon.textContent = provider ? 'assignment' : 'view_kanban';
+    if (label) label.textContent = provider ? 'Aufträge' : 'Planen';
   }
 
   // ── DER DRITTE WEG AUF DER LANDESEITE ────────────────────────────────
@@ -15378,7 +15690,7 @@ function applyLogout() {
   updateMsgBadge(0);
   document.getElementById('loggedOutMenu').style.display = 'block';
   document.getElementById('loggedInMenu').style.display = 'none';
-  document.getElementById('userMenu').classList.remove('show');
+  if (typeof _userMenuSetzen === 'function') _userMenuSetzen(false); else document.getElementById('userMenu').classList.remove('show');
   var navAvatar = document.querySelector('#avatarBtn img');
   if (navAvatar) navAvatar.src = ebAvatar('user', 'User');
   var adminLabel = document.getElementById('navAdminLabel');
@@ -15612,7 +15924,7 @@ async function handleRegister(e) {
   var firstName = document.getElementById('regFirstName').value.trim();
   var lastName = document.getElementById('regLastName').value.trim();
   var handleFeld = document.getElementById('regHandle');
-  var handle = handleFeld ? handleFeld.value.trim().toLowerCase() : '';
+  var handle = handleFeld ? handleFeld.value.trim().toLowerCase().replace(/^@/, '') : '';
   var email = document.getElementById('regEmail').value.trim();
   var password = document.getElementById('regPassword').value.trim();
   var activeRole = document.querySelector('.role-toggle:not(.role-toggle-sub) > .role-btn.active');
@@ -15647,6 +15959,12 @@ async function handleRegister(e) {
   // driften, und diese driftete in ein 400 nach abgeschickter Anmeldung.
   if (handleFeld && !/^[a-z0-9._]{3,24}$/.test(handle)) {
     _setFieldError('regHandle', '3–24 Zeichen: Kleinbuchstaben, Ziffern, Punkt, Unterstrich');
+    hasError = true;
+  }
+  else if (handleFeld && _regHandleStand.wert === handle
+      && (_regHandleStand.status === 'vergeben' || _regHandleStand.status === 'gesperrt')) {
+    _setFieldError('regHandle', _regHandleStand.status === 'vergeben'
+      ? 'Dieser Nickname ist schon vergeben.' : 'Dieser Nickname ist reserviert.');
     hasError = true;
   }
   if (termsBox && !termsBox.checked) {
@@ -16247,9 +16565,29 @@ function closeModalOnOverlay(e) {
 }
 
 // ========== USER MENU ==========
+// Das Menü sagt jetzt, ob es offen ist (`aria-expanded`), schließt mit
+// Escape und gibt den Fokus an den Avatar zurück. Vorher war es per Tastatur
+// zu öffnen, aber nicht wieder zu verlassen — und ein Screenreader erfuhr
+// nicht, dass sich etwas geöffnet hatte.
+function _userMenuSetzen(offen) {
+  const menu = document.getElementById('userMenu');
+  const avatar = document.getElementById('avatarBtn');
+  if (!menu) return;
+  menu.classList.toggle('show', !!offen);
+  if (avatar) avatar.setAttribute('aria-expanded', offen ? 'true' : 'false');
+}
+
 function toggleUserMenu() {
   const menu = document.getElementById('userMenu');
-  menu.classList.toggle('show');
+  const offen = !menu.classList.contains('show');
+  _userMenuSetzen(offen);
+  if (offen) {
+    // Der erste SICHTBARE Knopf — nicht der erste im DOM: der liegt beim
+    // Planer im versteckten Abschnitt „Mein Geschäft", und dorthin kann der
+    // Fokus nicht. Er blieb dann still am Avatar stehen.
+    const erster = [...menu.querySelectorAll('button')].find((b) => b.offsetParent !== null);
+    if (erster) erster.focus();
+  }
 }
 
 // Close menu on outside click
@@ -16257,8 +16595,17 @@ document.addEventListener('click', (e) => {
   const menu = document.getElementById('userMenu');
   const avatar = document.getElementById('avatarBtn');
   if (!menu.contains(e.target) && !avatar.contains(e.target)) {
-    menu.classList.remove('show');
+    _userMenuSetzen(false);
   }
+});
+
+document.addEventListener('keydown', (e) => {
+  if (e.key !== 'Escape') return;
+  const menu = document.getElementById('userMenu');
+  if (!menu || !menu.classList.contains('show')) return;
+  _userMenuSetzen(false);
+  const avatar = document.getElementById('avatarBtn');
+  if (avatar) avatar.focus();
 });
 
 // ========== TOAST ==========
@@ -16400,7 +16747,7 @@ var QA_TOPICS = [
     ],
     actions: [
       { label: 'Business-Cockpit', icon: 'insights', kind: 'page', target: 'business' },
-      { label: 'Auftragsboard', icon: 'assignment', kind: 'page', target: 'auftraege' },
+      { label: 'Aufträge', icon: 'assignment', kind: 'page', target: 'auftraege' },
       { label: 'Auszahlungen', icon: 'account_balance', kind: 'page', target: 'settings' }
     ]
   },
@@ -16797,7 +17144,13 @@ function openQaBot() {
     ]);
     _qaBotOpenedOnce = true;
   }
-  setTimeout(function() { if (input) input.focus(); }, 80);
+  // Beim ersten Öffnen ohne Wahl erscheint die Figurenauswahl (ui/33). Dann
+  // gehört der Fokus ihr, nicht dem Eingabefeld.
+  if (typeof ebAssistentFigurBeimOeffnen === 'function') ebAssistentFigurBeimOeffnen();
+  setTimeout(function() {
+    var wahl = document.getElementById('qaFigurWahl');
+    if (input && (!wahl || wahl.hidden)) input.focus();
+  }, 80);
 }
 
 function closeQaBot() {
@@ -17592,6 +17945,222 @@ function submitMapSearch() {
   }
   filterMapMarkers();
 }
+/* ==================== ASSISTENTEN-FIGUR (wählbar) ====================
+ *
+ * Auftrag des Inhabers vom 16.10.2026: zehn Event-Assistenten-Figuren
+ * (`assets/avatare/avatar-01.webp` … `-10`) ersetzen den gezeichneten
+ * Roboter. Jede Person wählt sich eine; Vorgabe ist Figur 1.
+ *
+ * Gespeichert wird die Wahl unter `eb_assistent_figur_v1` (funktional,
+ * Cookie-Liste.md) — und nur über ebSpeichern(), also nur mit Einwilligung.
+ * Ohne sie gilt die Wahl für diese Sitzung: „keine Speicherung" heißt nicht
+ * „keine Funktion". Dieselbe Lehre wie beim Sprachschalter
+ * (ai/53-assistent-stimme.js): ein Knopf, der sich drücken lässt und nach
+ * dem Neuzeichnen nichts behalten hat, ist die teuerste Schadensart hier.
+ *
+ * Ein gespeicherter Wert wird GEGEN DIE LISTE geprüft, nie in eine Adresse
+ * eingesetzt: ein manipuliertes `localStorage` darf keinen Pfad und kein
+ * Markup erzeugen. Nur „01" … „10" kommen durch.
+ * ==================================================================== */
+
+var EB_FIGUR_SCHLUESSEL = 'eb_assistent_figur_v1';
+var EB_FIGUR_VORGABE = '01';
+var EB_FIGUREN = ['01', '02', '03', '04', '05', '06', '07', '08', '09', '10'];
+
+var _ebFigurWunsch = null;          // null = noch nicht gelesen
+var _ebFigurGefragt = false;        // in dieser Sitzung schon gewählt oder „Später"
+
+/** Die gewählte Figur — immer ein Eintrag aus EB_FIGUREN. */
+function ebAssistentFigur() {
+  if (_ebFigurWunsch === null) {
+    var gespeichert = null;
+    try { gespeichert = localStorage.getItem(EB_FIGUR_SCHLUESSEL); } catch (e) {}
+    _ebFigurWunsch = EB_FIGUREN.indexOf(gespeichert) !== -1 ? gespeichert : null;
+    // Eine gültige gespeicherte Wahl heißt: diese Person wurde schon gefragt.
+    if (_ebFigurWunsch) _ebFigurGefragt = true;
+  }
+  return _ebFigurWunsch || EB_FIGUR_VORGABE;
+}
+
+/** Adresse einer Figur. Nimmt nur Werte aus der Liste an. */
+function ebAssistentFigurUrl(nr) {
+  var n = EB_FIGUREN.indexOf(nr) !== -1 ? nr : EB_FIGUR_VORGABE;
+  return ebAssetUrl('assets/avatare/avatar-' + n + '.webp');
+}
+
+/** Setzt die gewählte Figur in jedes Bild mit [data-assistent-figur]. */
+function ebAssistentFigurAnwenden() {
+  var url = ebAssistentFigurUrl(ebAssistentFigur());
+  document.querySelectorAll('img[data-assistent-figur]').forEach(function(img) {
+    if (img.getAttribute('src') !== url) img.setAttribute('src', url);
+  });
+}
+
+function ebAssistentFigurWaehlen(nr) {
+  if (EB_FIGUREN.indexOf(nr) === -1) return false;
+  _ebFigurWunsch = nr;
+  _ebFigurGefragt = true;
+  // ebSpeichern(), nicht localStorage.setItem(): ohne diesen Weg wäre die
+  // Einwilligung hier wirkungslos (recht.spec.js).
+  ebSpeichern(EB_FIGUR_SCHLUESSEL, nr);
+  ebAssistentFigurAnwenden();
+  ebAssistentFigurWahlSchliessen(false);
+  return true;
+}
+
+function _ebFigurRasterZeichnen() {
+  var raster = document.getElementById('qaFigurRaster');
+  if (!raster) return;
+  var aktuell = ebAssistentFigur();
+  raster.innerHTML = EB_FIGUREN.map(function(nr, i) {
+    var an = nr === aktuell;
+    return '<button type="button" class="eb-qa-figur-wahl-knopf' + (an ? ' is-aktiv' : '') + '"' +
+      ' data-figur="' + nr + '" aria-pressed="' + (an ? 'true' : 'false') + '"' +
+      ' aria-label="Figur ' + (i + 1) + ' wählen" onclick="ebAssistentFigurWaehlen(\'' + nr + '\')">' +
+      '<img src="' + _escHtml(ebAssistentFigurUrl(nr)) + '" alt="" width="48" height="72" loading="lazy" decoding="async" />' +
+      '</button>';
+  }).join('');
+}
+
+function ebAssistentFigurWahlOeffnen() {
+  var wahl = document.getElementById('qaFigurWahl');
+  if (!wahl) return;
+  _ebFigurRasterZeichnen();
+  wahl.hidden = false;
+  var aktiv = wahl.querySelector('button[aria-pressed="true"]');
+  if (aktiv) aktiv.focus();
+}
+
+/** `spaeter`: die Person hat nicht gewählt — Vorgabe bleibt, nicht erneut fragen. */
+function ebAssistentFigurWahlSchliessen(spaeter) {
+  var wahl = document.getElementById('qaFigurWahl');
+  if (wahl) wahl.hidden = true;
+  if (spaeter) {
+    _ebFigurGefragt = true;
+    // „Später" mit Einwilligung merkt sich die Vorgabe, damit die Frage
+    // nicht bei jedem Neuladen wiederkommt.
+    if (!_ebFigurWunsch) ebSpeichern(EB_FIGUR_SCHLUESSEL, EB_FIGUR_VORGABE);
+  }
+  var eingabe = document.getElementById('qaInput');
+  if (eingabe && !document.getElementById('qaPanel').hidden) eingabe.focus();
+}
+
+/** Von openQaBot() gerufen: beim ersten Öffnen ohne Wahl die Auswahl zeigen. */
+function ebAssistentFigurBeimOeffnen() {
+  ebAssistentFigur();
+  if (!_ebFigurGefragt) ebAssistentFigurWahlOeffnen();
+}
+
+/* ── N02: aus dem Weg beim Lesen ─────────────────────────────────────────
+ * Entscheidung des Inhabers vom 17.10.2026: beim Herunterscrollen blendet
+ * sich der Knopf aus, beim Hochscrollen wieder ein. Er lag sonst über dem
+ * Inhalt, den man gerade liest (live an einer Auftragskarte gemessen).
+ *
+ * Drei Ausnahmen, alle aus Sicht der Person:
+ *   - ganz oben (unter EB_FIGUR_OBEN px) ist er immer da;
+ *   - ist das Panel offen, bleibt er — er ist dann der Weg zurück;
+ *   - hat er den Tastaturfokus, bleibt er — Fokus auf etwas Unsichtbarem
+ *     wäre eine Falle.
+ * Kleine Bewegungen (unter EB_FIGUR_SCHWELLE px) zählen nicht, sonst
+ * flackert er beim Lesen mit dem Daumen.
+ *
+ * Kein Dauerlauf: gerechnet wird nur bei einem Scroll-Ereignis, höchstens
+ * einmal je Frame (rAF), und der Horcher ist passiv. Die Leerlauf-Regel aus
+ * leerlauf.spec.js bleibt damit unberührt.
+ * Bewegungsreduktion ändert nur das Gleiten (CSS), nicht die Funktion.
+ */
+var EB_FIGUR_OBEN = 120;
+var EB_FIGUR_SCHWELLE = 8;
+var _ebFigurLetzteY = 0;
+var _ebFigurFrame = 0;
+
+function _ebFigurScrollPruefen() {
+  _ebFigurFrame = 0;
+  var bot = document.getElementById('qaBot');
+  if (!bot) return;
+  var y = window.scrollY || document.documentElement.scrollTop || 0;
+  var delta = y - _ebFigurLetzteY;
+  var panel = document.getElementById('qaPanel');
+  var knopf = document.getElementById('qaLauncher');
+  var bleibt = y < EB_FIGUR_OBEN ||
+    (panel && !panel.hidden) ||
+    (knopf && document.activeElement === knopf);
+  if (bleibt) {
+    bot.classList.remove('is-weg');
+    _ebFigurLetzteY = y;
+    return;
+  }
+  if (Math.abs(delta) < EB_FIGUR_SCHWELLE) return;
+  bot.classList.toggle('is-weg', delta > 0);
+  _ebFigurLetzteY = y;
+}
+
+window.addEventListener('scroll', function() {
+  if (!_ebFigurFrame) _ebFigurFrame = requestAnimationFrame(_ebFigurScrollPruefen);
+}, { passive: true });
+
+/* Dezenter Mausblick: nur das Bild bewegen, niemals den Scroll-Launcher.
+ * Ein Frame bündelt Ereignisse; ohne neue Bewegung gibt es keine Arbeit.
+ */
+(function() {
+  var maus = window.matchMedia('(hover: hover) and (pointer: fine)');
+  var grob = window.matchMedia('(pointer: coarse)');
+  var frame = 0;
+  var x = 0;
+  var y = 0;
+  var bild = null;
+  var vorher = '';
+
+  function reset() {
+    if (frame) cancelAnimationFrame(frame);
+    frame = 0;
+    if (bild) bild.style.transform = vorher;
+    bild = null;
+  }
+
+  function zeichnen() {
+    frame = 0;
+    var knopf = document.getElementById('qaLauncher');
+    var bot = document.getElementById('qaBot');
+    if (document.hidden || ebBewegungReduziert() || !maus.matches || grob.matches ||
+        !knopf || (bot && bot.classList.contains('is-weg'))) {
+      reset();
+      return;
+    }
+    var img = knopf.querySelector('img[data-assistent-figur]');
+    if (!img) { reset(); return; }
+    if (bild !== img) {
+      reset();
+      bild = img;
+      vorher = img.style.transform;
+    }
+    var rect = knopf.getBoundingClientRect();
+    var dx = Math.max(-1, Math.min(1, (x - rect.left - rect.width / 2) / 360));
+    var dy = Math.max(-1, Math.min(1, (y - rect.top - rect.height / 2) / 360));
+    bild.style.transform = 'translate(' + (dx * 1.5).toFixed(2) + 'px, ' +
+      (dy * 1.5).toFixed(2) + 'px) rotate3d(' + (-dy).toFixed(3) + ', ' +
+      dx.toFixed(3) + ', 0, ' + (Math.max(Math.abs(dx), Math.abs(dy)) * 3).toFixed(2) + 'deg)';
+  }
+
+  document.addEventListener('pointermove', function(event) {
+    if (!event.isTrusted || event.pointerType !== 'mouse') return;
+    if (document.hidden || ebBewegungReduziert() || !maus.matches || grob.matches) {
+      reset();
+      return;
+    }
+    x = event.clientX;
+    y = event.clientY;
+    if (!frame) frame = requestAnimationFrame(zeichnen);
+  }, { passive: true });
+  document.documentElement.addEventListener('pointerleave', reset, { passive: true });
+  window.addEventListener('blur', reset);
+  document.addEventListener('visibilitychange', reset);
+  ebBewegungBeobachten(reset);
+  maus.addEventListener('change', reset);
+  grob.addEventListener('change', reset);
+})();
+
+ebAssistentFigurAnwenden();
 // =========================================================
 // ===================== EVENT-PLANER BOARD ================
 // =========================================================
@@ -18340,7 +18909,7 @@ function _renderAuftraegeJobs(container, jobs, isProvider) {
   html += '<details class="auftraege-howto" style="background:linear-gradient(135deg,rgba(255,56,92,0.06),rgba(0,166,153,0.06));border:1px solid var(--border);border-radius:14px;padding:14px 18px;margin-bottom:18px">' +
     '<summary style="display:flex;align-items:center;gap:10px;cursor:pointer;font-weight:600;list-style:none">' +
       '<span class="material-icons-round" style="color:var(--primary);font-size:22px">info</span>' +
-      'So funktioniert dein Auftragsboard' +
+      'So funktionieren deine Aufträge' +
     '</summary>' +
     '<div style="font-size:14px;line-height:1.7;margin-top:10px;color:var(--text-light)">' +
       '1. Ein Kunde bucht dich verbindlich &rarr; der Auftrag erscheint hier mit Status <em>&bdquo;Gebucht&ldquo;</em>.<br>' +
@@ -19514,7 +20083,7 @@ function renderBoardTimeline() {
   if (!project) return;
   var chain = document.getElementById('timelineChain');
   if (!chain) return;
-  var confirmed = (project.cards || []).filter(function(c) { return c.stage === 'bestaetigt' || c.stage === 'abgeschlossen'; });
+  var confirmed = (project.cards || []).filter(function(c) { return c.stage === 'angebot' || c.stage === 'bestaetigt' || c.stage === 'abgeschlossen'; });
   if (confirmed.length === 0) {
     chain.innerHTML = '<div style="text-align:center;padding:40px;color:var(--text-light)"><span class="material-icons-round" style="font-size:40px;opacity:0.3;display:block;margin-bottom:12px">timeline</span>Noch keine bestätigten Dienstleister im Ablauf</div>';
     return;
@@ -19522,13 +20091,13 @@ function renderBoardTimeline() {
   // Eine Position mit mehreren Zeiten erscheint im Ablauf MEHRFACH — genau
   // das ist der Sinn eines Ablaufs. Die Reihenfolge der Karten bleibt, wie
   // sie ist; nur innerhalb einer Karte stehen ihre Zeiten nacheinander. Ein
-  // globales Umsortieren nach Uhrzeit würde Karten ohne Zeit (die hier eine
-  // erfundene bekommen) mit echten mischen.
+  // globales Umsortieren nach Uhrzeit würde die Kartenreihenfolge verändern.
+  // Fehlende Zeiten werden ausdrücklich als offen angezeigt.
   var punkte = [];
-  confirmed.forEach(function(card, i) {
+  confirmed.forEach(function(card) {
     var zeiten = ebKartenZeiten(card);
     if (!zeiten.length) {
-      punkte.push({ card: card, text: ('0' + (8 + i * 2) + ':00').slice(-5), nr: 0, von: 1 });
+      punkte.push({ card: card, text: 'Zeit offen', nr: 0, von: 1 });
       return;
     }
     zeiten.forEach(function(z, k) {
@@ -20924,7 +21493,7 @@ function _showBookingSuccess(info) {
         '<div style="text-align:left;background:var(--bg-alt);border:1px solid var(--border);border-radius:12px;padding:14px 16px;margin:0 0 18px;font-size:14px;line-height:1.7">' +
           '<strong>Wie es jetzt weitergeht:</strong>' +
           '<div style="display:flex;gap:10px;margin-top:8px"><span class="material-icons-round" style="color:var(--primary);font-size:20px">view_kanban</span><span>Die Buchung liegt in deinem <strong>Planungs-Board</strong> unter „Direktbuchungen".</span></div>' +
-          '<div style="display:flex;gap:10px;margin-top:8px"><span class="material-icons-round" style="color:var(--primary);font-size:20px">notifications_active</span><span>Der Dienstleister wurde benachrichtigt und sieht die Buchung in seinem <strong>Auftragsboard</strong>.</span></div>' +
+          '<div style="display:flex;gap:10px;margin-top:8px"><span class="material-icons-round" style="color:var(--primary);font-size:20px">notifications_active</span><span>Der Dienstleister wurde benachrichtigt und sieht die Buchung unter seinen <strong>Aufträgen</strong>.</span></div>' +
           '<div style="display:flex;gap:10px;margin-top:8px"><span class="material-icons-round" style="color:var(--primary);font-size:20px">event_available</span><span>Am Event-Tag bestätigt ihr beide die Leistung – erst dann gilt der Auftrag als erfüllt.</span></div>' +
         '</div>' +
         '<button class="btn-primary btn-block" onclick="' + goBoard + '"><span class="material-icons-round">view_kanban</span> Zum Board</button>' +
@@ -24892,18 +25461,9 @@ window.addChecklistItem = addChecklistItem;
 
 function openAddProviderModal(defaultStage) {
   // Nur Dienstleister-Inserate (Angebote) anzeigen, KEINE Such-Inserate.
-  // Filter:
-  //  1. Explizites Feld (zukuenftig): listingType / kind / type === 'search' | 'gesuch' | 'suche-dienstleister' → ausblenden
-  //  2. Heuristik fuer Legacy-Daten: Titel/Kategorie enthaelt "gesucht" / beginnt mit "Suche " → Such-Inserat
+  // Die Erkennung steht EINMAL in ebIstGesuch() (core/00-basis.js).
   function _isSearchListing(l) {
-    if (!l) return true;
-    var t = (l.listingType || l.kind || l.type || '').toString().toLowerCase();
-    if (t === 'search' || t === 'gesuch' || t === 'such' || t.indexOf('suche') === 0) return true;
-    var title = (l.title || '').toString().toLowerCase();
-    var cat   = (l.categoryLabel || l.category || '').toString().toLowerCase();
-    if (/\bgesucht\b/.test(title) || /\bgesucht\b/.test(cat)) return true;
-    if (/^\s*suche\s/.test(title)) return true;
-    return false;
+    return !l || ebIstGesuch(l);
   }
   // Basis: BROWSE-PARITÄT — der Picker zeigt exakt das, was auch die Suche
   // zeigt: alle DB-Inserate PLUS Demo-Inserate, sofern sie nicht per
@@ -29516,9 +30076,7 @@ function _aiCreateFromDraft() {
 }
 
 function _aiIsSearch(l) {
-  var t = (l.listingType || l.kind || l.type || '').toString().toLowerCase();
-  if (t === 'search' || t === 'gesuch' || t.indexOf('suche') === 0) return true;
-  return /\bgesucht\b/i.test(l.title || '') || /^\s*suche\s/i.test(l.title || '');
+  return ebIstGesuch(l);
 }
 
 function _aiAnswerCategory(catKey) {
@@ -30638,6 +31196,12 @@ var _sozialAccount = null;
 var _sozialLadefolge = 0;
 var _sozialSuchfolge = 0;
 var _sozialLadePromise = null;
+var _sozialSuchtext = '';
+// Nickname und Auffindbarkeit — EINE Quelle fuer die Freunde-Seite und die
+// Einstellungen. Zwei Kopien desselben Namens zeigten nach dem Speichern auf
+// der einen Seite den alten, auf der anderen den neuen.
+var _sozialNick = null;
+var _sozialSuchmeldung = '';
 
 /** Eine Antwort holen — Fehler enden IMMER sichtbar, nie in der Konsole. */
 function sozialRuf(pfad, methode, rumpf) {
@@ -30692,47 +31256,198 @@ function sozialRolleName(rolle) {
   return 'Mitglied';
 }
 
+/** Nickname und Einwilligung aus einer `social/ich`-Antwort übernehmen. */
+function sozialNickAusIch(d) {
+  var h = (d && d.handle) || '';
+  // Ein Server ohne `auffindbar` (vor dem 15.10.2026) kennt nur „Handle =
+  // auffindbar" — dann ist genau das die Wahrheit.
+  _sozialNick = {
+    handle: h,
+    auffindbar: d && typeof d.auffindbar === 'boolean' ? d.auffindbar : !!h,
+  };
+}
+
 /**
- * Der Handle-Kasten.
+ * Der Nickname-Kasten — auf der Freunde-Seite und in den Einstellungen.
  *
- * Er steht ganz oben und sagt in Worten, was das Setzen bedeutet. Ein
- * Feld ohne diesen Satz wäre eine Einwilligung, die niemand als solche
- * erkennt — und damit keine.
+ * Nickname und Auffindbarkeit stehen GETRENNT da, und der Schalter sagt in
+ * Worten, was er bedeutet. Bis zum 15.10.2026 war beides eins: wer einen
+ * Namen hatte, war auffindbar. Seit jedes Konto einen Nickname bekommen
+ * kann, wäre das eine Einwilligung, die niemand gegeben hat.
+ *
+ * `ort` wird zu Kennungen und steht im onclick — deshalb nur die festen
+ * Orte aus `sozialNickOrt()`.
  */
-function sozialHandleKasten() {
-  var h = (_sozialStand && _sozialStand.handle) || '';
-  return '<section class="soz-karte soz-handle">'
-    + '<h3><span class="material-icons-round">alternate_email</span> Dein Suchname</h3>'
-    + '<p>Nur wer einen Suchnamen hat, kann von Freunden gefunden werden. '
-    + 'Ohne ihn bist du <strong>nicht auffindbar</strong> — auch nicht über deinen Namen '
-    + 'oder deine E-Mail-Adresse. Du kannst ihn jederzeit wieder löschen.</p>'
+function sozialNicknameKasten(ort) {
+  ort = sozialNickOrt(ort);
+  if (!ort) return '';
+  var n = _sozialNick || { handle: '', auffindbar: false };
+  var id = 'sozNick_' + ort;
+  return '<section class="soz-karte soz-handle" data-nick-ort="' + ort + '">'
+    + '<h3><span class="material-icons-round" aria-hidden="true">alternate_email</span> Dein Nickname</h3>'
+    + '<p>' + (n.handle
+      ? 'Du bist <strong>@' + _escHtml(n.handle) + '</strong>. '
+      : 'Du hast noch keinen Nickname. ')
+    + 'Deine Nachrichten, Freunde und Buchungen bleiben erhalten, wenn du ihn änderst.</p>'
+    + '<label class="soz-label" for="' + id + '">Nickname</label>'
     + '<div class="soz-handle-zeile">'
-    + '<span class="soz-at">@</span>'
-    + '<input type="text" id="sozHandle" value="' + _escHtml(h) + '" maxlength="24" '
+    + '<span class="soz-at" aria-hidden="true">@</span>'
+    + '<input type="text" id="' + id + '" value="' + _escHtml(n.handle) + '" maxlength="25" '
     + 'placeholder="z. B. anna.b" autocomplete="off" spellcheck="false" '
-    + 'aria-label="Dein Suchname">'
-    + '<button type="button" class="btn-primary" onclick="sozialHandleSpeichern()">Speichern</button>'
-    + (h ? '<button type="button" class="btn-outline" onclick="sozialHandleLoeschen()">Löschen</button>' : '')
+    + 'aria-describedby="' + id + '_regel ' + id + '_status">'
     + '</div>'
-    + '<small class="soz-hinweis">3–24 Zeichen: Kleinbuchstaben, Ziffern, Punkt, Unterstrich.</small>'
+    + '<small class="soz-hinweis" id="' + id + '_regel">3–24 Zeichen: Kleinbuchstaben, Ziffern, Punkt, Unterstrich.</small>'
+    + '<label class="soz-schalter" for="' + id + '_auffindbar">'
+    + '<input type="checkbox" id="' + id + '_auffindbar"' + (n.auffindbar ? ' checked' : '') + '> '
+    + 'Über meinen Nickname gefunden werden</label>'
+    + '<small class="soz-hinweis">Ist das aus, findet dich niemand in der Personensuche — '
+    + 'auch nicht über deinen Namen oder deine E-Mail-Adresse.</small>'
+    + '<p class="soz-nick-status" id="' + id + '_status" role="status" aria-live="polite"></p>'
+    + '<div class="soz-nick-vorschlaege" id="' + id + '_vorschlaege"></div>'
+    + '<button type="button" class="btn-primary" onclick="sozialNicknameSpeichern(\'' + ort + '\')">Speichern</button>'
     + '</section>';
+}
+
+/**
+ * Ein Platz-Attribut auf einen BEKANNTEN Ort abbilden — oder auf nichts.
+ *
+ * Der Wert landet in Kennungen und im onclick. Ein Muster („nur
+ * Kleinbuchstaben") liess jedes Wort durch, und CodeQL meldete am
+ * 15.10.2026 zu Recht, dass hier Text aus dem DOM zu HTML wird. Zurück
+ * kommt deshalb immer ein Literal aus diesem Code, nie der gelesene Text.
+ */
+function sozialNickOrt(roh) {
+  if (roh === 'einstellungen') return 'einstellungen';
+  if (roh === 'freunde') return 'freunde';
+  return '';
+}
+
+/** Jeden Platz `[data-nickname-kasten]` neu füllen (Einstellungen). */
+function sozialNicknameKaestenZeichnen() {
+  var plaetze = document.querySelectorAll('[data-nickname-kasten]');
+  for (var i = 0; i < plaetze.length; i++) {
+    var ort = sozialNickOrt(plaetze[i].getAttribute('data-nickname-kasten'));
+    plaetze[i].innerHTML = ort ? sozialNicknameKasten(ort) : '';
+  }
+}
+
+function sozialNickMeldung(ort, text) {
+  var el = document.getElementById('sozNick_' + ort + '_status');
+  if (el) el.textContent = text || '';
+}
+
+/**
+ * Speichern — nur bei einer gültigen ÄNDERUNG.
+ *
+ * Ein Klick ohne Änderung schickt nichts: jeder Namenswechsel zählt
+ * serverseitig gegen einen Tagesdeckel, und wer dreimal „Speichern"
+ * drückt, darf ihn nicht dabei verbrauchen.
+ */
+function sozialNicknameSpeichern(ort) {
+  var id = 'sozNick_' + ort;
+  var feld = document.getElementById(id);
+  var schalter = document.getElementById(id + '_auffindbar');
+  if (!feld || !schalter) return;
+  var h = String(feld.value || '').trim().toLowerCase().replace(/^@/, '');
+  var alt = _sozialNick || { handle: '', auffindbar: false };
+  var vorschlaege = document.getElementById(id + '_vorschlaege');
+  if (vorschlaege) vorschlaege.innerHTML = '';
+  if (h === alt.handle && schalter.checked === alt.auffindbar) {
+    sozialNickMeldung(ort, 'Es gibt nichts zu speichern.');
+    return;
+  }
+  if (!/^[a-z0-9._]{3,24}$/.test(h)) {
+    sozialNickMeldung(ort, '3–24 Zeichen: Kleinbuchstaben, Ziffern, Punkt, Unterstrich.');
+    return;
+  }
+  sozialNickMeldung(ort, 'Wird gespeichert …');
+  sozialRuf('social/handle', 'POST', { handle: h, auffindbar: schalter.checked })
+    .then(function (d) {
+      _sozialNick = { handle: d.handle || '', auffindbar: !!d.auffindbar };
+      if (_sozialStand) _sozialStand.handle = _sozialNick.handle;
+      showToast(_sozialNick.auffindbar
+        ? 'Gespeichert. Andere finden dich als @' + _sozialNick.handle + '.'
+        : 'Gespeichert. Du bist @' + _sozialNick.handle + ' und nicht auffindbar.', 'check_circle');
+      sozialNicknameKaestenZeichnen();
+      if (document.getElementById('sozNick_freunde')) renderFreundePage();
+      sozialNickMeldung(ort, 'Gespeichert.');
+    })
+    .catch(function (e) {
+      sozialNickMeldung(ort, (e && e.message) || 'Das hat nicht geklappt.');
+      if (e && e.code === 'handle_vergeben') sozialNickVorschlaegeZeigen(ort, h);
+    });
+}
+
+/** Bei „schon vergeben" freie Varianten anbieten, statt raten zu lassen. */
+function sozialNickVorschlaegeZeigen(ort, h) {
+  sozialRuf('social/handle/frei?h=' + encodeURIComponent(h)).then(function (d) {
+    var el = document.getElementById('sozNick_' + ort + '_vorschlaege');
+    if (!el) return;
+    var frei = (d && d.vorschlaege || []).filter(function (v) { return /^[a-z0-9._]{3,24}$/.test(v); });
+    el.innerHTML = frei.length ? '<span>Frei wären:</span> ' + frei.map(function (v) {
+      return '<button type="button" class="btn-outline btn-sm" onclick="sozialNickVorschlagNehmen(\''
+        + ort + '\',\'' + v + '\')">@' + _escHtml(v) + '</button>';
+    }).join(' ') : '';
+  }).catch(function () { /* die Meldung „vergeben" steht schon da */ });
+}
+
+function sozialNickVorschlagNehmen(ort, v) {
+  var feld = document.getElementById('sozNick_' + ort);
+  if (!feld || !/^[a-z0-9._]{3,24}$/.test(String(v))) return;
+  feld.value = v;
+  feld.focus();
+  sozialNickMeldung(ort, '@' + v + ' ist eingetragen — zum Übernehmen speichern.');
+}
+
+/** Einstellungen: den Nickname-Kasten laden und zeichnen. */
+function ebNicknameEinstellungen() {
+  var plaetze = document.querySelectorAll('[data-nickname-kasten]');
+  if (!plaetze.length) return;
+  if (!currentUser) {
+    for (var i = 0; i < plaetze.length; i++) plaetze[i].innerHTML = '';
+    return;
+  }
+  if (_sozialNick && _sozialAccount === String(currentUser.id)) {
+    sozialNicknameKaestenZeichnen();
+    return;
+  }
+  for (var j = 0; j < plaetze.length; j++) {
+    plaetze[j].innerHTML = '<section class="soz-karte"><p class="soz-hinweis">Dein Nickname wird geladen …</p></section>';
+  }
+  var uid = String(currentUser.id);
+  sozialRuf('social/ich').then(function (d) {
+    if (!currentUser || String(currentUser.id) !== uid) return;
+    // Ein anderes Konto als zuletzt: erst alles Alte verwerfen, sonst stuende
+    // auf der Freunde-Seite die Liste des vorigen Kontos.
+    if (_sozialAccount !== uid) sozialZuruecksetzen();
+    sozialNickAusIch(d);
+    sozialNicknameKaestenZeichnen();
+  }).catch(function () {
+    for (var k = 0; k < plaetze.length; k++) {
+      plaetze[k].innerHTML = '<section class="soz-karte"><p>Dein Nickname konnte nicht geladen werden.</p>'
+        + '<button type="button" class="btn-outline" onclick="ebNicknameEinstellungen()">Erneut versuchen</button></section>';
+    }
+  });
 }
 
 function sozialFreundeAnsicht() {
   var s = _sozialStand || { friends: [], incoming: [], outgoing: [], blocked: [] };
-  var html = sozialHandleKasten();
+  var html = '';
 
   html += '<section class="soz-karte">'
     + '<h3><span class="material-icons-round">person_search</span> Freunde finden</h3>'
     + '<div class="soz-suche-zeile">'
-    + '<span class="soz-at">@</span>'
-    + '<input type="text" id="sozSuche" placeholder="Suchname eingeben" autocomplete="off" '
-    + 'spellcheck="false" aria-label="Nach Suchname suchen" '
+    + '<input type="search" id="sozSuche" placeholder="Nickname, z. B. @anna.b" autocomplete="off" '
+    + 'value="' + _escHtml(_sozialSuchtext) + '" '
+    + 'oninput="sozialSuchtextMerken(this.value)" '
+    + 'spellcheck="false" aria-label="Nach Nickname suchen" aria-describedby="sozSucheHinweis" '
     + 'onkeydown="if(event.key===\'Enter\'){event.preventDefault();sozialSuchen();}">'
     + '<button type="button" class="btn-primary" onclick="sozialSuchen()">Suchen</button>'
     + '</div>'
-    + '<div id="sozTreffer" class="soz-liste"></div>'
+    + '<p id="sozSucheHinweis" class="soz-hinweis">Mit oder ohne @ suchen. Ein Teil des Nicknames genügt (mindestens 3 Zeichen).</p>'
+    + '<div id="sozTreffer" class="soz-liste" role="status" aria-live="polite" aria-atomic="true"></div>'
     + '</section>';
+  html += sozialNicknameKasten('freunde');
 
   if (s.incoming.length) {
     html += '<section class="soz-karte"><h3><span class="material-icons-round">mark_email_unread</span> '
@@ -30894,7 +31609,8 @@ function sozialGruppenKarte(gr) {
       html += '<div class="soz-code">'
         + '<span class="soz-hinweis">Einladungscode</span>'
         + '<code>' + _escHtml(String(gr.inviteCode)) + '</code>'
-        + '<button type="button" class="btn-outline" onclick="sozialEinladungKopieren(' + gr.id + ')">Einladungslink kopieren</button>'
+        + '<button type="button" class="btn-primary" onclick="sozialEinladenDialog(' + gr.id + ', this)">'
+        + '<span class="material-icons-round" aria-hidden="true">share</span> Freunde einladen</button>'
         + '<button type="button" class="btn-outline" onclick="sozialCodeNeu(' + gr.id + ')">Code erneuern</button>'
         + '</div>';
     }
@@ -30918,6 +31634,12 @@ function renderFreundePage() {
   if (!el) return;
 
   if (!currentUser) {
+    // Über einen Einladungslink: sagen, dass man eingeladen ist, und den
+    // Weg zur kostenlosen Registrierung zeigen (PRODUCT_REDESIGN.md 6.2).
+    if (typeof ebEinladungsCode === 'function' && ebEinladungsCode()) {
+      el.innerHTML = ebEinladungOhneKontoHtml();
+      return;
+    }
     el.innerHTML = '<section class="soz-karte soz-leer-karte">'
       + '<span class="material-icons-round">lock</span>'
       + '<h3>Dafür brauchst du ein Konto.</h3>'
@@ -30944,7 +31666,8 @@ function renderFreundePage() {
 
   var anfragen = _sozialStand.incoming.length;
   var einladungen = (_sozialGruppen && _sozialGruppen.invitations.length) || 0;
-  el.innerHTML = '<div class="soz-reiter" role="tablist">'
+  el.innerHTML = (typeof ebEinladungsKarteHtml === 'function' ? ebEinladungsKarteHtml() : '')
+    + '<div class="soz-reiter" role="tablist">'
     + '<button type="button" role="tab" class="soz-reiter-knopf' + (_sozialReiter === 'freunde' ? ' aktiv' : '')
     + '" aria-selected="' + (_sozialReiter === 'freunde') + '" onclick="sozialReiter(\'freunde\')">'
     + '<span class="material-icons-round">group</span> Freunde'
@@ -30956,7 +31679,7 @@ function renderFreundePage() {
     + '</div>'
     + (_sozialReiter === 'freunde' ? sozialFreundeAnsicht() : sozialGruppenAnsicht());
 
-  if (_sozialReiter === 'freunde') sozialTrefferZeichnen();
+  if (_sozialReiter === 'freunde') sozialTrefferZeichnen(_sozialSuchmeldung);
   if (typeof sozialPlanungsEntwurfZeigen === 'function') sozialPlanungsEntwurfZeigen();
 }
 
@@ -31002,6 +31725,9 @@ function sozialZuruecksetzen() {
   _sozialStand = null;
   _sozialGruppen = null;
   _sozialTreffer = [];
+  _sozialSuchtext = '';
+  _sozialSuchmeldung = '';
+  _sozialNick = null;
   _sozialLaeuft = false;
   _sozialLadePromise = null;
   _sozialPlan = {};
@@ -31026,6 +31752,7 @@ function sozialLaden(neu) {
     if (!Array.isArray(a[0].friends) || !Array.isArray(a[1].groups) || !a[2].person) {
       throw new Error('Unvollständige Antwort');
     }
+    sozialNickAusIch(a[2]);
     _sozialStand = { handle: a[2].handle || '', ich: a[2].person,
       friends: a[0].friends, incoming: a[0].incoming || [],
       outgoing: a[0].outgoing || [], blocked: a[0].blocked || [] };
@@ -31043,32 +31770,18 @@ function sozialLaden(neu) {
   return _sozialLadePromise;
 }
 
-function sozialHandleSpeichern() {
-  var el = document.getElementById('sozHandle');
-  if (!el) return;
-  sozialRuf('social/handle', 'POST', { handle: el.value })
-    .then(function (d) {
-      _sozialStand.handle = d.handle || '';
-      showToast(d.handle ? 'Du bist jetzt als @' + d.handle + ' auffindbar.'
-        : 'Du bist nicht mehr auffindbar.', 'check_circle');
-      renderFreundePage();
-    })
-    .catch(sozialFehler);
-}
-
-function sozialHandleLoeschen() {
-  sozialRuf('social/handle', 'POST', { handle: '' })
-    .then(function () {
-      _sozialStand.handle = '';
-      showToast('Du bist nicht mehr auffindbar.', 'check_circle');
-      renderFreundePage();
-    })
-    .catch(sozialFehler);
+// Wer weitertippt, verwirft jede noch laufende Antwort der alten Suche.
+function sozialSuchtextMerken(value) {
+  _sozialSuchtext = String(value || '');
+  _sozialSuchfolge++;
+  _sozialTreffer = [];
+  sozialTrefferZeichnen('');
 }
 
 function sozialSuchen() {
   var el = document.getElementById('sozSuche');
-  var q = el ? String(el.value || '').trim().toLowerCase().replace(/^@/, '') : '';
+  _sozialSuchtext = el ? String(el.value || '') : _sozialSuchtext;
+  var q = _sozialSuchtext.trim().toLowerCase().replace(/^@/, '');
   if (q.length < 3) {
     _sozialSuchfolge++;
     _sozialTreffer = [];
@@ -31083,12 +31796,17 @@ function sozialSuchen() {
     .then(function (d) {
       if (folge !== _sozialSuchfolge || !currentUser || currentUser.id !== uid) return;
       _sozialTreffer = d.results || [];
-      sozialTrefferZeichnen(_sozialTreffer.length ? '' : 'Niemand gefunden.');
+      sozialTrefferZeichnen(_sozialTreffer.length ? '' : 'Niemand gefunden. Prüfe den Nickname oder frage deine Freunde nach ihrem @Namen.');
     })
-    .catch(function (e) { sozialFehler(e); sozialTrefferZeichnen('Das hat nicht geklappt.'); });
+    .catch(function (e) {
+      if (folge !== _sozialSuchfolge || !currentUser || currentUser.id !== uid) return;
+      sozialFehler(e);
+      sozialTrefferZeichnen('Die Suche konnte nicht geladen werden. Bitte versuche es erneut.');
+    });
 }
 
 function sozialTrefferZeichnen(meldung) {
+  _sozialSuchmeldung = meldung || '';
   var el = document.getElementById('sozTreffer');
   if (!el) return;
   if (!_sozialTreffer.length) {
@@ -31098,8 +31816,10 @@ function sozialTrefferZeichnen(meldung) {
   el.innerHTML = _sozialTreffer.map(function (p) {
     var k;
     if (p.state === 'accepted') k = '<span class="soz-status">Befreundet</span>';
-    else if (p.state === 'pending') k = '<span class="soz-status">Anfrage läuft</span>';
-    else k = '<button type="button" class="btn-primary" onclick="sozialAnfragen(' + p.id + ')">Anfragen</button>';
+    else if (p.state === 'pending' && p.mine) k = '<span class="soz-status">Anfrage gesendet</span>';
+    else if (p.state === 'pending') k = '<button type="button" class="btn-primary" onclick="sozialAntwort(' + p.id + ',true)">Annehmen</button>'
+      + '<button type="button" class="btn-outline" onclick="sozialAntwort(' + p.id + ',false)">Ablehnen</button>';
+    else k = '<button type="button" class="btn-primary" onclick="sozialAnfragen(' + p.id + ')">Freundschaft anfragen</button>';
     return sozialPersonZeile(p, k);
   }).join('');
 }
@@ -31116,6 +31836,9 @@ function sozialAntwort(id, annehmen) {
     .then(function () {
       showToast(annehmen ? 'Ihr seid jetzt befreundet.' : 'Anfrage abgelehnt.', 'check_circle');
       return sozialLaden(true);
+    })
+    .then(function () {
+      if (_sozialSuchtext.trim().replace(/^@/, '').length >= 3) sozialSuchen();
     })
     .catch(sozialFehler);
 }
@@ -31677,15 +32400,211 @@ async function sozialPlanGruppeErstellen() {
   }
 }
 
-function sozialEinladungKopieren(gid) {
-  var group = ((_sozialGruppen && _sozialGruppen.groups) || []).find(function (g) { return Number(g.id) === Number(gid); });
-  if (!group || !group.inviteCode || !['owner','admin'].includes(group.role)) return;
+/* ── Einladen ohne Konto (PRODUCT_REDESIGN.md 6.2, Teil A) ──────────────
+ * Vorher: der Link führte Menschen ohne Konto auf „Dafür brauchst du ein
+ * Konto." mit einem Anmelde-Knopf — ohne zu sagen, dass sie eingeladen
+ * sind, ohne Registrierung, und nach der Anmeldung mussten sie Code-Feld
+ * und „Beitreten" selbst finden.
+ *
+ * Drei Grenzen:
+ *  1. Eventbörse verschickt nichts. WhatsApp, Mail und SMS öffnen die App
+ *     des Einladenden; die Adresse der eingeladenen Person erreicht unseren
+ *     Server nie (keine Daten Dritter, kein Werbe-Mail-Versand).
+ *  2. Kein stilles Beitreten — erst der Klick schickt den Code.
+ *  3. Gruppendaten erst nach der Anmeldung (Entscheidung E2 des Inhabers).
+ * Der Code lebt nur in der Adresse; es gibt keinen neuen Speicherschlüssel. */
+var EB_EINLADUNG_MUSTER = /^[a-f0-9]{18}$/;
+var _ebEinladungUngueltig = false;
+var _ebEinladenAuslöser = null;
+
+/** Der Code aus der Adresse — nur in der Form, die der Server vergibt. */
+function ebEinladungsCode() {
+  var c = '';
+  try { c = new URLSearchParams(location.search).get('einladung') || ''; } catch (e) {}
+  return EB_EINLADUNG_MUSTER.test(c) ? c : '';
+}
+
+function ebEinladungsLink(code) {
   var url = new URL(_spaPath('freunde', 'einladung'), location.origin);
-  url.searchParams.set('einladung', group.inviteCode);
+  url.searchParams.set('einladung', code);
+  return url.href;
+}
+
+/** Der vorbereitete Satz — ohne Link, der kommt je nach Weg dazu. */
+function ebEinladungsSatz(gruppe) {
+  var wer = (currentUser && currentUser.name) ? String(currentUser.name) : 'Jemand';
+  return wer + ' lädt dich ein, „' + String(gruppe.name || 'unser Event') + '" gemeinsam auf Eventbörse zu planen. '
+    + 'Kostenlos registrieren und mitmachen:';
+}
+
+function _ebEinladungAusAdresse() {
+  try {
+    var u = new URL(location.href);
+    u.searchParams.delete('einladung');
+    history.replaceState(history.state, '', u.pathname + u.search + u.hash);
+  } catch (e) {}
+}
+
+function _ebEinladenGruppe(gid) {
+  return ((_sozialGruppen && _sozialGruppen.groups) || []).find(function (g) { return Number(g.id) === Number(gid); });
+}
+
+/** Ansicht für Menschen ohne Konto, die über einen Einladungslink kommen. */
+function ebEinladungOhneKontoHtml() {
+  return '<section class="soz-karte soz-leer-karte soz-einladung-karte">'
+    + '<span class="material-icons-round" aria-hidden="true">celebration</span>'
+    + '<h3>Du bist eingeladen!</h3>'
+    + '<p>Jemand möchte ein Event gemeinsam mit dir auf Eventbörse planen. Registriere dich kostenlos — '
+    + 'danach siehst du die Gruppe und entscheidest selbst, ob du mitmachst.</p>'
+    + '<div class="soz-einladung-knoepfe">'
+    + '<button type="button" class="btn-primary" onclick="sozialEinladungRegistrieren()">Kostenlos registrieren</button>'
+    + '<button type="button" class="btn-outline" onclick="openModal(\'loginModal\')">Ich habe schon ein Konto</button>'
+    + '</div>'
+    + '<p class="soz-hinweis">Eventbörse ist ein Marktplatz für Events — von der ersten Idee bis zum gebuchten Dienstleister.</p>'
+    + '</section>';
+}
+
+/** Die Bestätigung nach der Anmeldung — oder die Absage für einen alten Link. */
+function ebEinladungsKarteHtml() {
+  if (_ebEinladungUngueltig) {
+    return '<section class="soz-karte soz-einladung-karte" role="status">'
+      + '<h3><span class="material-icons-round" aria-hidden="true">link_off</span> Diese Einladung gilt nicht mehr.</h3>'
+      + '<p>Bitte frag nach einem neuen Link. Einladungen laufen nach 14 Tagen ab oder werden erneuert.</p>'
+      + '<div class="soz-einladung-knoepfe">'
+      + '<button type="button" class="btn-outline" onclick="sozialEinladungSchliessen();navigateTo(\'explore\')">Entdecken</button>'
+      + '<button type="button" class="btn-outline" onclick="sozialEinladungSchliessen()">Schließen</button>'
+      + '</div></section>';
+  }
+  if (!ebEinladungsCode()) return '';
+  return '<section class="soz-karte soz-einladung-karte">'
+    + '<h3><span class="material-icons-round" aria-hidden="true">group_add</span> Du wurdest in eine Gruppe eingeladen</h3>'
+    + '<p>Tritt bei, um den gemeinsamen Plan zu sehen und mitzuplanen.</p>'
+    + '<div class="soz-einladung-knoepfe">'
+    + '<button type="button" class="btn-primary" id="sozEinladungBeitreten" onclick="sozialEinladungBeitreten()">Gruppe beitreten</button>'
+    + '<button type="button" class="btn-outline" onclick="sozialEinladungSpaeter()">Später</button>'
+    + '</div></section>';
+}
+
+function sozialEinladungRegistrieren() {
+  openModal('registerModal');
+  // Eingeladene planen mit: die Registrierung steht auf Eventplaner.
+  var b = document.querySelector('#registerModal .role-btn[data-role="user"]');
+  if (b && typeof selectRole === 'function') selectRole(b, 'user');
+}
+
+function sozialEinladungBeitreten() {
+  var code = ebEinladungsCode();
+  if (!code) return Promise.resolve();
+  var btn = document.getElementById('sozEinladungBeitreten');
+  if (btn) btn.disabled = true;
+  return sozialRuf('social/gruppen/beitreten', 'POST', { code: code }).then(function (d) {
+    _ebEinladungAusAdresse();
+    var gid = Number(d && d.group && d.group.id) || 0;
+    showToast('Du bist dabei.', 'check_circle');
+    return sozialLaden(true).then(function () { if (gid) sozialGruppePlanen(gid); });
+  }).catch(function (e) {
+    // Falsch und abgelaufen sagen dasselbe (der Server antwortet für beides 404).
+    if (e && (e.status === 404 || e.code === 'code_ungueltig')) {
+      _ebEinladungAusAdresse();
+      _ebEinladungUngueltig = true;
+      renderFreundePage();
+      return;
+    }
+    if (btn && btn.isConnected) btn.disabled = false;
+    sozialFehler(e);
+  });
+}
+
+function sozialEinladungSpaeter() {
+  _ebEinladungAusAdresse();
+  showToast('Den Einladungslink kannst du jederzeit erneut öffnen.', 'info');
+  renderFreundePage();
+}
+
+function sozialEinladungSchliessen() {
+  _ebEinladungUngueltig = false;
+  renderFreundePage();
+}
+
+/** „Freunde einladen": Teilen über die eigenen Apps des Einladenden. */
+function sozialEinladenDialog(gid, ausloeser) {
+  var group = _ebEinladenGruppe(gid);
+  if (!group || !group.inviteCode || !['owner', 'admin'].includes(group.role)) return;
+  _sozialEinladenSchliessen();
+  _ebEinladenAuslöser = ausloeser || document.activeElement;
+  var link = ebEinladungsLink(group.inviteCode);
+  var satz = ebEinladungsSatz(group);
+  var text = satz + ' ' + link;
+  var enc = encodeURIComponent;
+  var weg = function (href, icon, name, fremd) {
+    return '<a class="soz-teilen-weg" href="' + _escHtml(href) + '"' + (fremd ? ' target="_blank" rel="noopener noreferrer"' : '') + '>'
+      + '<span class="material-icons-round" aria-hidden="true">' + icon + '</span>' + name + '</a>';
+  };
+  var wrap = document.createElement('div');
+  wrap.id = 'sozEinladenDialog';
+  wrap.className = 'soz-einladen-huelle';
+  wrap.innerHTML = '<div class="soz-einladen-dialog" role="dialog" aria-modal="true" aria-labelledby="sozEinladenTitel">'
+    + '<h3 id="sozEinladenTitel">Freunde einladen</h3>'
+    + '<p>Wer den Link öffnet, registriert sich kostenlos und kann „' + _escHtml(String(group.name || '')) + '" beitreten. '
+    + 'Die Nachricht verschickst du selbst — Eventbörse sieht keine Nummern oder Adressen.</p>'
+    + '<div class="soz-teilen-wege">'
+    + weg('https://wa.me/?text=' + enc(text), 'chat', 'WhatsApp', true)
+    + weg('mailto:?subject=' + enc('Einladung: ' + String(group.name || 'gemeinsam planen')) + '&body=' + enc(text), 'mail', 'E-Mail', false)
+    + weg('sms:?&body=' + enc(text), 'sms', 'SMS', false)
+    + '<button type="button" class="soz-teilen-weg" onclick="sozialEinladungKopieren(' + Number(group.id) + ')">'
+    + '<span class="material-icons-round" aria-hidden="true">content_copy</span>Link kopieren</button>'
+    + (typeof navigator.share === 'function'
+      ? '<button type="button" class="soz-teilen-weg" onclick="sozialEinladungTeilen(' + Number(group.id) + ')">'
+        + '<span class="material-icons-round" aria-hidden="true">share</span>Teilen …</button>'
+      : '')
+    + '</div>'
+    + '<button type="button" class="btn-outline soz-einladen-zu" onclick="_sozialEinladenSchliessen()">Schließen</button>'
+    + '</div>';
+  wrap.addEventListener('click', function (ev) { if (ev.target === wrap) _sozialEinladenSchliessen(); });
+  document.addEventListener('keydown', _sozialEinladenTaste, true);
+  document.body.appendChild(wrap);
+  var erster = wrap.querySelector('.soz-teilen-weg');
+  if (erster) erster.focus();
+}
+
+/* Am Dokument, nicht am Dialog: klickt jemand auf eine freie Stelle im
+   Dialog, wandert der Fokus auf <body>, und ein Horcher am Dialog hörte
+   Escape nicht mehr. Abgemeldet wird beim Schließen — sonst finge jeder
+   spätere Escape-Druck für einen Dialog ab, den es nicht mehr gibt. */
+function _sozialEinladenTaste(ev) {
+  if (ev.key !== 'Escape') return;
+  ev.stopPropagation();
+  _sozialEinladenSchliessen();
+}
+
+function _sozialEinladenSchliessen() {
+  document.removeEventListener('keydown', _sozialEinladenTaste, true);
+  var w = document.getElementById('sozEinladenDialog');
+  if (!w) return;
+  w.remove();
+  var zurueck = _ebEinladenAuslöser;
+  _ebEinladenAuslöser = null;
+  if (zurueck && zurueck.isConnected && typeof zurueck.focus === 'function') zurueck.focus();
+}
+
+function sozialEinladungTeilen(gid) {
+  var group = _ebEinladenGruppe(gid);
+  if (!group || !group.inviteCode || typeof navigator.share !== 'function') return;
+  navigator.share({
+    title: 'Einladung: ' + String(group.name || 'gemeinsam planen'),
+    text: ebEinladungsSatz(group),
+    url: ebEinladungsLink(group.inviteCode),
+  }).catch(function () { /* abgebrochen — nichts zu tun */ });
+}
+
+function sozialEinladungKopieren(gid) {
+  var group = _ebEinladenGruppe(gid);
+  if (!group || !group.inviteCode || !['owner','admin'].includes(group.role)) return;
+  var href = ebEinladungsLink(group.inviteCode);
   if (!navigator.clipboard || !navigator.clipboard.writeText) {
     showToast('Kopiere den angezeigten Einladungscode und teile ihn mit deinen Freunden.', 'info'); return;
   }
-  navigator.clipboard.writeText(url.href).then(function () {
+  navigator.clipboard.writeText(href).then(function () {
     showToast('Einladungslink kopiert. Teile ihn nur mit Personen, die mitplanen dürfen.', 'check_circle');
   }).catch(function () { showToast('Kopieren nicht möglich. Du kannst den Einladungscode markieren und kopieren.', 'info'); });
 }

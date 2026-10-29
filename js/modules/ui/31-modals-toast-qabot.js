@@ -39,9 +39,29 @@ function closeModalOnOverlay(e) {
 }
 
 // ========== USER MENU ==========
+// Das Menü sagt jetzt, ob es offen ist (`aria-expanded`), schließt mit
+// Escape und gibt den Fokus an den Avatar zurück. Vorher war es per Tastatur
+// zu öffnen, aber nicht wieder zu verlassen — und ein Screenreader erfuhr
+// nicht, dass sich etwas geöffnet hatte.
+function _userMenuSetzen(offen) {
+  const menu = document.getElementById('userMenu');
+  const avatar = document.getElementById('avatarBtn');
+  if (!menu) return;
+  menu.classList.toggle('show', !!offen);
+  if (avatar) avatar.setAttribute('aria-expanded', offen ? 'true' : 'false');
+}
+
 function toggleUserMenu() {
   const menu = document.getElementById('userMenu');
-  menu.classList.toggle('show');
+  const offen = !menu.classList.contains('show');
+  _userMenuSetzen(offen);
+  if (offen) {
+    // Der erste SICHTBARE Knopf — nicht der erste im DOM: der liegt beim
+    // Planer im versteckten Abschnitt „Mein Geschäft", und dorthin kann der
+    // Fokus nicht. Er blieb dann still am Avatar stehen.
+    const erster = [...menu.querySelectorAll('button')].find((b) => b.offsetParent !== null);
+    if (erster) erster.focus();
+  }
 }
 
 // Close menu on outside click
@@ -49,8 +69,17 @@ document.addEventListener('click', (e) => {
   const menu = document.getElementById('userMenu');
   const avatar = document.getElementById('avatarBtn');
   if (!menu.contains(e.target) && !avatar.contains(e.target)) {
-    menu.classList.remove('show');
+    _userMenuSetzen(false);
   }
+});
+
+document.addEventListener('keydown', (e) => {
+  if (e.key !== 'Escape') return;
+  const menu = document.getElementById('userMenu');
+  if (!menu || !menu.classList.contains('show')) return;
+  _userMenuSetzen(false);
+  const avatar = document.getElementById('avatarBtn');
+  if (avatar) avatar.focus();
 });
 
 // ========== TOAST ==========
@@ -192,7 +221,7 @@ var QA_TOPICS = [
     ],
     actions: [
       { label: 'Business-Cockpit', icon: 'insights', kind: 'page', target: 'business' },
-      { label: 'Auftragsboard', icon: 'assignment', kind: 'page', target: 'auftraege' },
+      { label: 'Aufträge', icon: 'assignment', kind: 'page', target: 'auftraege' },
       { label: 'Auszahlungen', icon: 'account_balance', kind: 'page', target: 'settings' }
     ]
   },
@@ -589,7 +618,13 @@ function openQaBot() {
     ]);
     _qaBotOpenedOnce = true;
   }
-  setTimeout(function() { if (input) input.focus(); }, 80);
+  // Beim ersten Öffnen ohne Wahl erscheint die Figurenauswahl (ui/33). Dann
+  // gehört der Fokus ihr, nicht dem Eingabefeld.
+  if (typeof ebAssistentFigurBeimOeffnen === 'function') ebAssistentFigurBeimOeffnen();
+  setTimeout(function() {
+    var wahl = document.getElementById('qaFigurWahl');
+    if (input && (!wahl || wahl.hidden)) input.focus();
+  }, 80);
 }
 
 function closeQaBot() {

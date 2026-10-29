@@ -207,6 +207,53 @@ jobs:
       - name: Arbeitsjournal pruefen
         run: node scripts/agent.mjs --check
 
+      # Aus den frischen Befunden die Warteschlange bauen, aus der der
+      # Autopilot zieht.
+      #
+      # WARUM DER SCHRITT HIER FEHLTE UND WAS DAS KOSTETE (30.09.2026):
+      # `assets/eb-auftragsstrom.json` wird aus `assets/eb-arbeit.json`
+      # ERZEUGT. Die Routine erneuerte und committete die Quelle jede Nacht
+      # und nannte den Strom an keiner Stelle — das committete Artefakt stand
+      # auf `journalStand: 24.09.`, seine eigene Quelle auf dem 30.09. Ein
+      # erzeugtes Artefakt, das seiner Quelle widerspricht, sechs Tage lang.
+      #
+      # Es entging dabei KEINE Arbeit (`auftraege` war in beiden Fassungen
+      # leer) — es entging die GRENZE: drei Befunde ausserhalb des
+      # freigegebenen Rahmens fehlten im HQ. „Eine Schlange, die nur
+      # Aufnahmen fuehrt, sieht aus wie ein Haus ohne Grenzen."
+      #
+      # STEHT NACH DEM JOURNAL, nicht davor: der Strom liest
+      # `assets/eb-arbeit.json`. Vor den Schichten gebaut truege er den Stand
+      # von gestern — also wieder genau das Artefakt, das seiner Quelle
+      # widerspricht, nur einen Tag knapper.
+      #
+      # ERZEUGEN ja, `--check` NEIN — bewusst gewaehlt. Drei Gruende:
+      #   1. Wie bei Recht, Geheimnissen und dem Stripe-Webhook soll die
+      #      Routine den Zustand FESTHALTEN und nicht nachts rot werden.
+      #      Blockiert wird im PR-Check, wo jemand zusieht; dort laeuft
+      #      `auftragsstrom.mjs --check` bereits als Tor.
+      #   2. Der Commit kommt erst DANACH. Ein Tor, das hier ausloest, nimmt
+      #      Demo-Feed, Selbstcheck, Rechtslage und Journal mit runter —
+      #      genau so sind diese Dateien schon einmal zehn Tage alt geworden.
+      #   3. Ein abgelaufener Termin im Strom entsteht dadurch, dass die
+      #      Routine eine Weile nicht lief, nicht durch einen Commit.
+      #      Blockierend ist nur, was derselbe Commit beheben kann.
+      #
+      # Deshalb `continue-on-error` in derselben Gestalt wie beim
+      # Aktivitaeten-Abruf: faellt das Erzeugen aus, bleibt der bisherige
+      # Stand stehen und der Ausfall steht sichtbar in der Zusammenfassung.
+      # Ohne `shell: bash` laeuft `bash -e` OHNE pipefail — der Status der
+      # Pipe waere der von `tee`, und `tee` gelingt immer.
+      - name: Auftragsstrom aus den Befunden bauen
+        continue-on-error: true
+        shell: bash
+        run: |
+          node scripts/auftragsstrom.mjs | tee -a "$GITHUB_STEP_SUMMARY" || {
+            echo "⚠ Auftragsstrom nicht erzeugt — der bisherige Stand bleibt stehen." \
+              | tee -a "$GITHUB_STEP_SUMMARY"
+            exit 1
+          }
+
       - name: Committen, falls geaendert
         env:
           GH_TOKEN: ${{ steps.apptoken.outputs.token || secrets.GITHUB_TOKEN }}
@@ -215,10 +262,17 @@ jobs:
           # Eine Liste, zwei Verwendungen. Standen sie doppelt da, erzeugte
           # jede neue Datei eine stille Luecke: gemessen, geschrieben, nie
           # committet — die Routine haette gearbeitet und nichts hinterlassen.
-          ERGEBNISSE="assets/eb-demo-feed.json assets/eb-aktivitaeten.json audit/latest.json assets/eb-arbeit.json vault/40-Governance/Legal/Rechtliche-Lage.md assets/eb-rechtsquellen.json assets/eb-rechtsunterlagen.json assets/eb-rechtsunterlagen-data.php"
+          #
+          # `assets/eb-auftragsstrom.json` gehoert seit dem 30.09.2026 dazu.
+          # Ohne diesen Eintrag waere der Schritt oben genau die beschriebene
+          # stille Luecke: gemessen, geschrieben, nie committet.
+          # (`ionos-deploy.yml` schliesst die Datei vom SFTP-Upload aus — das
+          # bleibt richtig, den Live-Stand schreibt `hq-operations.yml` alle
+          # 30 Minuten. Hier geht es um den Stand IM REPOSITORY.)
+          ERGEBNISSE="assets/eb-demo-feed.json assets/eb-aktivitaeten.json audit/latest.json assets/eb-arbeit.json assets/eb-auftragsstrom.json vault/40-Governance/Legal/Rechtliche-Lage.md assets/eb-rechtsquellen.json assets/eb-rechtsunterlagen.json assets/eb-rechtsunterlagen-data.php"
 
           if git diff --quiet -- $ERGEBNISSE; then
-            echo "Keine Aenderung — Feed, Selbstcheck, Journal, Rechtslage und amtliche Quellen sind aktuell." >> "$GITHUB_STEP_SUMMARY"
+            echo "Keine Aenderung — Feed, Selbstcheck, Journal, Auftragsstrom, Rechtslage und amtliche Quellen sind aktuell." >> "$GITHUB_STEP_SUMMARY"
             exit 0
           fi
           git config user.name  "Eventboerse Routine"

@@ -208,6 +208,36 @@ function _ebBewegungQuelle() {
   return _ebBewegungMql;
 }
 
+/* ── Gesuch oder Angebot ────────────────────────────────────────────────
+ * Die EINE Erkennung für alle Stellen (Karten, Laufband, Meine Inserate,
+ * Board-Auswahl, Assistent). Vorher hatten zwei Stellen je eine eigene
+ * Fassung und alle Karten gar keine — Gesuche erschienen mit Stern und
+ * Anbieterpreis in der Suche (F01–F03, 15.10.2026).
+ *
+ * `listingType: 'offer'` ist KEINE Aussage: es ist der Vorgabewert der
+ * Spalte. Die Nachmarkierung alter Gesuche in Migration 2.3 lief nie, weil
+ * dbDelta die Spalte vorher selbst anlegt und `if ( ! $tcol )` danach nie
+ * wahr ist. Deshalb gilt die Titelregel der Migration hier als Rückfall.
+ * Daten werden dafür nicht umgeschrieben (Entscheidung Q3 des Inhabers). */
+function ebIstGesuch(l) {
+  if (!l) return false;
+  var t = String(l.listingType || l.kind || l.type || '').toLowerCase();
+  if (t === 'search' || t === 'gesuch' || t === 'such' || t.indexOf('suche') === 0) return true;
+  var titel = String(l.title || '').toLowerCase();
+  var kat = String(l.categoryLabel || l.category || '').toLowerCase();
+  return /\bgesucht\b/.test(titel) || /\bgesucht\b/.test(kat) || /^\s*suche\s/.test(titel);
+}
+
+/** Preiszeile eines Gesuchs: ein Budget, kein „ab … € / Event".
+ *  Ein schon als Budget gespeicherter Text bleibt; alte Zeilen tragen den
+ *  Anbieter-Text der Maske von damals und bekommen ihn aus dem Betrag. */
+function ebGesuchBudgetText(l) {
+  var label = String((l && l.priceLabel) || '');
+  if (/^\s*budget/i.test(label)) return label;
+  var betrag = parseInt(l && l.price, 10) || 0;
+  return betrag > 0 ? 'Budget: ' + betrag.toLocaleString('de-DE') + ' €' : 'Budget nach Absprache';
+}
+
 /** true, wenn der Nutzer weniger Bewegung wünscht. */
 function ebBewegungReduziert() {
   var q = _ebBewegungQuelle();
@@ -331,40 +361,38 @@ window.EB_DEMO_PROVIDER_IDS = window.EB_DEMO_PROVIDER_IDS || [90001,90002,90003,
 // Default: Demo-Inserate ausblenden. Backend kann window.EB_HIDE_DEMO=false setzen, um sie wieder anzuzeigen.
 window.EB_HIDE_DEMO = (typeof window.EB_HIDE_DEMO !== 'undefined') ? !!window.EB_HIDE_DEMO : true;
 // Einzige Quelle der Wahrheit für die Sichtbarkeit ALLER Demo-Daten
-// (Listings, Chats, Events, Marketing-Zahlen). Folgt dem Admin-Switch.
+// (Listings, Chats, Events). Folgt dem Admin-Switch — die Startseiten-Zahlen
+// nicht: sie zählen immer nur echte Inserate (updateHeroStats).
 function demoVisible() { return !window.EB_HIDE_DEMO; }
-// Berechnet die Startseiten-Marketing-Zahlen aus dem SICHTBAREN Listing-Set
-// (filterDemos respektiert window.EB_HIDE_DEMO → Zahlen folgen dem Switch).
+// Berechnet die Startseiten-Zahlen aus den ECHTEN Inseraten — Demo-Inserate
+// zählen nie mit, auch wenn der Admin-Switch sie einblendet. Eine Zahl über
+// Demo-Daten wäre eine Werbeaussage ohne Deckung (UWG). Gibt es noch kein
+// echtes Inserat, bleibt die Zeile verborgen statt „0 Dienstleister" zu sagen.
 function updateHeroStats() {
-  var visible = filterDemos(Array.isArray(LISTINGS) ? LISTINGS.slice() : []);
+  var row = document.querySelector('.ai-hero-stats');
+  if (!row) return;
+  var echte = (Array.isArray(LISTINGS) ? LISTINGS : []).filter(function(l) { return l && !isDemoListing(l); });
   var providerIds = {};
   var ratedSum = 0, ratedCount = 0;
-  visible.forEach(function(l) {
-    if (!l) return;
+  echte.forEach(function(l) {
     var pid = l.providerId != null ? l.providerId : (l.provider && l.provider.id);
     if (pid != null) providerIds[pid] = true;
     var r = parseFloat(l.rating);
     if (r > 0) { ratedSum += r; ratedCount++; }
   });
-  var providerCount = Object.keys(providerIds).length;
-  if (providerCount === 0) providerCount = visible.length; // Fallback: Listings zählen
+  var providerCount = Object.keys(providerIds).length || echte.length;
+  if (providerCount === 0) { row.hidden = true; return; }
 
-  var elProv = document.getElementById('statProviders');
-  if (elProv) elProv.textContent = String(providerCount);
-  var elSub = document.getElementById('heroSubProviders');
-  if (elSub) elSub.textContent = providerCount + ' Dienstleister';
-
+  document.getElementById('statProviders').textContent = String(providerCount);
+  document.getElementById('statCategories').textContent = String(AI_CATEGORIES.length);
   var elRatingItem = document.getElementById('statRatingItem');
-  if (elRatingItem) {
-    if (ratedCount > 0) {
-      var avg = Math.round((ratedSum / ratedCount) * 10) / 10;
-      elRatingItem.innerHTML = '<strong id="statRating">' + avg.toFixed(1) + '★</strong> Ø Bewertung';
-    } else {
-      elRatingItem.innerHTML = '<strong id="statRating">Neu</strong>';
-    }
+  if (ratedCount > 0) {
+    var avg = Math.round((ratedSum / ratedCount) * 10) / 10;
+    elRatingItem.innerHTML = '<strong>' + avg.toFixed(1).replace('.', ',') + '★</strong> Ø Bewertung';
+  } else {
+    elRatingItem.innerHTML = '<strong>Neu</strong> gestartet';
   }
-  var elSubRated = document.getElementById('heroSubRated');
-  if (elSubRated) elSubRated.textContent = ratedCount > 0 ? 'Top bewertet' : 'Neu gestartet';
+  row.hidden = false;
 }
 function isDemoListing(l) {
   if (!l) return false;
@@ -944,6 +972,8 @@ var EB_SPEICHER_KLASSEN = {
   // Der Sprachausgabe-Schalter des Assistenten. Funktional, nicht
   // profilbildend: er hält eine Bedieneinstellung, kein Verhalten.
   eb_assistent_stimme_v1: 'funktional',
+  // Die gewählte Figur des Event-Assistenten — nur '01' … '10'.
+  eb_assistent_figur_v1: 'funktional',
   eb_radar_ort: 'funktional',
 
   eb_kb_misses: 'profil',

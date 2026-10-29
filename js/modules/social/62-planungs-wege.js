@@ -173,15 +173,211 @@ async function sozialPlanGruppeErstellen() {
   }
 }
 
-function sozialEinladungKopieren(gid) {
-  var group = ((_sozialGruppen && _sozialGruppen.groups) || []).find(function (g) { return Number(g.id) === Number(gid); });
-  if (!group || !group.inviteCode || !['owner','admin'].includes(group.role)) return;
+/* ── Einladen ohne Konto (PRODUCT_REDESIGN.md 6.2, Teil A) ──────────────
+ * Vorher: der Link führte Menschen ohne Konto auf „Dafür brauchst du ein
+ * Konto." mit einem Anmelde-Knopf — ohne zu sagen, dass sie eingeladen
+ * sind, ohne Registrierung, und nach der Anmeldung mussten sie Code-Feld
+ * und „Beitreten" selbst finden.
+ *
+ * Drei Grenzen:
+ *  1. Eventbörse verschickt nichts. WhatsApp, Mail und SMS öffnen die App
+ *     des Einladenden; die Adresse der eingeladenen Person erreicht unseren
+ *     Server nie (keine Daten Dritter, kein Werbe-Mail-Versand).
+ *  2. Kein stilles Beitreten — erst der Klick schickt den Code.
+ *  3. Gruppendaten erst nach der Anmeldung (Entscheidung E2 des Inhabers).
+ * Der Code lebt nur in der Adresse; es gibt keinen neuen Speicherschlüssel. */
+var EB_EINLADUNG_MUSTER = /^[a-f0-9]{18}$/;
+var _ebEinladungUngueltig = false;
+var _ebEinladenAuslöser = null;
+
+/** Der Code aus der Adresse — nur in der Form, die der Server vergibt. */
+function ebEinladungsCode() {
+  var c = '';
+  try { c = new URLSearchParams(location.search).get('einladung') || ''; } catch (e) {}
+  return EB_EINLADUNG_MUSTER.test(c) ? c : '';
+}
+
+function ebEinladungsLink(code) {
   var url = new URL(_spaPath('freunde', 'einladung'), location.origin);
-  url.searchParams.set('einladung', group.inviteCode);
+  url.searchParams.set('einladung', code);
+  return url.href;
+}
+
+/** Der vorbereitete Satz — ohne Link, der kommt je nach Weg dazu. */
+function ebEinladungsSatz(gruppe) {
+  var wer = (currentUser && currentUser.name) ? String(currentUser.name) : 'Jemand';
+  return wer + ' lädt dich ein, „' + String(gruppe.name || 'unser Event') + '" gemeinsam auf Eventbörse zu planen. '
+    + 'Kostenlos registrieren und mitmachen:';
+}
+
+function _ebEinladungAusAdresse() {
+  try {
+    var u = new URL(location.href);
+    u.searchParams.delete('einladung');
+    history.replaceState(history.state, '', u.pathname + u.search + u.hash);
+  } catch (e) {}
+}
+
+function _ebEinladenGruppe(gid) {
+  return ((_sozialGruppen && _sozialGruppen.groups) || []).find(function (g) { return Number(g.id) === Number(gid); });
+}
+
+/** Ansicht für Menschen ohne Konto, die über einen Einladungslink kommen. */
+function ebEinladungOhneKontoHtml() {
+  return '<section class="soz-karte soz-leer-karte soz-einladung-karte">'
+    + '<span class="material-icons-round" aria-hidden="true">celebration</span>'
+    + '<h3>Du bist eingeladen!</h3>'
+    + '<p>Jemand möchte ein Event gemeinsam mit dir auf Eventbörse planen. Registriere dich kostenlos — '
+    + 'danach siehst du die Gruppe und entscheidest selbst, ob du mitmachst.</p>'
+    + '<div class="soz-einladung-knoepfe">'
+    + '<button type="button" class="btn-primary" onclick="sozialEinladungRegistrieren()">Kostenlos registrieren</button>'
+    + '<button type="button" class="btn-outline" onclick="openModal(\'loginModal\')">Ich habe schon ein Konto</button>'
+    + '</div>'
+    + '<p class="soz-hinweis">Eventbörse ist ein Marktplatz für Events — von der ersten Idee bis zum gebuchten Dienstleister.</p>'
+    + '</section>';
+}
+
+/** Die Bestätigung nach der Anmeldung — oder die Absage für einen alten Link. */
+function ebEinladungsKarteHtml() {
+  if (_ebEinladungUngueltig) {
+    return '<section class="soz-karte soz-einladung-karte" role="status">'
+      + '<h3><span class="material-icons-round" aria-hidden="true">link_off</span> Diese Einladung gilt nicht mehr.</h3>'
+      + '<p>Bitte frag nach einem neuen Link. Einladungen laufen nach 14 Tagen ab oder werden erneuert.</p>'
+      + '<div class="soz-einladung-knoepfe">'
+      + '<button type="button" class="btn-outline" onclick="sozialEinladungSchliessen();navigateTo(\'explore\')">Entdecken</button>'
+      + '<button type="button" class="btn-outline" onclick="sozialEinladungSchliessen()">Schließen</button>'
+      + '</div></section>';
+  }
+  if (!ebEinladungsCode()) return '';
+  return '<section class="soz-karte soz-einladung-karte">'
+    + '<h3><span class="material-icons-round" aria-hidden="true">group_add</span> Du wurdest in eine Gruppe eingeladen</h3>'
+    + '<p>Tritt bei, um den gemeinsamen Plan zu sehen und mitzuplanen.</p>'
+    + '<div class="soz-einladung-knoepfe">'
+    + '<button type="button" class="btn-primary" id="sozEinladungBeitreten" onclick="sozialEinladungBeitreten()">Gruppe beitreten</button>'
+    + '<button type="button" class="btn-outline" onclick="sozialEinladungSpaeter()">Später</button>'
+    + '</div></section>';
+}
+
+function sozialEinladungRegistrieren() {
+  openModal('registerModal');
+  // Eingeladene planen mit: die Registrierung steht auf Eventplaner.
+  var b = document.querySelector('#registerModal .role-btn[data-role="user"]');
+  if (b && typeof selectRole === 'function') selectRole(b, 'user');
+}
+
+function sozialEinladungBeitreten() {
+  var code = ebEinladungsCode();
+  if (!code) return Promise.resolve();
+  var btn = document.getElementById('sozEinladungBeitreten');
+  if (btn) btn.disabled = true;
+  return sozialRuf('social/gruppen/beitreten', 'POST', { code: code }).then(function (d) {
+    _ebEinladungAusAdresse();
+    var gid = Number(d && d.group && d.group.id) || 0;
+    showToast('Du bist dabei.', 'check_circle');
+    return sozialLaden(true).then(function () { if (gid) sozialGruppePlanen(gid); });
+  }).catch(function (e) {
+    // Falsch und abgelaufen sagen dasselbe (der Server antwortet für beides 404).
+    if (e && (e.status === 404 || e.code === 'code_ungueltig')) {
+      _ebEinladungAusAdresse();
+      _ebEinladungUngueltig = true;
+      renderFreundePage();
+      return;
+    }
+    if (btn && btn.isConnected) btn.disabled = false;
+    sozialFehler(e);
+  });
+}
+
+function sozialEinladungSpaeter() {
+  _ebEinladungAusAdresse();
+  showToast('Den Einladungslink kannst du jederzeit erneut öffnen.', 'info');
+  renderFreundePage();
+}
+
+function sozialEinladungSchliessen() {
+  _ebEinladungUngueltig = false;
+  renderFreundePage();
+}
+
+/** „Freunde einladen": Teilen über die eigenen Apps des Einladenden. */
+function sozialEinladenDialog(gid, ausloeser) {
+  var group = _ebEinladenGruppe(gid);
+  if (!group || !group.inviteCode || !['owner', 'admin'].includes(group.role)) return;
+  _sozialEinladenSchliessen();
+  _ebEinladenAuslöser = ausloeser || document.activeElement;
+  var link = ebEinladungsLink(group.inviteCode);
+  var satz = ebEinladungsSatz(group);
+  var text = satz + ' ' + link;
+  var enc = encodeURIComponent;
+  var weg = function (href, icon, name, fremd) {
+    return '<a class="soz-teilen-weg" href="' + _escHtml(href) + '"' + (fremd ? ' target="_blank" rel="noopener noreferrer"' : '') + '>'
+      + '<span class="material-icons-round" aria-hidden="true">' + icon + '</span>' + name + '</a>';
+  };
+  var wrap = document.createElement('div');
+  wrap.id = 'sozEinladenDialog';
+  wrap.className = 'soz-einladen-huelle';
+  wrap.innerHTML = '<div class="soz-einladen-dialog" role="dialog" aria-modal="true" aria-labelledby="sozEinladenTitel">'
+    + '<h3 id="sozEinladenTitel">Freunde einladen</h3>'
+    + '<p>Wer den Link öffnet, registriert sich kostenlos und kann „' + _escHtml(String(group.name || '')) + '" beitreten. '
+    + 'Die Nachricht verschickst du selbst — Eventbörse sieht keine Nummern oder Adressen.</p>'
+    + '<div class="soz-teilen-wege">'
+    + weg('https://wa.me/?text=' + enc(text), 'chat', 'WhatsApp', true)
+    + weg('mailto:?subject=' + enc('Einladung: ' + String(group.name || 'gemeinsam planen')) + '&body=' + enc(text), 'mail', 'E-Mail', false)
+    + weg('sms:?&body=' + enc(text), 'sms', 'SMS', false)
+    + '<button type="button" class="soz-teilen-weg" onclick="sozialEinladungKopieren(' + Number(group.id) + ')">'
+    + '<span class="material-icons-round" aria-hidden="true">content_copy</span>Link kopieren</button>'
+    + (typeof navigator.share === 'function'
+      ? '<button type="button" class="soz-teilen-weg" onclick="sozialEinladungTeilen(' + Number(group.id) + ')">'
+        + '<span class="material-icons-round" aria-hidden="true">share</span>Teilen …</button>'
+      : '')
+    + '</div>'
+    + '<button type="button" class="btn-outline soz-einladen-zu" onclick="_sozialEinladenSchliessen()">Schließen</button>'
+    + '</div>';
+  wrap.addEventListener('click', function (ev) { if (ev.target === wrap) _sozialEinladenSchliessen(); });
+  document.addEventListener('keydown', _sozialEinladenTaste, true);
+  document.body.appendChild(wrap);
+  var erster = wrap.querySelector('.soz-teilen-weg');
+  if (erster) erster.focus();
+}
+
+/* Am Dokument, nicht am Dialog: klickt jemand auf eine freie Stelle im
+   Dialog, wandert der Fokus auf <body>, und ein Horcher am Dialog hörte
+   Escape nicht mehr. Abgemeldet wird beim Schließen — sonst finge jeder
+   spätere Escape-Druck für einen Dialog ab, den es nicht mehr gibt. */
+function _sozialEinladenTaste(ev) {
+  if (ev.key !== 'Escape') return;
+  ev.stopPropagation();
+  _sozialEinladenSchliessen();
+}
+
+function _sozialEinladenSchliessen() {
+  document.removeEventListener('keydown', _sozialEinladenTaste, true);
+  var w = document.getElementById('sozEinladenDialog');
+  if (!w) return;
+  w.remove();
+  var zurueck = _ebEinladenAuslöser;
+  _ebEinladenAuslöser = null;
+  if (zurueck && zurueck.isConnected && typeof zurueck.focus === 'function') zurueck.focus();
+}
+
+function sozialEinladungTeilen(gid) {
+  var group = _ebEinladenGruppe(gid);
+  if (!group || !group.inviteCode || typeof navigator.share !== 'function') return;
+  navigator.share({
+    title: 'Einladung: ' + String(group.name || 'gemeinsam planen'),
+    text: ebEinladungsSatz(group),
+    url: ebEinladungsLink(group.inviteCode),
+  }).catch(function () { /* abgebrochen — nichts zu tun */ });
+}
+
+function sozialEinladungKopieren(gid) {
+  var group = _ebEinladenGruppe(gid);
+  if (!group || !group.inviteCode || !['owner','admin'].includes(group.role)) return;
+  var href = ebEinladungsLink(group.inviteCode);
   if (!navigator.clipboard || !navigator.clipboard.writeText) {
     showToast('Kopiere den angezeigten Einladungscode und teile ihn mit deinen Freunden.', 'info'); return;
   }
-  navigator.clipboard.writeText(url.href).then(function () {
+  navigator.clipboard.writeText(href).then(function () {
     showToast('Einladungslink kopiert. Teile ihn nur mit Personen, die mitplanen dürfen.', 'check_circle');
   }).catch(function () { showToast('Kopieren nicht möglich. Du kannst den Einladungscode markieren und kopieren.', 'info'); });
 }

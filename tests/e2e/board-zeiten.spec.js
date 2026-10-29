@@ -512,13 +512,39 @@ test.describe('Board: Mehrfachzeiten in der Oberfläche', () => {
   });
 
   test('eine Position ganz ohne Zeit verschwindet nicht', async ({ page }) => {
-    // Sie bekommt weiterhin eine Platzhalterzeit statt aus dem Ablauf zu
-    // fallen — eine bestätigte Buchung, die niemand sieht, ist schlimmer
-    // als eine mit geschätzter Uhrzeit.
+    // Ohne vereinbarte Zeit bleibt die Leistung sichtbar, ohne einen Termin zu erfinden.
     const errors = await openApp(page);
     const r = await boardMit(page, []);
     expect(r.karten).toBe(1);
-    expect(r.zeiten[0]).toMatch(/^\d{2}:\d{2}$/);
+    expect(r.zeiten[0]).toBe('Zeit offen');
     expectNoPageErrors(errors);
   });
+
+  test('gebuchte, erfüllte und bezahlte Leistungen bleiben in Kartenreihenfolge sichtbar', async ({ page }) => {
+    const errors = await openApp(page);
+    await boardMit(page, []);
+    const r = await page.evaluate(() => {
+      _boardProjects[0].cards = [
+        { name: 'Nur geplant', stage: 'geplant' },
+        { name: 'DJ angenommen', stage: 'angebot', providerAcceptedAt: '2026-10-21', times: [{ start: '18:00', end: '22:00' }] },
+        { name: 'Nur kontaktiert', stage: 'kontaktiert' },
+        { name: 'Erfüllt', stage: 'bestaetigt', times: [{ start: '09:00', end: '10:00' }] },
+        { name: 'Bezahlt', stage: 'abgeschlossen', times: [] },
+        { name: 'Gebucht', stage: 'angebot', times: [{ start: '14:00', end: '15:00' }, { start: '16:00', end: '17:00' }] },
+      ];
+      const vorher = JSON.stringify(_boardProjects);
+      renderBoardTimeline();
+      const chain = document.getElementById('timelineChain');
+      return {
+        namen: [...chain.querySelectorAll('.tl-card h4')].map(e => e.textContent),
+        zeiten: [...chain.querySelectorAll('.tl-time')].map(e => e.textContent.trim()),
+        unveraendert: vorher === JSON.stringify(_boardProjects),
+      };
+    });
+    expect(r.namen).toEqual(['DJ angenommen', 'Erfüllt', 'Bezahlt', 'Gebucht', 'Gebucht']);
+    expect(r.zeiten).toEqual(['18:00 – 22:00', '09:00 – 10:00', 'Zeit offen', '14:00 – 15:001/2', '16:00 – 17:002/2']);
+    expect(r.unveraendert).toBe(true);
+    expectNoPageErrors(errors);
+  });
+
 });

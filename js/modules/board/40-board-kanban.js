@@ -746,7 +746,7 @@ function _renderAuftraegeJobs(container, jobs, isProvider) {
   html += '<details class="auftraege-howto" style="background:linear-gradient(135deg,rgba(255,56,92,0.06),rgba(0,166,153,0.06));border:1px solid var(--border);border-radius:14px;padding:14px 18px;margin-bottom:18px">' +
     '<summary style="display:flex;align-items:center;gap:10px;cursor:pointer;font-weight:600;list-style:none">' +
       '<span class="material-icons-round" style="color:var(--primary);font-size:22px">info</span>' +
-      'So funktioniert dein Auftragsboard' +
+      'So funktionieren deine Aufträge' +
     '</summary>' +
     '<div style="font-size:14px;line-height:1.7;margin-top:10px;color:var(--text-light)">' +
       '1. Ein Kunde bucht dich verbindlich &rarr; der Auftrag erscheint hier mit Status <em>&bdquo;Gebucht&ldquo;</em>.<br>' +
@@ -1920,7 +1920,7 @@ function renderBoardTimeline() {
   if (!project) return;
   var chain = document.getElementById('timelineChain');
   if (!chain) return;
-  var confirmed = (project.cards || []).filter(function(c) { return c.stage === 'bestaetigt' || c.stage === 'abgeschlossen'; });
+  var confirmed = (project.cards || []).filter(function(c) { return c.stage === 'angebot' || c.stage === 'bestaetigt' || c.stage === 'abgeschlossen'; });
   if (confirmed.length === 0) {
     chain.innerHTML = '<div style="text-align:center;padding:40px;color:var(--text-light)"><span class="material-icons-round" style="font-size:40px;opacity:0.3;display:block;margin-bottom:12px">timeline</span>Noch keine bestätigten Dienstleister im Ablauf</div>';
     return;
@@ -1928,13 +1928,13 @@ function renderBoardTimeline() {
   // Eine Position mit mehreren Zeiten erscheint im Ablauf MEHRFACH — genau
   // das ist der Sinn eines Ablaufs. Die Reihenfolge der Karten bleibt, wie
   // sie ist; nur innerhalb einer Karte stehen ihre Zeiten nacheinander. Ein
-  // globales Umsortieren nach Uhrzeit würde Karten ohne Zeit (die hier eine
-  // erfundene bekommen) mit echten mischen.
+  // globales Umsortieren nach Uhrzeit würde die Kartenreihenfolge verändern.
+  // Fehlende Zeiten werden ausdrücklich als offen angezeigt.
   var punkte = [];
-  confirmed.forEach(function(card, i) {
+  confirmed.forEach(function(card) {
     var zeiten = ebKartenZeiten(card);
     if (!zeiten.length) {
-      punkte.push({ card: card, text: ('0' + (8 + i * 2) + ':00').slice(-5), nr: 0, von: 1 });
+      punkte.push({ card: card, text: 'Zeit offen', nr: 0, von: 1 });
       return;
     }
     zeiten.forEach(function(z, k) {

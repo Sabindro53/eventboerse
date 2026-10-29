@@ -211,7 +211,10 @@
         </div>
       </div>
       <div class="nav-actions">
-        <a href="#" class="nav-link" onclick="navigateTo('create-listing')">Inserieren</a>
+        <!-- Hauptlink je Rolle (_applyRoleNav): abgemeldet „Für Dienstleister",
+             Planer „Mein Event", Dienstleister „Mein Geschäft". Vorher stand hier
+             für alle „Inserieren" — für einen Planer die falsche Einladung. -->
+        <a href="#" class="nav-link" id="navHauptLink" onclick="ebNavHauptweg(); return false;">Für Dienstleister</a>
         <button type="button" class="nav-icon-btn journey-friends-nav" onclick="navigateTo('freunde')" title="Freunde & Gruppen" aria-label="Freunde & Gruppen"><span class="material-icons-round">groups</span></button>
         <button class="nav-icon-btn" onclick="navigateTo('messages')" title="Nachrichten" aria-label="Nachrichten">
           <span class="material-icons-round">chat_bubble_outline</span>
@@ -221,7 +224,7 @@
           <span class="material-icons-round">notifications_none</span>
           <span class="badge" id="notificationBadge" style="display:none"></span>
         </button>
-        <button class="nav-avatar" id="avatarBtn" onclick="toggleUserMenu()">
+        <button class="nav-avatar" id="avatarBtn" onclick="toggleUserMenu()" aria-label="Menü" aria-haspopup="true" aria-expanded="false" aria-controls="userMenu">
           <img src="data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20100%20100%22%3E%3Crect%20width%3D%22100%22%20height%3D%22100%22%20rx%3D%2250%22%20fill%3D%22%23FF385C%22%2F%3E%3Ctext%20x%3D%2250%22%20y%3D%2250%22%20dominant-baseline%3D%22central%22%20text-anchor%3D%22middle%22%20font-size%3D%2240%22%20font-weight%3D%22700%22%20fill%3D%22%23fff%22%20font-family%3D%22sans-serif%22%3EU%3C%2Ftext%3E%3C%2Fsvg%3E" alt="User" loading="lazy" decoding="async" />
           <span class="nav-admin-label" id="navAdminLabel">Admin</span>
         </button>
@@ -240,28 +243,42 @@
       </div>
       <hr class="user-menu-hr" />
       <div class="user-menu-section" id="loggedOutMenu">
-        <button onclick="navigateTo('my-listings')"><span class="material-icons-round">storefront</span> Meine Inserate</button>
+        <button onclick="openModal('loginModal')"><span class="material-icons-round" aria-hidden="true">login</span> Anmelden</button>
+        <button onclick="openModal('registerModal')"><span class="material-icons-round" aria-hidden="true">person_add</span> Registrieren</button>
         <hr />
-        <button onclick="openModal('loginModal')">Anmelden</button>
-        <button onclick="openModal('registerModal')">Registrieren</button>
+        <button onclick="ebAnbieterEinstieg()"><span class="material-icons-round" aria-hidden="true">storefront</span> Für Dienstleister</button>
       </div>
       <div class="user-menu-section" id="loggedInMenu" style="display:none">
-        <button onclick="navigateTo('profile')"><span class="material-icons-round">person</span> Mein Profil</button>
-        <button onclick="navigateTo('messages')"><span class="material-icons-round">chat</span> Nachrichten</button>
-        <button id="boardMenuBtn" onclick="navigateTo('board')"><span class="material-icons-round">view_kanban</span> Planungs-Board</button>
-        <button onclick="navigateTo('freunde')"><span class="material-icons-round">groups</span> Freunde &amp; Gruppen</button>
-        <button onclick="navigateTo('create-listing')"><span class="material-icons-round">add_circle</span> Inserat erstellen</button>
+        <!-- Drei Abschnitte statt einer flachen Liste von 14 Einträgen.
+             Kein Eintrag ist weggefallen — die Zuordnung steht in
+             PRODUCT_REDESIGN.md, Abschnitt 4, und navigation-rollen.spec.js
+             prüft, dass jedes bisherige Ziel erreichbar bleibt. -->
+        <div class="user-menu-gruppe" id="menuGeschaeft" role="group" aria-labelledby="menuGeschaeftTitel" hidden>
+          <p class="user-menu-titel" id="menuGeschaeftTitel">Mein Geschäft</p>
+          <button id="auftraegeMenuBtn" onclick="navigateTo('auftraege')"><span class="material-icons-round" aria-hidden="true">assignment</span> Aufträge</button>
+          <button onclick="navigateTo('my-listings')"><span class="material-icons-round" aria-hidden="true">storefront</span> Meine Inserate</button>
+          <button onclick="navigateTo('create-listing', 'angebot')"><span class="material-icons-round" aria-hidden="true">add_circle</span> Inserat erstellen</button>
+          <button id="businessMenuBtn" onclick="navigateTo('business')"><span class="material-icons-round" aria-hidden="true">insights</span> Business-Cockpit</button>
+        </div>
+        <div class="user-menu-gruppe" id="menuEvent" role="group" aria-labelledby="menuEventTitel">
+          <p class="user-menu-titel" id="menuEventTitel">Mein Event</p>
+          <button id="boardMenuBtn" onclick="navigateTo('board')"><span class="material-icons-round" aria-hidden="true">view_kanban</span> Planungs-Board</button>
+          <button onclick="navigateTo('create-listing', 'suche')"><span class="material-icons-round" aria-hidden="true">campaign</span> Gesuch aufgeben</button>
+          <button id="gesucheMenuBtn" onclick="navigateTo('my-listings')"><span class="material-icons-round" aria-hidden="true">format_list_bulleted</span> Meine Gesuche</button>
+          <button onclick="navigateTo('favorites')"><span class="material-icons-round" aria-hidden="true">favorite</span> Favoriten</button>
+          <button onclick="navigateTo('freunde')"><span class="material-icons-round" aria-hidden="true">groups</span> Freunde &amp; Gruppen</button>
+        </div>
+        <div class="user-menu-gruppe" id="menuKonto" role="group" aria-labelledby="menuKontoTitel">
+          <p class="user-menu-titel" id="menuKontoTitel">Konto</p>
+          <button onclick="navigateTo('profile')"><span class="material-icons-round" aria-hidden="true">person</span> Mein Profil</button>
+          <button onclick="navigateTo('messages')"><span class="material-icons-round" aria-hidden="true">chat</span> Nachrichten</button>
+          <button onclick="navigateTo('notifications')"><span class="material-icons-round" aria-hidden="true">notifications</span> Benachrichtigungen</button>
+          <button onclick="navigateTo('settings')"><span class="material-icons-round" aria-hidden="true">settings</span> Einstellungen</button>
+          <button onclick="navigateTo('contact')"><span class="material-icons-round" aria-hidden="true">help_outline</span> Hilfe &amp; Kontakt</button>
+        </div>
+        <button id="adminMenuBtn" style="display:none" onclick="navigateTo('admin')" class="admin-menu-btn"><span class="material-icons-round" aria-hidden="true">admin_panel_settings</span> Admin-Bereich</button>
         <hr />
-        <button onclick="navigateTo('my-listings')"><span class="material-icons-round">storefront</span> Meine Inserate</button>
-        <button id="auftraegeMenuBtn" onclick="navigateTo('auftraege')" style="display:none"><span class="material-icons-round">assignment</span> Auftragsboard</button>
-        <button id="businessMenuBtn" onclick="navigateTo('business')" style="display:none"><span class="material-icons-round">insights</span> Business-Cockpit</button>
-        <button onclick="navigateTo('notifications')"><span class="material-icons-round">notifications</span> Benachrichtigungen</button>
-        <button onclick="navigateTo('favorites')"><span class="material-icons-round">favorite</span> Favoriten</button>
-        <button onclick="navigateTo('settings')"><span class="material-icons-round">settings</span> Einstellungen</button>
-        <button onclick="navigateTo('contact')"><span class="material-icons-round">help_outline</span> Kontakt & Support</button>
-        <button id="adminMenuBtn" style="display:none" onclick="navigateTo('admin')" class="admin-menu-btn"><span class="material-icons-round">admin_panel_settings</span> Admin-Bereich</button>
-        <hr />
-        <button onclick="logout()"><span class="material-icons-round">logout</span> Abmelden</button>
+        <button onclick="logout()"><span class="material-icons-round" aria-hidden="true">logout</span> Abmelden</button>
       </div>
     </div>
   </nav>
@@ -310,23 +327,23 @@
   <!-- ============ MOBILE BOTTOM NAV ============ -->
   <nav class="mobile-nav" id="mobileNav">
     <button onclick="navigateTo('aktuelles')" data-page="aktuelles">
-      <span class="material-icons-round">dynamic_feed</span>
+      <span class="material-icons-round" aria-hidden="true">dynamic_feed</span>
       <span>Feed</span>
     </button>
     <button onclick="navigateTo('browse')" data-page="browse">
-      <span class="material-icons-round">search</span>
+      <span class="material-icons-round" aria-hidden="true">search</span>
       <span>Suche</span>
     </button>
     <button onclick="navigateTo('board')" data-page="board" class="mobile-nav-board">
-      <span class="material-icons-round">view_kanban</span>
-      <span>Board</span>
+      <span class="material-icons-round" aria-hidden="true">view_kanban</span>
+      <span>Planen</span>
     </button>
     <button onclick="navigateTo('messages')" data-page="messages">
-      <span class="material-icons-round">chat_bubble</span>
+      <span class="material-icons-round" aria-hidden="true">chat_bubble</span>
       <span>Chat</span>
     </button>
     <button onclick="navigateTo('profile')" data-page="profile">
-      <span class="material-icons-round">person</span>
+      <span class="material-icons-round" aria-hidden="true">person</span>
       <span>Profil</span>
     </button>
   </nav>
@@ -336,55 +353,25 @@
     <section class="eb-qa-panel" id="qaPanel" aria-label="Eventbörse Assistent" hidden>
       <div class="eb-qa-head">
         <div class="eb-qa-head-avatar" aria-hidden="true">
-          <svg class="eb-qa-icon-svg eb-qa-icon-svg--mini" viewBox="0 0 120 150" focusable="false" aria-hidden="true">
-            <!-- Funkeln um Hut-Spitze -->
-            <path class="qa-spark" d="M68 4 v-3 M61 6 l5 2 M75 6 l-5 2"/>
-            <path class="qa-spark qa-spark-alt" d="M22 30 l2 4 M28 26 l-3 5 M14 38 l5 1"/>
-            <path class="qa-spark qa-spark-alt" d="M104 30 l-2 4 M98 26 l3 5 M110 38 l-5 1"/>
-            <!-- Partyhut mit Streifen + Bommel -->
-            <g class="qa-hat-group">
-              <path class="qa-hat-fill" d="M34 60 L68 8 L94 60 Z"/>
-              <path class="qa-hat-stripe qa-hat-stripe-a" d="M44 47 L72 26 L77 36 Z"/>
-              <path class="qa-hat-stripe qa-hat-stripe-b" d="M37 57 L62 41 L68 48 Z"/>
-              <path class="qa-hat-stroke" d="M34 60 L68 8 L94 60 Z"/>
-              <ellipse class="qa-hat-brim" cx="64" cy="61" rx="32" ry="5"/>
-              <!-- Bommel -->
-              <circle class="qa-hat-pom qa-hat-pom-shadow" cx="68" cy="10" r="7"/>
-              <circle class="qa-hat-pom" cx="68" cy="9" r="6"/>
-            </g>
-            <!-- Antenne -->
-            <line class="qa-antenna-rod" x1="40" y1="68" x2="40" y2="50"/>
-            <circle class="qa-antenna-tip" cx="40" cy="48" r="4"/>
-            <!-- Hals -->
-            <rect class="qa-neck" x="54" y="118" width="22" height="10" rx="3"/>
-            <!-- Schultern -->
-            <path class="qa-body-shape" d="M14 150c4-18 22-26 51-26s47 8 51 26Z"/>
-            <!-- Earcups (Headset) -->
-            <rect class="qa-earcup" x="22" y="82" width="14" height="24" rx="5"/>
-            <rect class="qa-earcup" x="94" y="82" width="14" height="24" rx="5"/>
-            <!-- Roboter-Kopf (gerundetes Rechteck) -->
-            <rect class="qa-head-main" x="32" y="66" width="66" height="58" rx="14"/>
-            <!-- Display-Visier -->
-            <rect class="qa-visor" x="39" y="78" width="52" height="24" rx="8"/>
-            <!-- LED-Augen -->
-            <circle class="qa-eye" cx="54" cy="90" r="4"/>
-            <circle class="qa-eye-glow" cx="54" cy="90" r="1.6"/>
-            <circle class="qa-eye" cx="76" cy="90" r="4"/>
-            <circle class="qa-eye-glow" cx="76" cy="90" r="1.6"/>
-            <!-- Mund: freundliches Lächeln -->
-            <path class="qa-mouth-smile" d="M50 110 Q64 122 78 110"/>
-            <!-- Mikro-Arm + Kugel -->
-            <path class="qa-mic-arm" d="M100 106 Q 104 128, 82 132"/>
-            <circle class="qa-mic-dot" cx="76" cy="134" r="5"/>
-          </svg>
+          <img class="eb-qa-figur" data-assistent-figur alt="" width="42" height="63" decoding="async" />
         </div>
         <div>
           <strong>Eventbörse Assistent</strong>
         </div>
+        <button type="button" class="eb-qa-close" id="qaFigurWechseln" onclick="ebAssistentFigurWahlOeffnen()" aria-label="Assistenten-Figur wechseln" aria-controls="qaFigurWahl">
+          <span class="material-icons-round" aria-hidden="true">face</span>
+        </button>
         <button type="button" class="eb-qa-close" onclick="closeQaBot()" aria-label="QA-Support schließen">
           <span class="material-icons-round">close</span>
         </button>
       </div>
+      <!-- Wahl der Assistenten-Figur (assets/avatare, ui/33-assistent-figur.js).
+           Erscheint beim ersten Öffnen und über „face" im Kopf. -->
+      <section class="eb-qa-figur-wahl" id="qaFigurWahl" aria-labelledby="qaFigurWahlTitel" hidden>
+        <h3 id="qaFigurWahlTitel">Wähle deinen Event-Assistenten</h3>
+        <div class="eb-qa-figur-raster" id="qaFigurRaster" role="group" aria-labelledby="qaFigurWahlTitel"></div>
+        <button type="button" class="eb-qa-figur-spaeter" onclick="ebAssistentFigurWahlSchliessen(true)">Später</button>
+      </section>
       <div class="eb-qa-messages" id="qaMessages" aria-live="polite"></div>
       <div class="eb-qa-suggestions" id="qaSuggestions">
         <button type="button" onclick="askQaPreset('Ich kann mich nicht anmelden')">Login</button>
@@ -400,49 +387,9 @@
         </button>
       </form>
     </section>
-    <button type="button" class="eb-qa-launcher" id="qaLauncher" onclick="toggleQaBot()" aria-expanded="false" aria-controls="qaPanel" title="Eventbörse Assistent">
+    <button type="button" class="eb-qa-launcher" id="qaLauncher" onclick="toggleQaBot()" aria-expanded="false" aria-controls="qaPanel" title="Event-Assistent" aria-label="Event-Assistent öffnen">
       <span class="eb-qa-launcher-icon" aria-hidden="true">
-        <svg class="eb-qa-icon-svg" viewBox="0 0 120 150" focusable="false" aria-hidden="true">
-          <!-- Funkeln um Hut -->
-          <path class="qa-spark" d="M68 4 v-3 M61 6 l5 2 M75 6 l-5 2"/>
-          <path class="qa-spark qa-spark-alt" d="M22 30 l2 4 M28 26 l-3 5 M14 38 l5 1"/>
-          <path class="qa-spark qa-spark-alt" d="M104 30 l-2 4 M98 26 l3 5 M110 38 l-5 1"/>
-          <!-- Partyhut mit Streifen + Bommel -->
-          <g class="qa-hat-group">
-            <path class="qa-hat-fill" d="M34 60 L68 8 L94 60 Z"/>
-            <path class="qa-hat-stripe qa-hat-stripe-a" d="M44 47 L72 26 L77 36 Z"/>
-            <path class="qa-hat-stripe qa-hat-stripe-b" d="M37 57 L62 41 L68 48 Z"/>
-            <path class="qa-hat-stroke" d="M34 60 L68 8 L94 60 Z"/>
-            <ellipse class="qa-hat-brim" cx="64" cy="61" rx="32" ry="5"/>
-            <!-- Bommel -->
-            <circle class="qa-hat-pom qa-hat-pom-shadow" cx="68" cy="10" r="7"/>
-            <circle class="qa-hat-pom" cx="68" cy="9" r="6"/>
-          </g>
-          <!-- Antenne -->
-          <line class="qa-antenna-rod" x1="40" y1="68" x2="40" y2="50"/>
-          <circle class="qa-antenna-tip" cx="40" cy="48" r="4"/>
-          <!-- Hals -->
-          <rect class="qa-neck" x="54" y="118" width="22" height="10" rx="3"/>
-          <!-- Schultern -->
-          <path class="qa-body-shape" d="M14 150c4-18 22-26 51-26s47 8 51 26Z"/>
-          <!-- Earcups (Headset) -->
-          <rect class="qa-earcup" x="22" y="82" width="14" height="24" rx="5"/>
-          <rect class="qa-earcup" x="94" y="82" width="14" height="24" rx="5"/>
-          <!-- Roboter-Kopf (gerundetes Rechteck) -->
-          <rect class="qa-head-main" x="32" y="66" width="66" height="58" rx="14"/>
-          <!-- Display-Visier -->
-          <rect class="qa-visor" x="39" y="78" width="52" height="24" rx="8"/>
-          <!-- LED-Augen -->
-          <circle class="qa-eye" cx="54" cy="90" r="4"/>
-          <circle class="qa-eye-glow" cx="54" cy="90" r="1.6"/>
-          <circle class="qa-eye" cx="76" cy="90" r="4"/>
-          <circle class="qa-eye-glow" cx="76" cy="90" r="1.6"/>
-          <!-- Mund: freundliches Lächeln -->
-          <path class="qa-mouth-smile" d="M50 110 Q64 122 78 110"/>
-          <!-- Mikro-Arm + Kugel -->
-          <path class="qa-mic-arm" d="M100 106 Q 104 128, 82 132"/>
-          <circle class="qa-mic-dot" cx="76" cy="134" r="5"/>
-        </svg>
+        <img class="eb-qa-figur" data-assistent-figur alt="" width="64" height="96" decoding="async" />
       </span>
     </button>
   </div>
@@ -939,8 +886,8 @@
             <span class="ai-badge-dot"></span>
             Smarte Suche · Verifizierte Anbieter
           </div>
-          <h1 class="ai-hero-h1"><span class="ai-hero-brand">EVENTBÖRSE</span><span class="ai-hero-comma">,</span><br><span class="ai-hero-line2"><span class="ai-hero-gradient">PLANE DEIN PERFEKTES EVENT.</span></span></h1>
-          <p class="ai-hero-sub"><span id="heroSubProviders">150+ Dienstleister</span> · Sofort kontaktierbar · <span id="heroSubRated">Top bewertet</span></p>
+          <h1 class="ai-hero-h1"><span class="ai-hero-brand">EVENTBÖRSE</span><span class="ai-hero-comma">,</span><br><span class="ai-hero-line2"><span class="ai-hero-gradient">Plane dein perfektes Event.</span></span></h1>
+          <p class="ai-hero-sub">Dienstleister finden · Direkt anfragen · Gemeinsam planen</p>
           <div class="ai-searchbar-outer">
             <div class="ai-searchbar">
               <span class="material-icons-round ai-search-ico">search</span>
@@ -1008,12 +955,15 @@
               </span>
             </button>
           </div>
-          <div class="ai-hero-stats">
-            <span><strong id="statProviders">150+</strong> Dienstleister</span>
+          <!-- Kennzahlen zählen ausschliesslich echte Inserate (updateHeroStats).
+               Bis dahin bleibt die Zeile verborgen: ein Platzhalter wie „150+"
+               wäre eine Werbeaussage ohne Deckung. -->
+          <div class="ai-hero-stats" hidden>
+            <span><strong id="statProviders"></strong> Dienstleister</span>
             <span class="ai-stat-dot">·</span>
-            <span id="statRatingItem"><strong id="statRating">4.8★</strong> Ø Bewertung</span>
+            <span id="statRatingItem"></span>
             <span class="ai-stat-dot">·</span>
-            <span><strong>12</strong> Kategorien</span>
+            <span><strong id="statCategories"></strong> Kategorien</span>
           </div>
         </div>
       </div>
@@ -1568,13 +1518,13 @@
             <div class="provider-stats-ring">
               <div class="stat-ring">
                 <strong id="providerListingCount">–</strong>
-                <span>Inserate</span>
+                <span id="providerListingCountLabel">Inserate</span>
               </div>
-              <div class="stat-ring">
+              <div class="stat-ring" data-profil-nur="anbieter">
                 <strong id="providerRating">–</strong>
                 <span>Bewertung</span>
               </div>
-              <div class="stat-ring">
+              <div class="stat-ring" data-profil-nur="anbieter">
                 <strong id="providerReviews">–</strong>
                 <span>Reviews</span>
               </div>
@@ -1607,16 +1557,16 @@
               </div>
             </div>
 
-            <!-- Highlights -->
-            <div class="provider-section">
+            <!-- Highlights — nur Anbieterprofil (PRODUCT_REDESIGN.md 1.5) -->
+            <div class="provider-section" data-profil-nur="anbieter">
               <h2><span class="material-icons-round">auto_awesome</span> Highlights</h2>
               <div class="provider-highlights" id="providerHighlights">
                 <!-- Filled by JS -->
               </div>
             </div>
 
-            <!-- Portfolio Gallery -->
-            <div class="provider-section">
+            <!-- Portfolio Gallery — nur Anbieterprofil -->
+            <div class="provider-section" data-profil-nur="anbieter">
               <h2><span class="material-icons-round">photo_library</span> Portfolio</h2>
               <div class="provider-portfolio" id="providerPortfolio">
                 <!-- Filled by JS -->
@@ -1634,8 +1584,8 @@
               </ul>
             </div>
 
-            <!-- Tags -->
-            <div class="provider-fact-card">
+            <!-- Tags — nur Anbieterprofil -->
+            <div class="provider-fact-card" data-profil-nur="anbieter">
               <h3>Spezialisierungen</h3>
               <div class="provider-spec-tags" id="providerSpecTags">
                 <!-- Filled by JS -->
@@ -1644,21 +1594,29 @@
           </div>
         </div>
 
-        <!-- Tabs: Inserate + Bewertungen + bestaetigte Partnerschaften -->
+        <!-- Tabs: Inserate + Gesuche + Bewertungen + bestaetigte Partnerschaften.
+             Ein Mitgliedsprofil zeigt nur „Gesuche"; ein Anbieterprofil zeigt
+             „Gesuche" nur, wenn es welche hat (PRODUCT_REDESIGN.md 1.5). -->
         <div class="provider-tabs">
-          <button class="tab active" onclick="switchProviderTab(this, 'inserate')">
+          <button class="tab active" data-profil-nur="anbieter" onclick="switchProviderTab(this, 'inserate')">
             <span class="material-icons-round">grid_on</span> Inserate
           </button>
-          <button class="tab" onclick="switchProviderTab(this, 'bewertungen')">
+          <button class="tab" id="providerTabGesuche" hidden onclick="switchProviderTab(this, 'gesuche')">
+            <span class="material-icons-round">campaign</span> Gesuche
+          </button>
+          <button class="tab" data-profil-nur="anbieter" onclick="switchProviderTab(this, 'bewertungen')">
             <span class="material-icons-round">star</span> Bewertungen
           </button>
-          <button class="tab" onclick="switchProviderTab(this, 'partnerschaften')">
+          <button class="tab" data-profil-nur="anbieter" onclick="switchProviderTab(this, 'partnerschaften')">
             <span class="material-icons-round">handshake</span> Arbeitet zusammen mit
           </button>
         </div>
         <div class="provider-content">
           <div id="provider-tab-inserate" class="provider-tab-content active">
             <div class="listing-grid" id="providerListings"></div>
+          </div>
+          <div id="provider-tab-gesuche" class="provider-tab-content">
+            <div class="listing-grid" id="providerGesuche"></div>
           </div>
           <div id="provider-tab-bewertungen" class="provider-tab-content">
             <div id="providerReviewsList"></div>
@@ -2044,8 +2002,20 @@
           <button class="btn-primary settings-save-btn" onclick="savePersonalSettings()">Änderungen speichern</button>
         </div>
 
+        <!-- Nickname: derselbe Kasten wie auf der Freunde-Seite, gezeichnet von
+             ebNicknameEinstellungen() (social/60-freunde-gruppen.js). -->
+        <div class="settings-nickname" data-nickname-kasten="einstellungen"></div>
+
         <!-- Password -->
-        <div class="settings-card">
+        <!-- Das <form> ist KEINE Kosmetik und kein Absenden-Weg: es gibt den drei
+             Passwortfeldern einen form-Eigentuemer. Ohne ihn liegen sie in dem
+             Pool herrenloser Felder, den Chrome zu EINER synthetischen Form
+             zusammenfasst — zusammen mit jedem Suchfeld der Anwendung. Der
+             Passwortmanager klassifiziert dann das Suchfeld der Landeseite als
+             Benutzernamen und bietet dort gespeicherte Zugangsdaten an;
+             autocomplete="off" ignoriert er in genau diesem Fall. Siehe
+             tests/e2e/autofill.spec.js. -->
+        <form class="settings-card" id="settingsPasswordForm" onsubmit="event.preventDefault(); savePasswordSettings(); return false;">
           <div class="settings-card-header">
             <span class="material-icons-round">lock</span>
             <h2>Passwort ändern</h2>
@@ -2071,8 +2041,11 @@
               <button type="button" class="settings-pw-toggle" aria-label="Passwort anzeigen" onclick="toggleSettingsPw('settingsConfirmPw', this)"><span class="material-icons-round">visibility_off</span></button>
             </div>
           </div>
-          <button class="btn-primary settings-save-btn" onclick="savePasswordSettings()">Passwort ändern</button>
-        </div>
+          <!-- type="submit" ist Absicht: ohne das waere Enter im Passwortfeld
+               wirkungslos. Der Weg laeuft ueber onsubmit, nicht ueber eine
+               Navigation — ein Formular ohne action laedt die SPA sonst neu. -->
+          <button type="submit" class="btn-primary settings-save-btn">Passwort ändern</button>
+        </form>
 
         <div class="settings-card">
           <div class="settings-card-header">
@@ -2556,7 +2529,7 @@
       <div class="container">
         <div class="auftraege-header" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:20px">
           <div>
-            <h1 style="margin:0 0 4px;display:flex;align-items:center;gap:10px"><span class="material-icons-round" style="font-size:32px;color:var(--primary)">assignment</span> Auftragsboard</h1>
+            <h1 style="margin:0 0 4px;display:flex;align-items:center;gap:10px"><span class="material-icons-round" style="font-size:32px;color:var(--primary)">assignment</span> Aufträge</h1>
             <p style="margin:0;color:var(--text-light);font-size:14px">Offene Buchungen, Zahlungen &amp; Event-Tag-Bestätigungen.</p>
           </div>
           <span style="background:rgba(255,56,92,0.12);color:var(--primary-text);padding:6px 12px;border-radius:20px;font-size:12px;font-weight:600">BETA</span>
@@ -3748,11 +3721,17 @@ Datum: ___________________________________________________
                ist dieselbe wie serverseitig (eb_handle_gueltig): 3–24 Zeichen,
                Kleinbuchstaben, Ziffern, Punkt, Unterstrich. -->
           <div class="form-group">
-            <label for="regHandle">Nickname <small>(so finden dich Freunde)</small></label>
-            <input type="text" id="regHandle" placeholder="max.mustermann" required
-                   minlength="3" maxlength="24" pattern="[a-z0-9._]{3,24}"
-                   autocomplete="username" inputmode="latin" />
-            <small class="form-hint">3–24 Zeichen · Kleinbuchstaben, Ziffern, Punkt, Unterstrich</small>
+            <label for="regHandle">Dein Nickname</label>
+            <div class="reg-handle-zeile">
+              <span class="soz-at" aria-hidden="true">@</span>
+              <input type="text" id="regHandle" placeholder="max.mustermann" required
+                     minlength="3" maxlength="24" pattern="[a-z0-9._]{3,24}"
+                     autocomplete="username" inputmode="latin"
+                     aria-describedby="regHandleHinweis regHandleStatus"
+                     oninput="regHandlePruefen()" />
+            </div>
+            <small class="form-hint" id="regHandleHinweis">Damit andere dich finden und eindeutig erkennen können. 3–24 Zeichen · Kleinbuchstaben, Ziffern, Punkt, Unterstrich</small>
+            <small class="form-hint-status" id="regHandleStatus" role="status" aria-live="polite"></small>
           </div>
           <div class="form-group">
             <label for="regEmail">E-Mail</label>

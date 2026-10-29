@@ -1052,6 +1052,30 @@
       </div>
     </div>
 
+    <!-- Nickname-Probelauf — nur für Administratoren, LIEST nur.
+         Läuft erst auf Klick: er geht alle Konten durch, und das soll nicht
+         bei jedem Öffnen des HQ passieren. -->
+    <div id="nick-block" hidden>
+      <div class="section-header" id="nicknames">
+        <div class="section-title">@ Nickname-Probelauf <span style="font-weight:400;color:var(--muted);font-size:.82rem;">— sehen, was der Nachtrag täte, bevor er es tut</span></div>
+        <div class="section-badge" id="nick-badge">–</div>
+      </div>
+      <div class="journal">
+        <p style="margin:0 0 14px;color:var(--muted);font-size:.86rem;line-height:1.55;">
+          Zählt alle Konten und plant die Vergabe für die ohne Nickname.
+          <strong>Es wird nichts geschrieben</strong> — kein Konto, keine Einstellung.
+          Vergebene Namen sind verborgen: wer gefunden werden will, schaltet es selbst ein.
+          Der echte Nachtrag läuft erst mit <code>EB_HANDLE_NACHTRAG</code> in <code>wp-config.php</code>,
+          und der gehört zur Datenschutzerklärung.
+        </p>
+        <button type="button" class="icon-btn with-label" id="nick-start">@ Probelauf starten</button>
+        <div id="nick-stand" role="status" aria-live="polite"
+             style="margin:12px 0 0;font-size:.9rem;"></div>
+        <div id="nick-bericht" hidden style="margin-top:12px;font-size:.86rem;"></div>
+      </div>
+    </div>
+    <!-- nick-block:ende -->
+
     <!-- Wartet auf dich -->
     <div class="wartet" id="wartet"></div>
 
@@ -1164,10 +1188,24 @@
         <strong>GitHub Token verbinden</strong> — schaltet Bot-Trigger, Rollback &amp; höhere API-Limits frei (sonst nur 60 Anfragen/Std).<br>
         Benötigt <code>repo</code> + <code>workflow</code> Berechtigung.
         <a href="https://github.com/settings/tokens/new?scopes=repo,workflow&description=EventB%C3%B6rse+HQ" target="_blank" rel="noopener">Token erstellen →</a>
-        <div class="pat-input-row">
+        <!-- Dasselbe <form> wie bei den Einstellungen der Website, aus
+             demselben Grund: ohne Eigentuemer liegt dieses Passwortfeld in
+             dem Pool herrenloser Felder, den Chrome zu EINER synthetischen
+             Form zusammenfasst — hier zusammen mit `zugang-mail` und
+             `recht-suche`. Der Passwortmanager bietet dann in der Rechtsuche
+             Zugangsdaten an und will den PAT als Passwort der Domain
+             speichern. `type="button"` ist Pflicht: der Knopf haengt an
+             addEventListener, ohne das Attribut wuerde er zusaetzlich
+             absenden und das HQ neu laden.
+             Geprueft wird das im BROWSER ueber `el.form`, nicht durch
+             Tag-Zaehlen im Quelltext: ein `<form>`-Starttag innerhalb eines
+             offenen Formulars verwirft der Parser, die Reparatur saehe dann
+             im Markup richtig aus und waere wirkungslos.
+             Siehe tests/e2e/autofill.spec.js. -->
+        <form class="pat-input-row" id="pat-form" onsubmit="return false;">
           <input type="password" id="pat-input" placeholder="ghp_…" autocomplete="off">
-          <button class="btn btn-primary" id="pat-save">Speichern</button>
-        </div>
+          <button type="button" class="btn btn-primary" id="pat-save">Speichern</button>
+        </form>
       </div>
     </div>
 
@@ -5804,6 +5842,145 @@ window.addEventListener('DOMContentLoaded', init);
     standEl.textContent = 'Stand nicht abrufbar: ' + String(e.message || e);
     standEl.style.color = 'var(--muted)';
   });
+})();
+
+/* ═══ Nickname-Probelauf ════════════════════════════════════════════════
+   GET /hq/nicknames zählt und plant, schreibt nichts (eb_handles_probelauf).
+
+   Erst auf Klick, nicht beim Öffnen: der Lauf geht über ALLE Konten, und
+   ein Blick ins HQ soll den kleinen PHP-Pool nicht jedes Mal so belasten.
+
+   Alles, was vom Server kommt, landet über textContent im Bericht, nie über
+   innerHTML — Nicknames sind Nutzereingaben, auch im HQ.
+
+   Die Spalten müssen aufgehen (gültig + fehlt + geleert + ungültig =
+   Konten). Tun sie es nicht, steht das als Warnung da: ein Bericht, dessen
+   Zahlen nicht zusammenpassen, ist kein Bericht, und ihn trotzdem ruhig
+   anzuzeigen, wäre eine Entwarnung ohne Deckung.
+   ═══════════════════════════════════════════════════════════════════════ */
+(function () {
+  const block = document.getElementById('nick-block');
+  if (!block) return;
+  if (!HQ_IST_ADMIN) { block.remove(); return; }
+  block.hidden = false;
+
+  const standEl = document.getElementById('nick-stand');
+  const badge   = document.getElementById('nick-badge');
+  const knopf   = document.getElementById('nick-start');
+  const bericht = document.getElementById('nick-bericht');
+
+  const SPALTEN = [
+    ['konten', 'Konten insgesamt'],
+    ['gueltig', 'mit gültigem Nickname'],
+    ['auffindbar', '… davon auffindbar'],
+    ['verborgen', '… davon verborgen'],
+    ['fehlt', 'ohne Nickname'],
+    ['geleert', 'Nickname selbst zurückgezogen'],
+    ['ungueltig', 'ungültiger Altbestand'],
+    ['doppelt', 'doppelt vergebene Namen'],
+    ['reserviert_bestand', 'reservierte Namen im Bestand'],
+  ];
+
+  function el(tag, text, stil) {
+    const e = document.createElement(tag);
+    if (text !== undefined) e.textContent = String(text);
+    if (stil) e.style.cssText = stil;
+    return e;
+  }
+
+  function tabelle(zeilen, kopf) {
+    const t = el('table', undefined, 'border-collapse:collapse;margin:6px 0 12px;');
+    if (kopf) {
+      const tr = el('tr');
+      kopf.forEach(function (k) { tr.appendChild(el('th', k, 'text-align:left;padding:2px 14px 2px 0;color:var(--muted);font-weight:500;')); });
+      t.appendChild(tr);
+    }
+    zeilen.forEach(function (z) {
+      const tr = el('tr');
+      z.forEach(function (zelle, i) {
+        tr.appendChild(el('td', zelle, 'padding:2px 14px 2px 0;' + (i > 0 ? 'font-variant-numeric:tabular-nums;' : '')));
+      });
+      t.appendChild(tr);
+    });
+    return t;
+  }
+
+  function zeige(d) {
+    const z = d.zaehlung || {};
+    const p = d.plan || {};
+    bericht.textContent = '';
+
+    const summe = (z.gueltig || 0) + (z.fehlt || 0) + (z.geleert || 0) + (z.ungueltig || 0);
+    const geht_auf = summe === (z.konten || 0);
+
+    bericht.appendChild(el('h4', 'Bestand', 'margin:0 0 4px;font-size:.9rem;'));
+    bericht.appendChild(tabelle(SPALTEN.map(function (s) { return [s[1], z[s[0]] || 0]; })));
+
+    bericht.appendChild(el('h4', 'Was der Nachtrag täte', 'margin:0 0 4px;font-size:.9rem;'));
+    bericht.appendChild(tabelle([
+      ['würde vergeben (verborgen)', p.wuerde_vergeben || 0],
+      ['… davon neutral (eventfan.…)', p.davon_neutral || 0],
+      ['ohne brauchbaren Vorschlag', p.ohne_vorschlag || 0],
+    ]));
+
+    if (Array.isArray(d.vorschau) && d.vorschau.length) {
+      bericht.appendChild(el('h4', 'Vorschau (höchstens 20)', 'margin:0 0 4px;font-size:.9rem;'));
+      bericht.appendChild(tabelle(d.vorschau.map(function (v) {
+        return ['Konto ' + Number(v.id), '@' + String(v.nickname || '')];
+      }), ['Konto', 'würde heißen']));
+    }
+    if (Array.isArray(d.ungueltig) && d.ungueltig.length) {
+      bericht.appendChild(el('p', 'Ungültiger Altbestand — Konten: ' + d.ungueltig.map(Number).join(', '), 'margin:0 0 8px;color:#fca5a5;'));
+    }
+    if (Array.isArray(d.doppelt) && d.doppelt.length) {
+      bericht.appendChild(el('p', 'Doppelt vergeben — Kontengruppen: ' + d.doppelt.map(function (g) {
+        return '[' + (Array.isArray(g) ? g.map(Number).join(', ') : '') + ']';
+      }).join(' '), 'margin:0 0 8px;color:#fca5a5;'));
+    }
+    bericht.appendChild(el('p', 'Schalter EB_HANDLE_NACHTRAG: ' + (d.schalter ? 'AN' : 'aus')
+      + ' · Nachtrag abgeschlossen: ' + (d.marke ? 'ja' : 'nein'), 'margin:8px 0 0;color:var(--muted);'));
+    bericht.hidden = false;
+
+    const warnungen = [];
+    if (d.probelauf !== true) warnungen.push('der Server bestätigt keinen Probelauf');
+    if (!geht_auf) warnungen.push('die Spalten gehen nicht auf (' + summe + ' von ' + (z.konten || 0) + ')');
+    if (d.abgeschnitten) warnungen.push('nur die ersten ' + (z.konten || 0) + ' Konten gezählt');
+
+    const fehlt = Number(z.fehlt) || 0;
+    badge.textContent = fehlt === 0 ? 'alle haben einen' : fehlt + ' ohne Nickname';
+    if (warnungen.length) {
+      standEl.textContent = 'Achtung: ' + warnungen.join(' · ');
+      standEl.style.color = '#fca5a5';
+    } else {
+      standEl.textContent = 'Probelauf fertig — nichts wurde geändert.';
+      standEl.style.color = '#4ade80';
+    }
+  }
+
+  async function starten() {
+    knopf.disabled = true;
+    standEl.textContent = 'Probelauf läuft…';
+    standEl.style.color = 'var(--fg)';
+    try {
+      const r = await fetch('/wp-json/eventboerse/v1/hq/nicknames', {
+        method: 'GET',
+        credentials: 'same-origin',
+        headers: { 'X-WP-Nonce': HQ_REST_NONCE },
+      });
+      const d = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(d.message || ('Fehlgeschlagen (' + r.status + ').'));
+      zeige(d);
+    } catch (e) {
+      badge.textContent = 'unbekannt';
+      bericht.hidden = true;
+      standEl.textContent = 'Probelauf nicht möglich: ' + String(e.message || e);
+      standEl.style.color = '#fca5a5';
+    } finally {
+      knopf.disabled = false;
+    }
+  }
+
+  knopf.addEventListener('click', starten);
 })();
 
 /* ═══════════════════════════════════════════════════════════════════════
