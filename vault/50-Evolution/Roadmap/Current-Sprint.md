@@ -94,12 +94,38 @@ das tägliche Abarbeiten eines Postens dieser Tabelle. Der Unterschied ist
 wichtig: der Stand kommt an, aber **niemand prüft ihn mehr**, und der
 Wächter über den roten Workflows ist weg.
 
-**Wie lange schon, ist von hier aus NICHT feststellbar** — die Schnittstelle
-gibt nur den letzten Lauf heraus, nicht die Historie. Dass alle drei am
-selben Tag mit demselben Grund abbrechen, spricht für eine gemeinsame
-Ursache (Repository- oder Umgebungsfreigabe der Routine-Sitzungen), nicht für
-drei Zufälle. Eine Zahl zu nennen wäre geraten, und geraten ist hier schon
-zweimal teuer gewesen.
+**Die Ursache ist gemessen, und sie ist NICHT der Repository-Zugang.** Hier
+stand zuerst „Repository- oder Umgebungsfreigabe der Routine-Sitzungen" — das
+war geraten und ist falsch. Alle drei Sitzungen nennen in ihrem
+`post_turn_summary` wörtlich denselben Satz:
+
+> *„Your organization has disabled Claude subscription access for Claude Code ·
+> Use an Anthropic API key instead, or ask your admin to enable access"*
+
+Es ist also eine **Kontoeinstellung der Organisation**, keine Freigabe am
+Repository und keine an der Umgebung. Gegenprobe, die es belegt: die
+Umgebung `Default` ist `active`, und die Code-Review-Sitzung trug das
+Repository ausdrücklich als `sources.git_repository` — Zugang zum Code war nie
+die Frage. Die beiden anderen starteten sogar mit `config:no-git-repo`, also
+ohne Checkout, und scheiterten an derselben Stelle.
+
+**Der Weg dorthin steht in der Meldung selbst:** entweder ein
+Anthropic-API-Schlüssel für die Routine-Sitzungen, oder
+„Claude subscription access for Claude Code" in den Kontoeinstellungen wieder
+freigeben. Beides kann nur der Inhaber.
+
+**Dass die falsche Ursache hier stand, ist der eigentliche Lehrsatz.** Sie
+hätte den Inhaber in die Repository-Einstellungen geschickt, wo nichts zu
+finden ist — *ein Prüfer, der aus dem falschen Grund meldet, kostet mehr als
+keiner.* Dieselbe Klasse wie die Diagnose „Allow auto-merge ist nicht
+aktiviert" bei den vierzehn Routine-PRs, wo in Wahrheit die Freigabe im
+Branch-Schutz fehlte. Zu wissen, DASS etwas rot ist, und zu wissen, WARUM,
+sind zwei Messungen; die zweite habe ich zuerst übersprungen.
+
+**Wie lange schon, ist von hier aus weiterhin NICHT feststellbar** — die
+Schnittstelle gibt nur den letzten Lauf heraus, nicht die Historie. Eine Zahl
+zu nennen wäre geraten, und genau das ist einen Absatz weiter oben schon
+schiefgegangen.
 
 ## Gemeinsame Plattformbasis (21.10.2026)
 
