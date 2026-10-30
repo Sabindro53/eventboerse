@@ -614,8 +614,12 @@ function renderFeedJetzt(container) {
   if (_aktZustand === 'kalt' || _aktZustand === 'laedt') {
     container.innerHTML = '<section class="akt-karte-huelle"><p class="akt-laedt">Liste wird geladen …</p></section>';
     ebAktivitaetenLaden(function () {
-      var jetztAktiv = document.querySelector('#page-aktuelles .feed-tab[data-feed="jetzt"].active');
-      if (jetztAktiv) renderFeedJetzt(document.getElementById('feedList'));
+      // „Jetzt" ist kein eigener Reiter mehr; neu gezeichnet wird, solange die
+      // Liste noch den Ladehinweis trägt — also die Jetzt-Ansicht aktiv ist.
+      // Wer inzwischen zum Radar oder zu Gesuchen gewechselt hat, bekommt
+      // seinen Inhalt nicht überschrieben.
+      var el = document.getElementById('feedList');
+      if (el && el.querySelector('.akt-laedt')) renderFeedJetzt(el);
     });
     return;
   }

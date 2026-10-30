@@ -193,7 +193,9 @@ function renderDashboard() {
   }
 
   // --- Avatar ---
-  var avatarUrl = currentUser.photoUrl || ebAvatar(currentUser.name || 'user', currentUser.name);
+  var avatarUrl = (typeof ebNutzerAvatar === 'function')
+    ? ebNutzerAvatar(currentUser)
+    : (currentUser.photoUrl || ebAvatar(currentUser.name || 'user', currentUser.name));
   document.getElementById('profileAvatar').src = avatarUrl;
   var navAvatar = document.querySelector('#avatarBtn img');
   if (navAvatar) navAvatar.src = avatarUrl;

@@ -328,13 +328,46 @@ function renderHeroMarquees() {
 }
 
 // ========== EXPLORE PAGE (Instagram-Style) ==========
+// „Für dich", „Neueste", „Beliebt" und „Events" waren eigene Reiter auf
+// „Aktuelles". Der Inhaber wollte dort weniger Reiter; sie leben jetzt hier
+// als Sortierung — dieselbe Menge, anders geordnet, statt auf fünf Reiter
+// verteilt. Der Vorgabewert ist „Für dich".
+var _exploreSort = 'foryou';
+
+function exploreSort(mode) {
+  if (['foryou', 'newest', 'popular', 'events'].indexOf(mode) < 0) return;
+  _exploreSort = mode;
+  var sel = document.getElementById('exploreSort');
+  if (sel && sel.value !== mode) sel.value = mode;
+  renderExploreGrid();
+}
+
 function renderExploreGrid(filter) {
   const grid = document.getElementById('exploreGrid');
   if (!grid) return;
   const query = filter || (document.getElementById('exploreSearch')?.value || '').trim().toLowerCase();
+
+  // „Events" zeigt keine Inserate, sondern die Event- und Ankündigungs-
+  // Beiträge — eigener Inhalt, der nicht in ein Bilderraster von Angeboten
+  // passt. Deshalb ein eigener Zweig statt eines Filters, der nichts fände.
+  if (_exploreSort === 'events') {
+    renderExploreEvents(grid, query);
+    return;
+  }
+  grid.classList.remove('is-events');
+
+  // Inserate in der gewählten Reihenfolge, BEVOR die Bilder aufgefächert
+  // werden — sonst stünde „Neueste" nach der Zufallsfolge der Zusatzbilder.
+  var listings = filterDemos(LISTINGS).slice();
+  if (_exploreSort === 'newest') {
+    listings.sort(function(a, b) { return (_listingTs(b) - _listingTs(a)) || (b.id - a.id); });
+  } else if (_exploreSort === 'popular') {
+    listings.sort(function(a, b) { return (b.rating || 0) - (a.rating || 0); });
+  }
+
   // Collect all images from all listings
   let items = [];
-  filterDemos(LISTINGS).forEach(l => {
+  listings.forEach(l => {
     // Main image
     items.push({ image: l.image, listingId: l.id, title: l.title, provider: l.providerName, price: l.priceLabel, aiTextDisclosure: l.aiTextDisclosure, aiMediaDisclosure: l.aiMediaDisclosure });
     // Additional images
@@ -357,6 +390,29 @@ function renderExploreGrid(filter) {
       </div>
     </a>`;
   }).join('');
+}
+
+// Die Event-Beiträge als Karten — nicht als Bilderkacheln, weil ein Beitrag
+// kein Inserat mit Detailseite ist. Ein leerer Fall sagt das auch, statt eine
+// leere Fläche zu zeigen.
+function renderExploreEvents(grid, query) {
+  grid.classList.add('is-events');
+  var posts = (typeof _visibleSocialPosts === 'function' ? _visibleSocialPosts() : [])
+    .filter(function(p) { return p.type === 'event' || p.type === 'ankuendigung'; });
+  if (query) {
+    posts = posts.filter(function(p) {
+      return String(p.content || '').toLowerCase().includes(query)
+        || String(p.eventName || '').toLowerCase().includes(query)
+        || String(p.author || '').toLowerCase().includes(query);
+    });
+  }
+  if (!posts.length) {
+    grid.innerHTML = '<div class="explore-events-empty">'
+      + '<span class="material-icons-round">campaign</span>'
+      + '<p>' + (query ? 'Keine Events oder Ankündigungen zu dieser Suche.' : 'Noch keine Events oder Ankündigungen.') + '</p></div>';
+    return;
+  }
+  grid.innerHTML = posts.map(function(p) { return renderSocialPostCard(p); }).join('');
 }
 
 function filterExploreGrid() {

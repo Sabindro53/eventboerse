@@ -105,7 +105,10 @@ test.describe('Reiter und Inhalt laufen nicht mehr um die Wette', () => {
 
   test('der Kanal geht über navigateTo, nicht über einen Zeitgeber', () => {
     const shell = fs.readFileSync(path.join(ROOT, 'app-shell.html'), 'utf8');
-    for (const kanal of ['gesuche', 'events', 'newest', 'popular', 'radar']) {
+    // Seit dem Umbau trägt „Aktuelles" nur noch Gesuche und Radar; „Für dich",
+    // „Neueste", „Beliebt" und „Events" leben als Sortierung in „Entdecken",
+    // „Jetzt" ist im Radar aufgegangen.
+    for (const kanal of ['gesuche', 'radar']) {
       expect(shell, `Kanal ${kanal} wird nicht mitgegeben`)
         .toContain(`navigateTo('aktuelles','${kanal}')`);
     }
@@ -123,14 +126,17 @@ test.describe('Ein Deep-Link auf einen Kanal funktioniert', () => {
     await expect(page.locator('#page-aktuelles .feed-tab-radar')).toHaveClass(/active/);
   });
 
-  test('ohne Kanal bleibt es bei „Für dich"', async ({ page }) => {
+  test('ohne Kanal ist der Radar der Standard', async ({ page }) => {
+    // „Für dich" war bis zum Umbau der Standard; seit der Inhaber „Jetzt" in
+    // den Radar gelegt und ihn direkt sichtbar haben wollte, ist der Radar
+    // der Vorgabe-Reiter auf „Aktuelles".
     await appOeffnen(page);
     await page.evaluate(() => navigateTo('aktuelles'));
     await page.waitForFunction(
       () => !!document.querySelector('#page-aktuelles .feed-tab.active'), null, { timeout: 10000 });
     const feed = await page.evaluate(
       () => document.querySelector('#page-aktuelles .feed-tab.active').dataset.feed);
-    expect(feed).toBe('foryou');
+    expect(feed).toBe('radar');
   });
 });
 

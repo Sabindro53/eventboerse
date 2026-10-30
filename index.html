@@ -332,59 +332,34 @@
   </nav>
 
   <!-- ============ QA SUPPORT BOT ============ -->
-  <div class="eb-qa-bot" id="qaBot">
+  <div class="eb-qa-bot" id="qaBot" data-persona="planer">
     <section class="eb-qa-panel" id="qaPanel" aria-label="Eventbörse Assistent" hidden>
       <div class="eb-qa-head">
         <div class="eb-qa-head-avatar" aria-hidden="true">
-          <svg class="eb-qa-icon-svg eb-qa-icon-svg--mini" viewBox="0 0 120 150" focusable="false" aria-hidden="true">
-            <!-- Funkeln um Hut-Spitze -->
-            <path class="qa-spark" d="M68 4 v-3 M61 6 l5 2 M75 6 l-5 2"/>
-            <path class="qa-spark qa-spark-alt" d="M22 30 l2 4 M28 26 l-3 5 M14 38 l5 1"/>
-            <path class="qa-spark qa-spark-alt" d="M104 30 l-2 4 M98 26 l3 5 M110 38 l-5 1"/>
-            <!-- Partyhut mit Streifen + Bommel -->
-            <g class="qa-hat-group">
-              <path class="qa-hat-fill" d="M34 60 L68 8 L94 60 Z"/>
-              <path class="qa-hat-stripe qa-hat-stripe-a" d="M44 47 L72 26 L77 36 Z"/>
-              <path class="qa-hat-stripe qa-hat-stripe-b" d="M37 57 L62 41 L68 48 Z"/>
-              <path class="qa-hat-stroke" d="M34 60 L68 8 L94 60 Z"/>
-              <ellipse class="qa-hat-brim" cx="64" cy="61" rx="32" ry="5"/>
-              <!-- Bommel -->
-              <circle class="qa-hat-pom qa-hat-pom-shadow" cx="68" cy="10" r="7"/>
-              <circle class="qa-hat-pom" cx="68" cy="9" r="6"/>
-            </g>
-            <!-- Antenne -->
-            <line class="qa-antenna-rod" x1="40" y1="68" x2="40" y2="50"/>
-            <circle class="qa-antenna-tip" cx="40" cy="48" r="4"/>
-            <!-- Hals -->
-            <rect class="qa-neck" x="54" y="118" width="22" height="10" rx="3"/>
-            <!-- Schultern -->
-            <path class="qa-body-shape" d="M14 150c4-18 22-26 51-26s47 8 51 26Z"/>
-            <!-- Earcups (Headset) -->
-            <rect class="qa-earcup" x="22" y="82" width="14" height="24" rx="5"/>
-            <rect class="qa-earcup" x="94" y="82" width="14" height="24" rx="5"/>
-            <!-- Roboter-Kopf (gerundetes Rechteck) -->
-            <rect class="qa-head-main" x="32" y="66" width="66" height="58" rx="14"/>
-            <!-- Display-Visier -->
-            <rect class="qa-visor" x="39" y="78" width="52" height="24" rx="8"/>
-            <!-- LED-Augen -->
-            <circle class="qa-eye" cx="54" cy="90" r="4"/>
-            <circle class="qa-eye-glow" cx="54" cy="90" r="1.6"/>
-            <circle class="qa-eye" cx="76" cy="90" r="4"/>
-            <circle class="qa-eye-glow" cx="76" cy="90" r="1.6"/>
-            <!-- Mund: freundliches Lächeln -->
-            <path class="qa-mouth-smile" d="M50 110 Q64 122 78 110"/>
-            <!-- Mikro-Arm + Kugel -->
-            <path class="qa-mic-arm" d="M100 106 Q 104 128, 82 132"/>
-            <circle class="qa-mic-dot" cx="76" cy="134" r="5"/>
-          </svg>
+          <img class="eb-qa-character eb-qa-character--head" id="qaHeaderAvatar" src="" alt="" width="42" height="42" decoding="async" />
         </div>
         <div>
-          <strong>Eventbörse Assistent</strong>
+          <strong id="qaPersonaName">Mila · Eventplanung</strong>
+          <span id="qaPersonaTagline">Dein lokaler Planungshelfer</span>
         </div>
         <button type="button" class="eb-qa-close" onclick="closeQaBot()" aria-label="QA-Support schließen">
           <span class="material-icons-round">close</span>
         </button>
       </div>
+      <div class="eb-qa-personas" role="group" aria-label="Assistent auswählen">
+        <button type="button" class="eb-qa-persona is-active" data-persona="planer" aria-pressed="true" onclick="setQaPersona('planer')">
+          <span class="material-icons-round" aria-hidden="true">event</span><span>Planung</span>
+        </button>
+        <button type="button" class="eb-qa-persona" data-persona="anbieter" aria-pressed="false" onclick="setQaPersona('anbieter')">
+          <span class="material-icons-round" aria-hidden="true">storefront</span><span>Business</span>
+        </button>
+        <button type="button" class="eb-qa-persona" data-persona="hilfe" aria-pressed="false" onclick="setQaPersona('hilfe')">
+          <span class="material-icons-round" aria-hidden="true">support_agent</span><span>Hilfe</span>
+        </button>
+      </div>
+      <button type="button" class="eb-qa-avatar-switch" onclick="openQaAssistantPicker()">
+        <span class="material-icons-round" aria-hidden="true">face</span> Charakter wechseln
+      </button>
       <div class="eb-qa-messages" id="qaMessages" aria-live="polite"></div>
       <div class="eb-qa-suggestions" id="qaSuggestions">
         <button type="button" onclick="askQaPreset('Ich kann mich nicht anmelden')">Login</button>
@@ -401,48 +376,11 @@
       </form>
     </section>
     <button type="button" class="eb-qa-launcher" id="qaLauncher" onclick="toggleQaBot()" aria-expanded="false" aria-controls="qaPanel" title="Eventbörse Assistent">
-      <span class="eb-qa-launcher-icon" aria-hidden="true">
-        <svg class="eb-qa-icon-svg" viewBox="0 0 120 150" focusable="false" aria-hidden="true">
-          <!-- Funkeln um Hut -->
-          <path class="qa-spark" d="M68 4 v-3 M61 6 l5 2 M75 6 l-5 2"/>
-          <path class="qa-spark qa-spark-alt" d="M22 30 l2 4 M28 26 l-3 5 M14 38 l5 1"/>
-          <path class="qa-spark qa-spark-alt" d="M104 30 l-2 4 M98 26 l3 5 M110 38 l-5 1"/>
-          <!-- Partyhut mit Streifen + Bommel -->
-          <g class="qa-hat-group">
-            <path class="qa-hat-fill" d="M34 60 L68 8 L94 60 Z"/>
-            <path class="qa-hat-stripe qa-hat-stripe-a" d="M44 47 L72 26 L77 36 Z"/>
-            <path class="qa-hat-stripe qa-hat-stripe-b" d="M37 57 L62 41 L68 48 Z"/>
-            <path class="qa-hat-stroke" d="M34 60 L68 8 L94 60 Z"/>
-            <ellipse class="qa-hat-brim" cx="64" cy="61" rx="32" ry="5"/>
-            <!-- Bommel -->
-            <circle class="qa-hat-pom qa-hat-pom-shadow" cx="68" cy="10" r="7"/>
-            <circle class="qa-hat-pom" cx="68" cy="9" r="6"/>
-          </g>
-          <!-- Antenne -->
-          <line class="qa-antenna-rod" x1="40" y1="68" x2="40" y2="50"/>
-          <circle class="qa-antenna-tip" cx="40" cy="48" r="4"/>
-          <!-- Hals -->
-          <rect class="qa-neck" x="54" y="118" width="22" height="10" rx="3"/>
-          <!-- Schultern -->
-          <path class="qa-body-shape" d="M14 150c4-18 22-26 51-26s47 8 51 26Z"/>
-          <!-- Earcups (Headset) -->
-          <rect class="qa-earcup" x="22" y="82" width="14" height="24" rx="5"/>
-          <rect class="qa-earcup" x="94" y="82" width="14" height="24" rx="5"/>
-          <!-- Roboter-Kopf (gerundetes Rechteck) -->
-          <rect class="qa-head-main" x="32" y="66" width="66" height="58" rx="14"/>
-          <!-- Display-Visier -->
-          <rect class="qa-visor" x="39" y="78" width="52" height="24" rx="8"/>
-          <!-- LED-Augen -->
-          <circle class="qa-eye" cx="54" cy="90" r="4"/>
-          <circle class="qa-eye-glow" cx="54" cy="90" r="1.6"/>
-          <circle class="qa-eye" cx="76" cy="90" r="4"/>
-          <circle class="qa-eye-glow" cx="76" cy="90" r="1.6"/>
-          <!-- Mund: freundliches Lächeln -->
-          <path class="qa-mouth-smile" d="M50 110 Q64 122 78 110"/>
-          <!-- Mikro-Arm + Kugel -->
-          <path class="qa-mic-arm" d="M100 106 Q 104 128, 82 132"/>
-          <circle class="qa-mic-dot" cx="76" cy="134" r="5"/>
-        </svg>
+      <span class="eb-qa-launcher-icon">
+        <img class="eb-qa-character eb-qa-character--launcher" id="qaLauncherAvatar" src="" alt="" width="64" height="80" decoding="async" />
+        <span class="eb-qa-party-hat" aria-hidden="true">
+          <i class="eb-qa-party-hat-cone"></i><b class="eb-qa-party-hat-band"></b><em class="eb-qa-party-hat-pom"></em>
+        </span>
       </span>
     </button>
   </div>
@@ -740,19 +678,28 @@
       <div class="container">
         <div class="explore-header">
           <h2>Entdecken</h2>
-          <div class="explore-search">
-            <span class="material-icons-round">search</span>
-            <input type="text" id="exploreSearch" placeholder="Angebote durchsuchen..." oninput="filterExploreGrid()" />
+          <div class="explore-controls">
+            <div class="explore-search">
+              <span class="material-icons-round">search</span>
+              <input type="text" id="exploreSearch" placeholder="Angebote durchsuchen..." oninput="filterExploreGrid()" />
+            </div>
+            <!-- „Für dich", „Neueste", „Beliebt" und „Events" waren eigene
+                 Reiter auf „Aktuelles". Sie sind hierher gewandert: ein
+                 Auswahlmenü statt fünf Reiter, weil es dieselbe Menge sortiert
+                 und filtert, statt sie auf fünf Seiten zu verteilen. -->
+            <label class="explore-sort">Sortieren nach
+              <select id="exploreSort" onchange="exploreSort(this.value)">
+                <option value="foryou">Für dich</option>
+                <option value="newest">Neueste</option>
+                <option value="popular">Beliebt</option>
+                <option value="events">Events</option>
+              </select>
+            </label>
           </div>
         </div>
         <div class="feed-tabs explore-tabs">
           <button class="feed-tab feed-tab-discover active"><span class="material-icons-round">explore</span>Entdecken<span class="feed-tab-badge">NEU</span></button>
-          <button class="feed-tab feed-tab-jetzt" onclick="navigateTo('aktuelles','jetzt')"><span class="material-icons-round">bolt</span>Jetzt</button>
-          <button class="feed-tab" onclick="navigateTo('aktuelles')">Für dich</button>
           <button class="feed-tab" onclick="navigateTo('aktuelles','gesuche')">Gesuche</button>
-          <button class="feed-tab" onclick="navigateTo('aktuelles','events')">Events</button>
-          <button class="feed-tab" onclick="navigateTo('aktuelles','newest')">Neueste</button>
-          <button class="feed-tab" onclick="navigateTo('aktuelles','popular')">Beliebt</button>
           <!-- Der Radar fehlte hier: auf „Aktuelles" gibt es ihn, auf
                „Entdecken" verschwand er. Gemeldet am 31.08.2026. -->
           <button class="feed-tab feed-tab-radar" onclick="navigateTo('aktuelles','radar')"><span class="material-icons-round">radar</span>Radar</button>
@@ -785,13 +732,8 @@
             </div>
             <div class="feed-tabs">
               <button class="feed-tab feed-tab-discover" onclick="navigateTo('explore')"><span class="material-icons-round">explore</span>Entdecken<span class="feed-tab-badge">NEU</span></button>
-              <button class="feed-tab feed-tab-jetzt" data-feed="jetzt" onclick="switchFeedTab(this)"><span class="material-icons-round">bolt</span>Jetzt</button>
-              <button class="feed-tab active" data-feed="foryou" onclick="switchFeedTab(this)">Für dich</button>
               <button class="feed-tab" data-feed="gesuche" onclick="switchFeedTab(this)">Gesuche</button>
-              <button class="feed-tab" data-feed="events" onclick="switchFeedTab(this)">Events</button>
-              <button class="feed-tab" data-feed="newest" onclick="switchFeedTab(this)">Neueste</button>
-              <button class="feed-tab" data-feed="popular" onclick="switchFeedTab(this)">Beliebt</button>
-              <button class="feed-tab feed-tab-radar" data-feed="radar" onclick="switchFeedTab(this)"><span class="material-icons-round">radar</span>Radar</button>
+              <button class="feed-tab feed-tab-radar active" data-feed="radar" onclick="switchFeedTab(this)"><span class="material-icons-round">radar</span>Radar</button>
             </div>
           </div>
           <!-- Two-column body: posts + sidebar -->
@@ -968,8 +910,8 @@
                „Inserieren" in der oberen Leiste gar keinen Einstieg. Beide
                Wege gab es, beide waren von der Landeseite aus unsichtbar. -->
           <div class="ai-hero-wege">
-            <button type="button" class="ai-weg" onclick="navigateTo('aktuelles', 'jetzt')">
-              <span class="material-icons-round">bolt</span>
+            <button type="button" class="ai-weg" onclick="navigateTo('aktuelles', 'radar')">
+              <span class="material-icons-round">radar</span>
               <span class="ai-weg-text">
                 <strong>Was geht hier gerade?</strong>
                 <small>Termine und Orte in deiner Nähe</small>
@@ -1805,6 +1747,9 @@
             <img src="data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20100%20100%22%3E%3Crect%20width%3D%22100%22%20height%3D%22100%22%20rx%3D%2250%22%20fill%3D%22%23FF385C%22%2F%3E%3C%2Fsvg%3E" alt="Profilbild" id="profileAvatar" class="profile-avatar" loading="lazy" decoding="async" />
             <button class="profile-avatar-edit" onclick="document.getElementById('profilePhotoInput').click()" title="Foto ändern" aria-label="Foto ändern">
               <span class="material-icons-round">camera_alt</span>
+            </button>
+            <button class="profile-avatar-edit profile-avatar-pick" onclick="openAvatarPicker()" title="Avatar wählen" aria-label="Avatar aus der Kollektion wählen">
+              <span class="material-icons-round">face</span>
             </button>
             <input type="file" id="profilePhotoInput" accept="image/*" style="display:none" onchange="handleProfilePhoto(this)" />
           </div>
@@ -4168,6 +4113,23 @@ Datum: ___________________________________________________
       </div>
       <button class="btn-primary btn-block" onclick="lcropConfirm()" style="margin-top:16px">
         <span class="material-icons-round">check</span> Übernehmen
+      </button>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="avatarPickerModal" role="dialog" aria-modal="true" aria-labelledby="avatarPickerTitle" onclick="closeModalOnOverlay(event)">
+    <div class="modal modal-lg">
+      <button class="modal-close" aria-label="Schließen" onclick="closeModal('avatarPickerModal')">
+        <span class="material-icons-round">close</span>
+      </button>
+      <div class="modal-header">
+        <span class="material-icons-round modal-icon">face</span>
+        <h2 id="avatarPickerTitle">Avatar wählen</h2>
+        <p id="avatarPickerDescription">Such dir einen Charakter aus der Eventbörse-Kollektion aus</p>
+      </div>
+      <div class="avatar-picker-grid" id="avatarPickerGrid" role="group" aria-label="Avatar-Auswahl"></div>
+      <button class="btn-outline btn-block" id="avatarPickerReset" style="margin-top:16px;display:none" onclick="avatarWahlZuruecksetzen()">
+        <span class="material-icons-round">undo</span> Eigenes Foto / Initialen verwenden
       </button>
     </div>
   </div>

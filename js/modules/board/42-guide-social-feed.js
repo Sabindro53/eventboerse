@@ -1133,10 +1133,14 @@ function _setFeedNearbyUI(state) {
 }
 
 // Aktuell aktiven Feed-Tab neu rendern (Standort-Sortierung greift automatisch).
+// Der zuletzt in die Feed-Liste gezeichnete Kanal (radar · gesuche · jetzt · …).
+var _feedCurrentTab = 'radar';
+
 function _rerenderCurrentFeed() {
-  var activeTab = document.querySelector('#page-aktuelles .feed-tab.active');
-  var tab = (activeTab && activeTab.dataset.feed) ? activeTab.dataset.feed : 'foryou';
-  renderFeed(tab);
+  // Den tatsächlich gezeichneten Kanal neu zeichnen, nicht den markierten
+  // Reiter: „Jetzt" läuft unter dem Radar-Reiter. Fällt die Merke aus (noch
+  // nichts gezeichnet), gilt der Radar als Vorgabe.
+  renderFeed(_feedCurrentTab || 'radar');
 }
 
 // Standort-Button umschalten: an → Standort abfragen & Feed nach Nähe sortieren.
@@ -1276,6 +1280,12 @@ function renderFeed(tab) {
   var list = document.getElementById('feedList');
   if (!list) return;
 
+  // Der tatsächlich gezeichnete Kanal — NICHT der markierte Reiter. „Jetzt"
+  // wird unter dem Radar-Reiter geführt; ohne diese Merke würde ein später
+  // eintreffender Demo-Feed über `_rerenderCurrentFeed()` den Radar zeichnen
+  // und die Jetzt-Ansicht überschreiben.
+  _feedCurrentTab = tab || 'radar';
+
   _ebDemoFeedLoad();
   renderSidebarUpcoming();
 
@@ -1284,9 +1294,11 @@ function renderFeed(tab) {
     return;
   }
 
-  // „Was kann ich jetzt machen?" — der Aktivitäten-Bestand aus
-  // OpenLigaDB und OpenStreetMap. Eigener Kanal, weil er weder
-  // Inserate noch Beiträge zeigt, sondern die Gegend.
+  // „Was kann ich jetzt machen?" — der Aktivitäten-Bestand aus OpenLigaDB und
+  // OpenStreetMap. Seit dem Umbau führt kein Reiter mehr hierher: der Inhaber
+  // wollte „Jetzt" im Radar sehen, und alle Einstiege gehen dorthin. Die
+  // Ansicht bleibt aber als getestete Komponente und unter dem Deep-Link
+  // `/aktuelles/jetzt` erreichbar — ein geteilter Link darf nicht brechen.
   if (tab === 'jetzt') {
     renderFeedJetzt(list);
     return;
@@ -1689,8 +1701,19 @@ function sharePost(postId) {
  * „Entdecken" — deren „Entdecken"-Reiter verlor dabei still seine Markierung.
  */
 function feedTabAktivieren(kanal) {
-  var feed = kanal || 'foryou';
-  var btn = document.querySelector('#page-aktuelles .feed-tab[data-feed="' + feed + '"]');
+  var feed = kanal || 'radar';
+  // „Jetzt" hat keinen eigenen Reiter mehr, lebt aber als Deep-Link weiter.
+  // Er wird unter dem Radar-Reiter geführt — der nächste Verwandte, denn
+  // beide zeigen, was gerade in der Nähe los ist.
+  var markiert = feed === 'jetzt' ? 'radar' : feed;
+  var btn = document.querySelector('#page-aktuelles .feed-tab[data-feed="' + markiert + '"]');
+  if (!btn) {
+    // Zurückgezogene Kanäle (foryou/newest/popular/events) leben jetzt als
+    // Sortierung in „Entdecken". Ein alter Deep-Link darf nicht in einem
+    // Zustand enden, in dem Inhalt steht, aber kein Reiter markiert ist.
+    feed = 'radar';
+    btn = document.querySelector('#page-aktuelles .feed-tab[data-feed="radar"]');
+  }
   if (btn && btn.parentNode) {
     btn.parentNode.querySelectorAll('.feed-tab').forEach(function(t) {
       t.classList.remove('active');

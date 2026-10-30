@@ -886,6 +886,7 @@ var EB_SPEICHER_KLASSEN = {
   eb_passkey_prompt_dismissed_: 'funktional',
   eb_stripe_onboarding_prompt_: 'funktional',
   eb_ai_chat_v1_: 'funktional',
+  eb_qa_assistant_avatar: 'funktional',
   eb_radar_ort: 'funktional',
 
   eb_kb_misses: 'profil',
@@ -2482,13 +2483,46 @@ function renderHeroMarquees() {
 }
 
 // ========== EXPLORE PAGE (Instagram-Style) ==========
+// „Für dich", „Neueste", „Beliebt" und „Events" waren eigene Reiter auf
+// „Aktuelles". Der Inhaber wollte dort weniger Reiter; sie leben jetzt hier
+// als Sortierung — dieselbe Menge, anders geordnet, statt auf fünf Reiter
+// verteilt. Der Vorgabewert ist „Für dich".
+var _exploreSort = 'foryou';
+
+function exploreSort(mode) {
+  if (['foryou', 'newest', 'popular', 'events'].indexOf(mode) < 0) return;
+  _exploreSort = mode;
+  var sel = document.getElementById('exploreSort');
+  if (sel && sel.value !== mode) sel.value = mode;
+  renderExploreGrid();
+}
+
 function renderExploreGrid(filter) {
   const grid = document.getElementById('exploreGrid');
   if (!grid) return;
   const query = filter || (document.getElementById('exploreSearch')?.value || '').trim().toLowerCase();
+
+  // „Events" zeigt keine Inserate, sondern die Event- und Ankündigungs-
+  // Beiträge — eigener Inhalt, der nicht in ein Bilderraster von Angeboten
+  // passt. Deshalb ein eigener Zweig statt eines Filters, der nichts fände.
+  if (_exploreSort === 'events') {
+    renderExploreEvents(grid, query);
+    return;
+  }
+  grid.classList.remove('is-events');
+
+  // Inserate in der gewählten Reihenfolge, BEVOR die Bilder aufgefächert
+  // werden — sonst stünde „Neueste" nach der Zufallsfolge der Zusatzbilder.
+  var listings = filterDemos(LISTINGS).slice();
+  if (_exploreSort === 'newest') {
+    listings.sort(function(a, b) { return (_listingTs(b) - _listingTs(a)) || (b.id - a.id); });
+  } else if (_exploreSort === 'popular') {
+    listings.sort(function(a, b) { return (b.rating || 0) - (a.rating || 0); });
+  }
+
   // Collect all images from all listings
   let items = [];
-  filterDemos(LISTINGS).forEach(l => {
+  listings.forEach(l => {
     // Main image
     items.push({ image: l.image, listingId: l.id, title: l.title, provider: l.providerName, price: l.priceLabel, aiTextDisclosure: l.aiTextDisclosure, aiMediaDisclosure: l.aiMediaDisclosure });
     // Additional images
@@ -2511,6 +2545,29 @@ function renderExploreGrid(filter) {
       </div>
     </a>`;
   }).join('');
+}
+
+// Die Event-Beiträge als Karten — nicht als Bilderkacheln, weil ein Beitrag
+// kein Inserat mit Detailseite ist. Ein leerer Fall sagt das auch, statt eine
+// leere Fläche zu zeigen.
+function renderExploreEvents(grid, query) {
+  grid.classList.add('is-events');
+  var posts = (typeof _visibleSocialPosts === 'function' ? _visibleSocialPosts() : [])
+    .filter(function(p) { return p.type === 'event' || p.type === 'ankuendigung'; });
+  if (query) {
+    posts = posts.filter(function(p) {
+      return String(p.content || '').toLowerCase().includes(query)
+        || String(p.eventName || '').toLowerCase().includes(query)
+        || String(p.author || '').toLowerCase().includes(query);
+    });
+  }
+  if (!posts.length) {
+    grid.innerHTML = '<div class="explore-events-empty">'
+      + '<span class="material-icons-round">campaign</span>'
+      + '<p>' + (query ? 'Keine Events oder Ankündigungen zu dieser Suche.' : 'Noch keine Events oder Ankündigungen.') + '</p></div>';
+    return;
+  }
+  grid.innerHTML = posts.map(function(p) { return renderSocialPostCard(p); }).join('');
 }
 
 function filterExploreGrid() {
@@ -7427,8 +7484,8 @@ function renderFeedRadar(container) {
     return '<button type="button" class="radar-chip' + (km === _radarRadius ? ' aktiv' : '') + '" onclick="feedRadarRadius(' + km + ')">' + km + ' km</button>';
   }).join('');
   container.innerHTML = '<section class="feed-radar-card">' +
-    '<div class="feed-radar-head"><div><span class="release-kicker">ENTDECKEN UNTERWEGS</span><h2><span class="material-icons-round">radar</span> Event-Radar</h2>' +
-    '<p>Aktivitäten und Dienstleister im Umkreis von ' + _escHtml(city) + ' – direkt auf der Karte.</p></div>' +
+    '<div class="feed-radar-head"><div><span class="release-kicker">WAS IST JETZT LOS</span><h2><span class="material-icons-round">radar</span> Event-Radar</h2>' +
+    '<p>Termine, Aktivitäten und Dienstleister im Umkreis von ' + _escHtml(city) + ' – direkt auf der Karte.</p></div>' +
     '<button class="btn-primary" type="button" onclick="feedRadarGeo()"><span class="material-icons-round">my_location</span> Mein Standort</button></div>' +
     '<div class="feed-radar-controls"><label>Stadt<select id="feedRadarCity" onchange="feedRadarCity(this.value)">' + options + '</select></label>' +
     '<div><span class="radar-control-label">Radius</span><div class="radar-chip-row">' + chips + '</div></div></div>' +
@@ -7489,11 +7546,18 @@ function _drawFeedRadar() {
       var d = hit.daten || {};
       var title = d.title || d.name || 'Event';
       var image = (d.images && d.images[0]) || d.image || window.EB_IMG_FALLBACK;
+      // Eine echte externe Aktivität lässt sich mit Freunden planen — dieselbe
+      // Weiche wie auf den Aktivitätskarten (`ebAktivitaetPlanen`). Dienst-
+      // leister und Demo-Events haben keine Planungs-Herkunft im Bestand.
+      var planBtn = hit.art === 'aktivitaet'
+        ? '<button type="button" class="feed-radar-result-plan" onclick="ebAktivitaetPlanen(' + _escHtml(JSON.stringify(String(d.id))) + ')" aria-label="' + _escHtml(title) + ' mit Freunden planen"><span class="material-icons-round">group_add</span></button>'
+        : '';
       return '<article class="feed-radar-result" data-radar-index="' + index + '"' + _aiDisclosureAttrs(d) + '>' +
         '<button type="button" class="feed-radar-result-map" onclick="feedRadarFocus(' + index + ')" aria-label="' + _escHtml(title) + ' auf der Karte zeigen">' +
         '<span class="feed-radar-result-image"><img src="' + _escHtml(image) + '" alt="" loading="lazy"' + window.EB_IMG_ERR_ATTR + '></span><span><span class="radar-result-meta"><span>' + (hit.art === 'aktivitaet' ? 'EXTERNE AKTIVITÄT' : hit.art === 'event' ? 'DEMO-EVENT' : 'DIENSTLEISTER') + '</span><strong>' + _escHtml(radarEntfernung(hit.km)) + '</strong></span>' +
         '<strong class="feed-radar-result-title">' + _escHtml(title) + '</strong>' + _aiDisclosureLabelsHtml(d, 'ai-disclosure-radar-result') + '<small><span class="material-icons-round">location_on</span>' + _escHtml(hit.ort || '') + (hit.genau ? '' : ' · ca.') + '</small></span></button>' +
-        '<button type="button" class="feed-radar-result-open" onclick="feedRadarOpen(' + index + ')" aria-label="' + _escHtml(title) + ' öffnen"><span class="material-icons-round">arrow_forward</span></button></article>';
+        '<div class="feed-radar-result-actions">' + planBtn +
+        '<button type="button" class="feed-radar-result-open" onclick="feedRadarOpen(' + index + ')" aria-label="' + _escHtml(title) + ' öffnen"><span class="material-icons-round">arrow_forward</span></button></div></article>';
     }).join('') + '</div>' + '<p class="akt-fuss">Externe Aktivitäten: OpenLigaDB und © OpenStreetMap-Mitwirkende (ODbL). Öffnungszeiten und Buchungen bei der Quelle prüfen.</p>' + ebAktivitaetenStarthilfe();
   _initFeedRadarMap(hits);
 }
@@ -8137,8 +8201,12 @@ function renderFeedJetzt(container) {
   if (_aktZustand === 'kalt' || _aktZustand === 'laedt') {
     container.innerHTML = '<section class="akt-karte-huelle"><p class="akt-laedt">Liste wird geladen …</p></section>';
     ebAktivitaetenLaden(function () {
-      var jetztAktiv = document.querySelector('#page-aktuelles .feed-tab[data-feed="jetzt"].active');
-      if (jetztAktiv) renderFeedJetzt(document.getElementById('feedList'));
+      // „Jetzt" ist kein eigener Reiter mehr; neu gezeichnet wird, solange die
+      // Liste noch den Ladehinweis trägt — also die Jetzt-Ansicht aktiv ist.
+      // Wer inzwischen zum Radar oder zu Gesuchen gewechselt hat, bekommt
+      // seinen Inhalt nicht überschrieben.
+      var el = document.getElementById('feedList');
+      if (el && el.querySelector('.akt-laedt')) renderFeedJetzt(el);
     });
     return;
   }
@@ -9852,7 +9920,9 @@ function renderDashboard() {
   }
 
   // --- Avatar ---
-  var avatarUrl = currentUser.photoUrl || ebAvatar(currentUser.name || 'user', currentUser.name);
+  var avatarUrl = (typeof ebNutzerAvatar === 'function')
+    ? ebNutzerAvatar(currentUser)
+    : (currentUser.photoUrl || ebAvatar(currentUser.name || 'user', currentUser.name));
   document.getElementById('profileAvatar').src = avatarUrl;
   var navAvatar = document.querySelector('#avatarBtn img');
   if (navAvatar) navAvatar.src = avatarUrl;
@@ -11568,13 +11638,15 @@ function cropConfirm() {
 
     var croppedFile = new File([blob], 'avatar.png', { type: 'image/png' });
     uploadFile(croppedFile).then(function(data) {
-      if (currentUser) currentUser.photoUrl = data.url;
+      if (currentUser) { currentUser.photoUrl = data.url; currentUser.avatarId = ''; }
       if (profileAv) profileAv.src = data.url;
       if (providerAv) providerAv.src = data.url;
       if (navAvatar) navAvatar.src = data.url;
       fetch(_apiUrl('profile'), {
         method: 'POST', credentials: 'same-origin', headers: _apiHeaders(),
-        body: JSON.stringify({ photoUrl: data.url })
+        // Ein frisch hochgeladenes Foto soll sichtbar sein — der Kollektions-
+        // Avatar hätte sonst Vorrang und der Upload sähe wirkungslos aus.
+        body: JSON.stringify({ photoUrl: data.url, avatarId: '' })
       }).catch(function(){});
       showToast('Profilbild aktualisiert!', 'camera_alt');
     }).catch(function() {
@@ -12003,6 +12075,148 @@ function initDragScroll() {
   selectors.forEach(function(sel) {
     document.querySelectorAll(sel).forEach(_makeDraggable);
   });
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   EB FACES — Kollektions-Avatare (avatar-01 … avatar-10)
+
+   Zentrale Konfiguration. Erweitern = neue Zeile + neue Datei in
+   assets/avatare/ (Design-Regeln: assets/avatare/README.md). Die Auswahl
+   wird im Benutzerprofil gespeichert (user_meta eb_avatar_id), nicht im
+   localStorage — kein neuer Speicherschlüssel, keine Cookie-Listen-Zeile.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+var EB_AVATARE = [
+  { id: 'avatar-01', name: 'Finn',   hut: ['#397DE0', '#FFD36B'], beschreibung: 'Mann, helle Haut, kurze blonde Haare, blaue Augen' },
+  { id: 'avatar-02', name: 'Lena',   hut: ['#E96F89', '#FFE0A0'], beschreibung: 'Frau, helle Haut, lange blonde Haare, grüne Augen' },
+  { id: 'avatar-03', name: 'Malik',  hut: ['#169B91', '#F5C75E'], beschreibung: 'Mann, dunkle Haut, kurze schwarze Locken, braune Augen' },
+  { id: 'avatar-04', name: 'Amara',  hut: ['#B74367', '#F6C56B'], beschreibung: 'Frau, dunkle Haut, voluminöse schwarze Locken, goldene Ohrringe' },
+  { id: 'avatar-05', name: 'Jon',    hut: ['#536B9E', '#F1C65C'], beschreibung: 'Mann, mittlerer Hautton, moderner schwarzer Kurzhaarschnitt' },
+  { id: 'avatar-06', name: 'Sofia',  hut: ['#8B6CD0', '#F6C568'], beschreibung: 'Frau, mittlerer Hautton, lange braune Haare, braune Augen' },
+  { id: 'avatar-07', name: 'Paul',   hut: ['#417CC6', '#F4CE73'], beschreibung: 'Mann, helle Haut, braune Haare, dezente Brille' },
+  { id: 'avatar-08', name: 'Nia',    hut: ['#8D59B9', '#F5C967'], beschreibung: 'Frau, dunkle Haut, geflochtene Haare mit Haarperle' },
+  { id: 'avatar-09', name: 'Levi',   hut: ['#43866F', '#E7A56D'], beschreibung: 'Mann, olivfarbener Hautton, dunkle Locken, leichter Bart' },
+  { id: 'avatar-10', name: 'Maja',   hut: ['#DA654E', '#F6CF72'], beschreibung: 'Frau, helle Haut, kurze rote Haare, grüne Augen, Sommersprossen' }
+];
+
+/**
+ * Bild-URL zu einer Avatar-Kennung. Liefert '' für unbekannte Kennungen —
+ * der Wert kann aus einer Server-Antwort kommen und landet in einem src.
+ * Sobald gerenderte 3D-Fassungen (avatar-NN.webp) vorliegen, hier auf
+ * 'webp' umstellen; der Server (eb_gewaehlter_avatar_url) wechselt selbst.
+ */
+function ebAvatarBildUrl(id) {
+  var avatar = EB_AVATARE.find(function(item) { return item.id === id; });
+  return avatar ? ebAssetUrl('assets/avatare/' + avatar.id + '-freigestellt.webp') : '';
+}
+
+var EB_QA_AVATAR_KEY = 'eb_qa_assistant_avatar';
+var EB_AVATAR_PICKER_MODE = 'profile';
+var _qaAssistantAvatarId = '';
+
+function ebQaAssistantAvatarGet() {
+  if (_qaAssistantAvatarId && ebAvatarBildUrl(_qaAssistantAvatarId)) return _qaAssistantAvatarId;
+  try {
+    var saved = localStorage.getItem(EB_QA_AVATAR_KEY) || '';
+    if (ebAvatarBildUrl(saved)) {
+      _qaAssistantAvatarId = saved;
+      ebQaAssistantAvatarSync(saved);
+    }
+  } catch (e) {}
+  return _qaAssistantAvatarId;
+}
+
+function ebQaAssistantAvatarSync(id) {
+  var avatar = id && ebAvatarBildUrl(id) ? id : EB_AVATARE[0].id;
+  var src = ebAvatarBildUrl(avatar);
+  var config = EB_AVATARE.find(function(item) { return item.id === avatar; });
+  var bot = document.getElementById('qaBot');
+  if (bot && config) {
+    bot.dataset.avatar = avatar;
+    bot.style.setProperty('--qa-hut-main', config.hut[0]);
+    bot.style.setProperty('--qa-hut-accent', config.hut[1]);
+  }
+  ['qaLauncherAvatar', 'qaHeaderAvatar'].forEach(function(elementId) {
+    var image = document.getElementById(elementId);
+    if (image) image.src = src;
+  });
+  var label = document.getElementById('qaPersonaName');
+  if (label && config) label.textContent = config.name;
+}
+
+ebQaAssistantAvatarSync(ebQaAssistantAvatarGet() || EB_AVATARE[0].id);
+
+/** Anzeige-Avatar eines Nutzers: Kollektions-Wahl > eigenes Foto > Initialen. */
+function ebNutzerAvatar(user) {
+  if (!user) return ebAvatar('user', '');
+  return ebAvatarBildUrl(user.avatarId || '') || user.photoUrl || ebAvatar(user.name || 'user', user.name);
+}
+
+function openAvatarPicker(mode) {
+  EB_AVATAR_PICKER_MODE = mode === 'assistant' ? 'assistant' : 'profile';
+  var grid = document.getElementById('avatarPickerGrid');
+  if (!grid) return;
+  var aktiv = EB_AVATAR_PICKER_MODE === 'assistant'
+    ? ebQaAssistantAvatarGet()
+    : (currentUser && currentUser.avatarId);
+  var title = document.getElementById('avatarPickerTitle');
+  var description = document.getElementById('avatarPickerDescription');
+  if (title) title.textContent = EB_AVATAR_PICKER_MODE === 'assistant' ? 'Wähle deinen Event-Assistenten' : 'Avatar wählen';
+  if (description) description.textContent = EB_AVATAR_PICKER_MODE === 'assistant'
+    ? 'Such dir die Person aus, die dich bei deinem Event begleitet.'
+    : 'Such dir einen Charakter aus der Eventbörse-Kollektion aus';
+  grid.innerHTML = EB_AVATARE.map(function(a) {
+    var sel = a.id === aktiv;
+    return '<button type="button" class="avatar-pick' + (sel ? ' selected' : '') + '"' +
+      ' data-avatar="' + a.id + '" aria-pressed="' + sel + '"' +
+      ' style="--qa-hut-main:' + a.hut[0] + ';--qa-hut-accent:' + a.hut[1] + '"' +
+      ' aria-label="' + _escHtml(a.beschreibung) + '" onclick="waehleAvatar(\'' + a.id + '\')">' +
+      '<img src="' + ebAvatarBildUrl(a.id) + '" alt="" loading="eager" decoding="async" width="96" height="144">' +
+      '<span class="avatar-pick-hat" aria-hidden="true"><i class="avatar-pick-hat-cone"></i><b class="avatar-pick-hat-band"></b></span>' +
+      '<span class="avatar-pick-name">' + _escHtml(a.name) + '</span>' +
+      '<span class="avatar-pick-check material-icons-round" aria-hidden="true">check_circle</span>' +
+      '</button>';
+  }).join('');
+  grid.scrollTop = 0;
+  var reset = document.getElementById('avatarPickerReset');
+  if (reset) reset.style.display = EB_AVATAR_PICKER_MODE === 'profile' && aktiv ? '' : 'none';
+  openModal('avatarPickerModal');
+}
+
+function waehleAvatar(id) {
+  if (id && !ebAvatarBildUrl(id)) return;
+  _avatarWahlSpeichern(id || '');
+}
+
+function avatarWahlZuruecksetzen() { _avatarWahlSpeichern(''); }
+
+function _avatarWahlSpeichern(id) {
+  if (EB_AVATAR_PICKER_MODE === 'assistant') {
+    if (!id || !ebAvatarBildUrl(id)) return;
+    _qaAssistantAvatarId = id;
+    ebSpeichern(EB_QA_AVATAR_KEY, id);
+    ebQaAssistantAvatarSync(id);
+    closeModal('avatarPickerModal');
+    EB_AVATAR_PICKER_MODE = 'profile';
+    if (typeof openQaBot === 'function') openQaBot();
+    return;
+  }
+  if (currentUser) currentUser.avatarId = id;
+  var url = ebNutzerAvatar(currentUser);
+  ['profileAvatar', 'providerAvatar'].forEach(function(elId) {
+    var el = document.getElementById(elId);
+    if (el) el.src = url;
+  });
+  var navAvatar = document.querySelector('#avatarBtn img');
+  if (navAvatar) navAvatar.src = url;
+  // Fire-and-forget wie beim Foto-Upload: lokal gilt die Wahl sofort,
+  // der Server zieht nach, sobald er erreichbar ist.
+  fetch(_apiUrl('profile'), {
+    method: 'POST', credentials: 'same-origin', headers: _apiHeaders(),
+    body: JSON.stringify({ avatarId: id })
+  }).catch(function(){});
+  closeModal('avatarPickerModal');
+  showToast(id ? 'Avatar übernommen!' : 'Avatar entfernt — Foto/Initialen aktiv.', 'face');
 }
 // ========== DARK MODE ==========
 function initDarkMode() {
@@ -15931,6 +16145,111 @@ function showToast(message, icon = 'check_circle') {
 // ========== QA SUPPORT BOT (tokenfrei / muster-basiert) ==========
 var _qaBotOpenedOnce = false;
 var _qaAnswerCursor = 0;
+var _qaPersona = 'planer';
+var _qaMotionFrame = 0;
+var _qaTouchReset = null;
+
+function _qaPortraitBewegen(clientX, clientY) {
+  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  var bot = document.getElementById('qaBot');
+  if (!bot) return;
+  var horizontal = Math.max(-1, Math.min(1, clientX / window.innerWidth * 2 - 1));
+  var vertical = Math.max(-1, Math.min(1, clientY / window.innerHeight * 2 - 1));
+  bot.style.setProperty('--qa-head-x', (horizontal * 1.4).toFixed(2) + 'px');
+  bot.style.setProperty('--qa-head-y', (vertical * .8).toFixed(2) + 'px');
+}
+
+document.addEventListener('pointermove', function(event) {
+  if (_qaMotionFrame) return;
+  var clientX = event.clientX;
+  var clientY = event.clientY;
+  _qaMotionFrame = requestAnimationFrame(function() {
+    _qaPortraitBewegen(clientX, clientY);
+    _qaMotionFrame = 0;
+  });
+  if (event.pointerType === 'touch') {
+    clearTimeout(_qaTouchReset);
+    _qaTouchReset = setTimeout(function() {
+      _qaPortraitBewegen(window.innerWidth / 2, window.innerHeight / 2);
+    }, 700);
+  }
+}, { passive: true });
+
+window.addEventListener('blur', function() {
+  _qaPortraitBewegen(window.innerWidth / 2, window.innerHeight / 2);
+});
+
+var QA_PERSONAS = {
+  planer: {
+    name: 'Mila · Eventplanung',
+    tagline: 'Dein lokaler Planungshelfer',
+    intro: 'Ich helfe dir, dein Event in klare nächste Schritte zu zerlegen: Konzept, Budget, Zeitplan und passende Dienstleister. Womit möchtest du anfangen?',
+    color: 'planer',
+    suggestions: ['Ich plane eine Hochzeit', 'Budget planen', 'Dienstleister finden'],
+    actions: [
+      { label: 'Planungsboard', icon: 'view_kanban', kind: 'page', target: 'board' },
+      { label: 'Dienstleister suchen', icon: 'search', kind: 'page', target: 'browse' }
+    ]
+  },
+  anbieter: {
+    name: 'Noah · Business-Coach',
+    tagline: 'Für deinen Dienstleister-Alltag',
+    intro: 'Ich unterstütze dich bei Inseraten, Aufträgen, Profil, Zusammenarbeit und Auszahlungen. Was möchtest du als Nächstes verbessern?',
+    color: 'anbieter',
+    suggestions: ['Mein Inserat verbessern', 'Neue Aufträge finden', 'Auszahlung und Rechnung'],
+    actions: [
+      { label: 'Auftragsboard', icon: 'assignment', kind: 'page', target: 'auftraege' },
+      { label: 'Business-Cockpit', icon: 'insights', kind: 'page', target: 'business' },
+      { label: 'Mein Profil', icon: 'person', kind: 'page', target: 'profile' }
+    ]
+  },
+  hilfe: {
+    name: 'EB · Plattformhilfe',
+    tagline: 'Wegweiser durch Eventbörse',
+    intro: 'Ich zeige dir, wie Eventbörse funktioniert, und bringe dich direkt zum passenden Bereich. Was suchst du gerade?',
+    color: 'hilfe',
+    suggestions: ['Wie funktioniert Eventbörse?', 'Login & Profil', 'Kontakt & Support'],
+    actions: [
+      { label: 'Suche', icon: 'search', kind: 'page', target: 'browse' },
+      { label: 'Kontakt & Support', icon: 'support_agent', kind: 'page', target: 'contact' }
+    ]
+  }
+};
+
+function _qaRenderPersonaActions() {
+  var container = document.getElementById('qaSuggestions');
+  var persona = QA_PERSONAS[_qaPersona];
+  if (!container || !persona) return;
+  container.replaceChildren();
+  persona.suggestions.forEach(function(question) {
+    var button = document.createElement('button');
+    button.type = 'button';
+    button.textContent = question;
+    button.addEventListener('click', function() { askQaPreset(question); });
+    container.appendChild(button);
+  });
+}
+
+function setQaPersona(id) {
+  var persona = QA_PERSONAS[id];
+  if (!persona) return;
+  _qaPersona = id;
+  var root = document.getElementById('qaBot');
+  var tagline = document.getElementById('qaPersonaTagline');
+  if (root) root.dataset.persona = persona.color;
+  if (tagline) tagline.textContent = persona.tagline;
+  document.querySelectorAll('.eb-qa-persona').forEach(function(button) {
+    var active = button.dataset.persona === id;
+    button.classList.toggle('is-active', active);
+    button.setAttribute('aria-pressed', active ? 'true' : 'false');
+  });
+  _qaRenderPersonaActions();
+  if (_qaBotOpenedOnce) {
+    var messages = document.getElementById('qaMessages');
+    if (messages) messages.replaceChildren();
+    _qaAddMessage('bot', persona.intro, persona.actions);
+  }
+}
 
 var QA_TOPICS = [
   {
@@ -16357,6 +16676,7 @@ function _qaAddMessage(role, text, actions) {
 }
 
 function _qaWelcomeText() {
+  if (QA_PERSONAS[_qaPersona]) return QA_PERSONAS[_qaPersona].intro;
   var role = currentUser ? (currentUser.role || currentUser.baseRole || 'Mitglied') : 'Gast';
   return _qaPick([
     'Hi, ich bin dein Eventbörse-Assistent. Frag mich zu Planung, Radar, Buchung, Partnerschaften, Rechnungen oder deinem Profil.',
@@ -16366,19 +16686,20 @@ function _qaWelcomeText() {
 }
 
 function openQaBot() {
+  if (!ebQaAssistantAvatarGet()) {
+    openQaAssistantPicker();
+    return;
+  }
   var panel = document.getElementById('qaPanel');
   var btn = document.getElementById('qaLauncher');
   var input = document.getElementById('qaInput');
   if (!panel || !btn) return;
+  _qaRenderPersonaActions();
   _ebKbLoad(); // Wissensbasis beim Öffnen laden (einmalig, still)
   panel.hidden = false;
   btn.setAttribute('aria-expanded', 'true');
   if (!_qaBotOpenedOnce) {
-    _qaAddMessage('bot', _qaWelcomeText(), [
-      { label: 'Login', icon: 'login', kind: 'modal', target: 'loginModal' },
-      { label: 'Board', icon: 'view_kanban', kind: 'page', target: 'board' },
-      { label: 'Suche', icon: 'search', kind: 'page', target: 'browse' }
-    ]);
+    _qaAddMessage('bot', _qaWelcomeText(), QA_PERSONAS[_qaPersona].actions);
     _qaBotOpenedOnce = true;
   }
   setTimeout(function() { if (input) input.focus(); }, 80);
@@ -16389,6 +16710,11 @@ function closeQaBot() {
   var btn = document.getElementById('qaLauncher');
   if (panel) panel.hidden = true;
   if (btn) btn.setAttribute('aria-expanded', 'false');
+}
+
+function openQaAssistantPicker() {
+  closeQaBot();
+  openAvatarPicker('assistant');
 }
 
 function toggleQaBot() {
@@ -25134,10 +25460,14 @@ function _setFeedNearbyUI(state) {
 }
 
 // Aktuell aktiven Feed-Tab neu rendern (Standort-Sortierung greift automatisch).
+// Der zuletzt in die Feed-Liste gezeichnete Kanal (radar · gesuche · jetzt · …).
+var _feedCurrentTab = 'radar';
+
 function _rerenderCurrentFeed() {
-  var activeTab = document.querySelector('#page-aktuelles .feed-tab.active');
-  var tab = (activeTab && activeTab.dataset.feed) ? activeTab.dataset.feed : 'foryou';
-  renderFeed(tab);
+  // Den tatsächlich gezeichneten Kanal neu zeichnen, nicht den markierten
+  // Reiter: „Jetzt" läuft unter dem Radar-Reiter. Fällt die Merke aus (noch
+  // nichts gezeichnet), gilt der Radar als Vorgabe.
+  renderFeed(_feedCurrentTab || 'radar');
 }
 
 // Standort-Button umschalten: an → Standort abfragen & Feed nach Nähe sortieren.
@@ -25277,6 +25607,12 @@ function renderFeed(tab) {
   var list = document.getElementById('feedList');
   if (!list) return;
 
+  // Der tatsächlich gezeichnete Kanal — NICHT der markierte Reiter. „Jetzt"
+  // wird unter dem Radar-Reiter geführt; ohne diese Merke würde ein später
+  // eintreffender Demo-Feed über `_rerenderCurrentFeed()` den Radar zeichnen
+  // und die Jetzt-Ansicht überschreiben.
+  _feedCurrentTab = tab || 'radar';
+
   _ebDemoFeedLoad();
   renderSidebarUpcoming();
 
@@ -25285,9 +25621,11 @@ function renderFeed(tab) {
     return;
   }
 
-  // „Was kann ich jetzt machen?" — der Aktivitäten-Bestand aus
-  // OpenLigaDB und OpenStreetMap. Eigener Kanal, weil er weder
-  // Inserate noch Beiträge zeigt, sondern die Gegend.
+  // „Was kann ich jetzt machen?" — der Aktivitäten-Bestand aus OpenLigaDB und
+  // OpenStreetMap. Seit dem Umbau führt kein Reiter mehr hierher: der Inhaber
+  // wollte „Jetzt" im Radar sehen, und alle Einstiege gehen dorthin. Die
+  // Ansicht bleibt aber als getestete Komponente und unter dem Deep-Link
+  // `/aktuelles/jetzt` erreichbar — ein geteilter Link darf nicht brechen.
   if (tab === 'jetzt') {
     renderFeedJetzt(list);
     return;
@@ -25690,8 +26028,19 @@ function sharePost(postId) {
  * „Entdecken" — deren „Entdecken"-Reiter verlor dabei still seine Markierung.
  */
 function feedTabAktivieren(kanal) {
-  var feed = kanal || 'foryou';
-  var btn = document.querySelector('#page-aktuelles .feed-tab[data-feed="' + feed + '"]');
+  var feed = kanal || 'radar';
+  // „Jetzt" hat keinen eigenen Reiter mehr, lebt aber als Deep-Link weiter.
+  // Er wird unter dem Radar-Reiter geführt — der nächste Verwandte, denn
+  // beide zeigen, was gerade in der Nähe los ist.
+  var markiert = feed === 'jetzt' ? 'radar' : feed;
+  var btn = document.querySelector('#page-aktuelles .feed-tab[data-feed="' + markiert + '"]');
+  if (!btn) {
+    // Zurückgezogene Kanäle (foryou/newest/popular/events) leben jetzt als
+    // Sortierung in „Entdecken". Ein alter Deep-Link darf nicht in einem
+    // Zustand enden, in dem Inhalt steht, aber kein Reiter markiert ist.
+    feed = 'radar';
+    btn = document.querySelector('#page-aktuelles .feed-tab[data-feed="radar"]');
+  }
   if (btn && btn.parentNode) {
     btn.parentNode.querySelectorAll('.feed-tab').forEach(function(t) {
       t.classList.remove('active');

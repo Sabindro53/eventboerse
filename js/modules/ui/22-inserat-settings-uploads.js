@@ -1411,13 +1411,15 @@ function cropConfirm() {
 
     var croppedFile = new File([blob], 'avatar.png', { type: 'image/png' });
     uploadFile(croppedFile).then(function(data) {
-      if (currentUser) currentUser.photoUrl = data.url;
+      if (currentUser) { currentUser.photoUrl = data.url; currentUser.avatarId = ''; }
       if (profileAv) profileAv.src = data.url;
       if (providerAv) providerAv.src = data.url;
       if (navAvatar) navAvatar.src = data.url;
       fetch(_apiUrl('profile'), {
         method: 'POST', credentials: 'same-origin', headers: _apiHeaders(),
-        body: JSON.stringify({ photoUrl: data.url })
+        // Ein frisch hochgeladenes Foto soll sichtbar sein — der Kollektions-
+        // Avatar hätte sonst Vorrang und der Upload sähe wirkungslos aus.
+        body: JSON.stringify({ photoUrl: data.url, avatarId: '' })
       }).catch(function(){});
       showToast('Profilbild aktualisiert!', 'camera_alt');
     }).catch(function() {
@@ -1846,4 +1848,146 @@ function initDragScroll() {
   selectors.forEach(function(sel) {
     document.querySelectorAll(sel).forEach(_makeDraggable);
   });
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   EB FACES — Kollektions-Avatare (avatar-01 … avatar-10)
+
+   Zentrale Konfiguration. Erweitern = neue Zeile + neue Datei in
+   assets/avatare/ (Design-Regeln: assets/avatare/README.md). Die Auswahl
+   wird im Benutzerprofil gespeichert (user_meta eb_avatar_id), nicht im
+   localStorage — kein neuer Speicherschlüssel, keine Cookie-Listen-Zeile.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+var EB_AVATARE = [
+  { id: 'avatar-01', name: 'Finn',   hut: ['#397DE0', '#FFD36B'], beschreibung: 'Mann, helle Haut, kurze blonde Haare, blaue Augen' },
+  { id: 'avatar-02', name: 'Lena',   hut: ['#E96F89', '#FFE0A0'], beschreibung: 'Frau, helle Haut, lange blonde Haare, grüne Augen' },
+  { id: 'avatar-03', name: 'Malik',  hut: ['#169B91', '#F5C75E'], beschreibung: 'Mann, dunkle Haut, kurze schwarze Locken, braune Augen' },
+  { id: 'avatar-04', name: 'Amara',  hut: ['#B74367', '#F6C56B'], beschreibung: 'Frau, dunkle Haut, voluminöse schwarze Locken, goldene Ohrringe' },
+  { id: 'avatar-05', name: 'Jon',    hut: ['#536B9E', '#F1C65C'], beschreibung: 'Mann, mittlerer Hautton, moderner schwarzer Kurzhaarschnitt' },
+  { id: 'avatar-06', name: 'Sofia',  hut: ['#8B6CD0', '#F6C568'], beschreibung: 'Frau, mittlerer Hautton, lange braune Haare, braune Augen' },
+  { id: 'avatar-07', name: 'Paul',   hut: ['#417CC6', '#F4CE73'], beschreibung: 'Mann, helle Haut, braune Haare, dezente Brille' },
+  { id: 'avatar-08', name: 'Nia',    hut: ['#8D59B9', '#F5C967'], beschreibung: 'Frau, dunkle Haut, geflochtene Haare mit Haarperle' },
+  { id: 'avatar-09', name: 'Levi',   hut: ['#43866F', '#E7A56D'], beschreibung: 'Mann, olivfarbener Hautton, dunkle Locken, leichter Bart' },
+  { id: 'avatar-10', name: 'Maja',   hut: ['#DA654E', '#F6CF72'], beschreibung: 'Frau, helle Haut, kurze rote Haare, grüne Augen, Sommersprossen' }
+];
+
+/**
+ * Bild-URL zu einer Avatar-Kennung. Liefert '' für unbekannte Kennungen —
+ * der Wert kann aus einer Server-Antwort kommen und landet in einem src.
+ * Sobald gerenderte 3D-Fassungen (avatar-NN.webp) vorliegen, hier auf
+ * 'webp' umstellen; der Server (eb_gewaehlter_avatar_url) wechselt selbst.
+ */
+function ebAvatarBildUrl(id) {
+  var avatar = EB_AVATARE.find(function(item) { return item.id === id; });
+  return avatar ? ebAssetUrl('assets/avatare/' + avatar.id + '-freigestellt.webp') : '';
+}
+
+var EB_QA_AVATAR_KEY = 'eb_qa_assistant_avatar';
+var EB_AVATAR_PICKER_MODE = 'profile';
+var _qaAssistantAvatarId = '';
+
+function ebQaAssistantAvatarGet() {
+  if (_qaAssistantAvatarId && ebAvatarBildUrl(_qaAssistantAvatarId)) return _qaAssistantAvatarId;
+  try {
+    var saved = localStorage.getItem(EB_QA_AVATAR_KEY) || '';
+    if (ebAvatarBildUrl(saved)) {
+      _qaAssistantAvatarId = saved;
+      ebQaAssistantAvatarSync(saved);
+    }
+  } catch (e) {}
+  return _qaAssistantAvatarId;
+}
+
+function ebQaAssistantAvatarSync(id) {
+  var avatar = id && ebAvatarBildUrl(id) ? id : EB_AVATARE[0].id;
+  var src = ebAvatarBildUrl(avatar);
+  var config = EB_AVATARE.find(function(item) { return item.id === avatar; });
+  var bot = document.getElementById('qaBot');
+  if (bot && config) {
+    bot.dataset.avatar = avatar;
+    bot.style.setProperty('--qa-hut-main', config.hut[0]);
+    bot.style.setProperty('--qa-hut-accent', config.hut[1]);
+  }
+  ['qaLauncherAvatar', 'qaHeaderAvatar'].forEach(function(elementId) {
+    var image = document.getElementById(elementId);
+    if (image) image.src = src;
+  });
+  var label = document.getElementById('qaPersonaName');
+  if (label && config) label.textContent = config.name;
+}
+
+ebQaAssistantAvatarSync(ebQaAssistantAvatarGet() || EB_AVATARE[0].id);
+
+/** Anzeige-Avatar eines Nutzers: Kollektions-Wahl > eigenes Foto > Initialen. */
+function ebNutzerAvatar(user) {
+  if (!user) return ebAvatar('user', '');
+  return ebAvatarBildUrl(user.avatarId || '') || user.photoUrl || ebAvatar(user.name || 'user', user.name);
+}
+
+function openAvatarPicker(mode) {
+  EB_AVATAR_PICKER_MODE = mode === 'assistant' ? 'assistant' : 'profile';
+  var grid = document.getElementById('avatarPickerGrid');
+  if (!grid) return;
+  var aktiv = EB_AVATAR_PICKER_MODE === 'assistant'
+    ? ebQaAssistantAvatarGet()
+    : (currentUser && currentUser.avatarId);
+  var title = document.getElementById('avatarPickerTitle');
+  var description = document.getElementById('avatarPickerDescription');
+  if (title) title.textContent = EB_AVATAR_PICKER_MODE === 'assistant' ? 'Wähle deinen Event-Assistenten' : 'Avatar wählen';
+  if (description) description.textContent = EB_AVATAR_PICKER_MODE === 'assistant'
+    ? 'Such dir die Person aus, die dich bei deinem Event begleitet.'
+    : 'Such dir einen Charakter aus der Eventbörse-Kollektion aus';
+  grid.innerHTML = EB_AVATARE.map(function(a) {
+    var sel = a.id === aktiv;
+    return '<button type="button" class="avatar-pick' + (sel ? ' selected' : '') + '"' +
+      ' data-avatar="' + a.id + '" aria-pressed="' + sel + '"' +
+      ' style="--qa-hut-main:' + a.hut[0] + ';--qa-hut-accent:' + a.hut[1] + '"' +
+      ' aria-label="' + _escHtml(a.beschreibung) + '" onclick="waehleAvatar(\'' + a.id + '\')">' +
+      '<img src="' + ebAvatarBildUrl(a.id) + '" alt="" loading="eager" decoding="async" width="96" height="144">' +
+      '<span class="avatar-pick-hat" aria-hidden="true"><i class="avatar-pick-hat-cone"></i><b class="avatar-pick-hat-band"></b></span>' +
+      '<span class="avatar-pick-name">' + _escHtml(a.name) + '</span>' +
+      '<span class="avatar-pick-check material-icons-round" aria-hidden="true">check_circle</span>' +
+      '</button>';
+  }).join('');
+  grid.scrollTop = 0;
+  var reset = document.getElementById('avatarPickerReset');
+  if (reset) reset.style.display = EB_AVATAR_PICKER_MODE === 'profile' && aktiv ? '' : 'none';
+  openModal('avatarPickerModal');
+}
+
+function waehleAvatar(id) {
+  if (id && !ebAvatarBildUrl(id)) return;
+  _avatarWahlSpeichern(id || '');
+}
+
+function avatarWahlZuruecksetzen() { _avatarWahlSpeichern(''); }
+
+function _avatarWahlSpeichern(id) {
+  if (EB_AVATAR_PICKER_MODE === 'assistant') {
+    if (!id || !ebAvatarBildUrl(id)) return;
+    _qaAssistantAvatarId = id;
+    ebSpeichern(EB_QA_AVATAR_KEY, id);
+    ebQaAssistantAvatarSync(id);
+    closeModal('avatarPickerModal');
+    EB_AVATAR_PICKER_MODE = 'profile';
+    if (typeof openQaBot === 'function') openQaBot();
+    return;
+  }
+  if (currentUser) currentUser.avatarId = id;
+  var url = ebNutzerAvatar(currentUser);
+  ['profileAvatar', 'providerAvatar'].forEach(function(elId) {
+    var el = document.getElementById(elId);
+    if (el) el.src = url;
+  });
+  var navAvatar = document.querySelector('#avatarBtn img');
+  if (navAvatar) navAvatar.src = url;
+  // Fire-and-forget wie beim Foto-Upload: lokal gilt die Wahl sofort,
+  // der Server zieht nach, sobald er erreichbar ist.
+  fetch(_apiUrl('profile'), {
+    method: 'POST', credentials: 'same-origin', headers: _apiHeaders(),
+    body: JSON.stringify({ avatarId: id })
+  }).catch(function(){});
+  closeModal('avatarPickerModal');
+  showToast(id ? 'Avatar übernommen!' : 'Avatar entfernt — Foto/Initialen aktiv.', 'face');
 }

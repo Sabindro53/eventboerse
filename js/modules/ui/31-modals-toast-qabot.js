@@ -70,6 +70,111 @@ function showToast(message, icon = 'check_circle') {
 // ========== QA SUPPORT BOT (tokenfrei / muster-basiert) ==========
 var _qaBotOpenedOnce = false;
 var _qaAnswerCursor = 0;
+var _qaPersona = 'planer';
+var _qaMotionFrame = 0;
+var _qaTouchReset = null;
+
+function _qaPortraitBewegen(clientX, clientY) {
+  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  var bot = document.getElementById('qaBot');
+  if (!bot) return;
+  var horizontal = Math.max(-1, Math.min(1, clientX / window.innerWidth * 2 - 1));
+  var vertical = Math.max(-1, Math.min(1, clientY / window.innerHeight * 2 - 1));
+  bot.style.setProperty('--qa-head-x', (horizontal * 1.4).toFixed(2) + 'px');
+  bot.style.setProperty('--qa-head-y', (vertical * .8).toFixed(2) + 'px');
+}
+
+document.addEventListener('pointermove', function(event) {
+  if (_qaMotionFrame) return;
+  var clientX = event.clientX;
+  var clientY = event.clientY;
+  _qaMotionFrame = requestAnimationFrame(function() {
+    _qaPortraitBewegen(clientX, clientY);
+    _qaMotionFrame = 0;
+  });
+  if (event.pointerType === 'touch') {
+    clearTimeout(_qaTouchReset);
+    _qaTouchReset = setTimeout(function() {
+      _qaPortraitBewegen(window.innerWidth / 2, window.innerHeight / 2);
+    }, 700);
+  }
+}, { passive: true });
+
+window.addEventListener('blur', function() {
+  _qaPortraitBewegen(window.innerWidth / 2, window.innerHeight / 2);
+});
+
+var QA_PERSONAS = {
+  planer: {
+    name: 'Mila · Eventplanung',
+    tagline: 'Dein lokaler Planungshelfer',
+    intro: 'Ich helfe dir, dein Event in klare nächste Schritte zu zerlegen: Konzept, Budget, Zeitplan und passende Dienstleister. Womit möchtest du anfangen?',
+    color: 'planer',
+    suggestions: ['Ich plane eine Hochzeit', 'Budget planen', 'Dienstleister finden'],
+    actions: [
+      { label: 'Planungsboard', icon: 'view_kanban', kind: 'page', target: 'board' },
+      { label: 'Dienstleister suchen', icon: 'search', kind: 'page', target: 'browse' }
+    ]
+  },
+  anbieter: {
+    name: 'Noah · Business-Coach',
+    tagline: 'Für deinen Dienstleister-Alltag',
+    intro: 'Ich unterstütze dich bei Inseraten, Aufträgen, Profil, Zusammenarbeit und Auszahlungen. Was möchtest du als Nächstes verbessern?',
+    color: 'anbieter',
+    suggestions: ['Mein Inserat verbessern', 'Neue Aufträge finden', 'Auszahlung und Rechnung'],
+    actions: [
+      { label: 'Auftragsboard', icon: 'assignment', kind: 'page', target: 'auftraege' },
+      { label: 'Business-Cockpit', icon: 'insights', kind: 'page', target: 'business' },
+      { label: 'Mein Profil', icon: 'person', kind: 'page', target: 'profile' }
+    ]
+  },
+  hilfe: {
+    name: 'EB · Plattformhilfe',
+    tagline: 'Wegweiser durch Eventbörse',
+    intro: 'Ich zeige dir, wie Eventbörse funktioniert, und bringe dich direkt zum passenden Bereich. Was suchst du gerade?',
+    color: 'hilfe',
+    suggestions: ['Wie funktioniert Eventbörse?', 'Login & Profil', 'Kontakt & Support'],
+    actions: [
+      { label: 'Suche', icon: 'search', kind: 'page', target: 'browse' },
+      { label: 'Kontakt & Support', icon: 'support_agent', kind: 'page', target: 'contact' }
+    ]
+  }
+};
+
+function _qaRenderPersonaActions() {
+  var container = document.getElementById('qaSuggestions');
+  var persona = QA_PERSONAS[_qaPersona];
+  if (!container || !persona) return;
+  container.replaceChildren();
+  persona.suggestions.forEach(function(question) {
+    var button = document.createElement('button');
+    button.type = 'button';
+    button.textContent = question;
+    button.addEventListener('click', function() { askQaPreset(question); });
+    container.appendChild(button);
+  });
+}
+
+function setQaPersona(id) {
+  var persona = QA_PERSONAS[id];
+  if (!persona) return;
+  _qaPersona = id;
+  var root = document.getElementById('qaBot');
+  var tagline = document.getElementById('qaPersonaTagline');
+  if (root) root.dataset.persona = persona.color;
+  if (tagline) tagline.textContent = persona.tagline;
+  document.querySelectorAll('.eb-qa-persona').forEach(function(button) {
+    var active = button.dataset.persona === id;
+    button.classList.toggle('is-active', active);
+    button.setAttribute('aria-pressed', active ? 'true' : 'false');
+  });
+  _qaRenderPersonaActions();
+  if (_qaBotOpenedOnce) {
+    var messages = document.getElementById('qaMessages');
+    if (messages) messages.replaceChildren();
+    _qaAddMessage('bot', persona.intro, persona.actions);
+  }
+}
 
 var QA_TOPICS = [
   {
@@ -496,6 +601,7 @@ function _qaAddMessage(role, text, actions) {
 }
 
 function _qaWelcomeText() {
+  if (QA_PERSONAS[_qaPersona]) return QA_PERSONAS[_qaPersona].intro;
   var role = currentUser ? (currentUser.role || currentUser.baseRole || 'Mitglied') : 'Gast';
   return _qaPick([
     'Hi, ich bin dein Eventbörse-Assistent. Frag mich zu Planung, Radar, Buchung, Partnerschaften, Rechnungen oder deinem Profil.',
@@ -505,19 +611,20 @@ function _qaWelcomeText() {
 }
 
 function openQaBot() {
+  if (!ebQaAssistantAvatarGet()) {
+    openQaAssistantPicker();
+    return;
+  }
   var panel = document.getElementById('qaPanel');
   var btn = document.getElementById('qaLauncher');
   var input = document.getElementById('qaInput');
   if (!panel || !btn) return;
+  _qaRenderPersonaActions();
   _ebKbLoad(); // Wissensbasis beim Öffnen laden (einmalig, still)
   panel.hidden = false;
   btn.setAttribute('aria-expanded', 'true');
   if (!_qaBotOpenedOnce) {
-    _qaAddMessage('bot', _qaWelcomeText(), [
-      { label: 'Login', icon: 'login', kind: 'modal', target: 'loginModal' },
-      { label: 'Board', icon: 'view_kanban', kind: 'page', target: 'board' },
-      { label: 'Suche', icon: 'search', kind: 'page', target: 'browse' }
-    ]);
+    _qaAddMessage('bot', _qaWelcomeText(), QA_PERSONAS[_qaPersona].actions);
     _qaBotOpenedOnce = true;
   }
   setTimeout(function() { if (input) input.focus(); }, 80);
@@ -528,6 +635,11 @@ function closeQaBot() {
   var btn = document.getElementById('qaLauncher');
   if (panel) panel.hidden = true;
   if (btn) btn.setAttribute('aria-expanded', 'false');
+}
+
+function openQaAssistantPicker() {
+  closeQaBot();
+  openAvatarPicker('assistant');
 }
 
 function toggleQaBot() {

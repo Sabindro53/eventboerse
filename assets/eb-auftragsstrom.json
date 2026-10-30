@@ -1,11 +1,12 @@
 {
   "version": 1,
-  "erzeugt": "2026-09-15T05:34:23.880Z",
+  "erzeugt": "2026-10-15T15:53:15.340Z",
   "hinweis": "Erzeugt von scripts/auftragsstrom.mjs aus assets/eb-arbeit.json. Nicht von Hand bearbeiten.",
   "journalStand": "2026-09-15T03:37:40.045Z",
   "lage": "Kein Befund im freigegebenen Rahmen — der Scout wählt selbst.",
   "auftraege": [],
-  "ausserhalb": [
+  "ausserhalb": [],
+  "verworfen": [
     {
       "herkunft": {
         "rolle": "mistral-ops",
@@ -15,10 +16,7 @@
         "zeit": "2026-09-15T03:37:40.043Z",
         "aufgabe": "Den ältesten roten oder unbekannten Betriebszustand benennen und eingrenzen."
       },
-      "dateien": [
-        "audit/latest.json"
-      ],
-      "grund": "nennt audit/latest.json — außerhalb des freigegebenen Rahmens"
+      "grund": "älter als 72 h — beschreibt einen anderen Code-Stand"
     },
     {
       "herkunft": {
@@ -29,14 +27,8 @@
         "zeit": "2026-09-13T03:35:12.791Z",
         "aufgabe": "Deploys, Tests und Monitor-Signale zu einem belastbaren Lagebild verdichten."
       },
-      "dateien": [
-        "audit/latest.json",
-        ".github/workflows/site-monitor.yml"
-      ],
-      "grund": "nennt audit/latest.json, .github/workflows/site-monitor.yml — außerhalb des freigegebenen Rahmens"
-    }
-  ],
-  "verworfen": [
+      "grund": "älter als 72 h — beschreibt einen anderen Code-Stand"
+    },
     {
       "herkunft": {
         "rolle": "deepseek-code",

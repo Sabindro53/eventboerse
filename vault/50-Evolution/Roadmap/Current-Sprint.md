@@ -9,15 +9,34 @@ tags: [layer/L5, domain/evolution, share/internal]
 
 > Ziel: Die beste und funktionalste Eventplattform für jedermann
 
-## Stand heute (2026-08-26)
+## Stand heute (2026-10-08)
 
 Diese Zahlen gelten JETZT. Weiter unten stehen abgeschlossene Sprints mit den
 Zahlen ihrer Zeit — die sind Historie, kein Ist-Stand. Der Ensemble-Kontext
 liest diese Datei von oben; ein Modell, das „68 Tests" als aktuell meldet, hat
 einen alten Abschnitt gelesen und nicht diesen.
 
-- **Playwright-Suite: 1169 Tests in 79 Suiten**, blockierendes Gate in `pr-check.yml`.
+- **Playwright-Suite: 1175 Tests in 80 Suiten**, blockierendes Gate in `pr-check.yml`.
   Läuft seit dem Self-Hosting auch ohne Netzzugang vollständig durch
+
+## Event-Assistent-Portraits (2026-10-08)
+
+Der QA-Bot zeigt vor dem ersten Chat den Dialog **„Wähle deinen Event-Assistenten“**
+mit zehn lokal ausgelieferten WebP-Portraits. Die Bilder stammen aus dem vom
+Inhaber bereitgestellten `ki_avatar_paket.zip` (218/219 × 390/394 px, zusammen
+rund 200 KB). Freigestellte RGBA-WebPs mit 512 × 768 px wurden lokal mit
+`rembg`/`u2net_human_seg` erzeugt (kein Bild-Upload an einen Dienst); der
+Auswahlhaken und Kartenrand sind entfernt. Die Hut-Dekoration ist ein
+CSS-Overlay mit zehn auf die Kleidung abgestimmten Farbpaare. Die Motive sind
+3D-Illustrationen, keine 3D-Modelle. Maus und Touch verschieben das Portrait
+leicht per CSS-Parallaxe, ohne Rotation; Kopf und Augen bewegen sich nicht
+unabhängig. `prefers-reduced-motion` schaltet die Bewegung ab. Das Archiv
+enthält keine Lizenzangabe; Nutzungsrechte bleiben durch den Inhaber zu
+bestätigen. Die Auswahl landet nur mit funktionaler Einwilligung in
+`eb_qa_assistant_avatar`. Kein Besucherdialog sendet Texte an OpenRouter; der
+AVV ist offen.
+`qa-personas.spec.js` prüft Erstwahl, Bildladung, Synchronisierung, Speicherung
+und Mobilansicht.
 
 ## UX-Abschlussstand (2026-09-13)
 

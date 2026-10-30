@@ -48,6 +48,12 @@ for (const mode of ['dark', 'light']) {
         await page.waitForTimeout(1500);
         const res = await new AxeBuilder({ page })
           .withTags(['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa'])
+          // Die Leaflet-Karte ist Fremd-DOM (Kacheln, Zoom-Steuerung) und
+          // wird — wie in axe-Audits üblich — nicht mitgeprüft; ihre
+          // hunderten Kachelknoten ließen die Analyse sonst in die Zeitgrenze
+          // laufen, seit der Radar die Vorgabe-Ansicht von „Aktuelles" ist.
+          // Die eigenen Bedienelemente um die Karte bleiben im Prüfumfang.
+          .exclude('#feedRadarMap')
           .analyze();
         const zusammenfassung = res.violations
           .map((v) => `[${v.impact}] ${v.id} (${v.nodes.length}×): ${v.nodes.slice(0, 3).map((n) => n.target[0]).join(' | ')}`)

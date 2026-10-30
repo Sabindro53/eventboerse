@@ -838,8 +838,8 @@ function renderFeedRadar(container) {
     return '<button type="button" class="radar-chip' + (km === _radarRadius ? ' aktiv' : '') + '" onclick="feedRadarRadius(' + km + ')">' + km + ' km</button>';
   }).join('');
   container.innerHTML = '<section class="feed-radar-card">' +
-    '<div class="feed-radar-head"><div><span class="release-kicker">ENTDECKEN UNTERWEGS</span><h2><span class="material-icons-round">radar</span> Event-Radar</h2>' +
-    '<p>Aktivitäten und Dienstleister im Umkreis von ' + _escHtml(city) + ' – direkt auf der Karte.</p></div>' +
+    '<div class="feed-radar-head"><div><span class="release-kicker">WAS IST JETZT LOS</span><h2><span class="material-icons-round">radar</span> Event-Radar</h2>' +
+    '<p>Termine, Aktivitäten und Dienstleister im Umkreis von ' + _escHtml(city) + ' – direkt auf der Karte.</p></div>' +
     '<button class="btn-primary" type="button" onclick="feedRadarGeo()"><span class="material-icons-round">my_location</span> Mein Standort</button></div>' +
     '<div class="feed-radar-controls"><label>Stadt<select id="feedRadarCity" onchange="feedRadarCity(this.value)">' + options + '</select></label>' +
     '<div><span class="radar-control-label">Radius</span><div class="radar-chip-row">' + chips + '</div></div></div>' +
@@ -900,11 +900,18 @@ function _drawFeedRadar() {
       var d = hit.daten || {};
       var title = d.title || d.name || 'Event';
       var image = (d.images && d.images[0]) || d.image || window.EB_IMG_FALLBACK;
+      // Eine echte externe Aktivität lässt sich mit Freunden planen — dieselbe
+      // Weiche wie auf den Aktivitätskarten (`ebAktivitaetPlanen`). Dienst-
+      // leister und Demo-Events haben keine Planungs-Herkunft im Bestand.
+      var planBtn = hit.art === 'aktivitaet'
+        ? '<button type="button" class="feed-radar-result-plan" onclick="ebAktivitaetPlanen(' + _escHtml(JSON.stringify(String(d.id))) + ')" aria-label="' + _escHtml(title) + ' mit Freunden planen"><span class="material-icons-round">group_add</span></button>'
+        : '';
       return '<article class="feed-radar-result" data-radar-index="' + index + '"' + _aiDisclosureAttrs(d) + '>' +
         '<button type="button" class="feed-radar-result-map" onclick="feedRadarFocus(' + index + ')" aria-label="' + _escHtml(title) + ' auf der Karte zeigen">' +
         '<span class="feed-radar-result-image"><img src="' + _escHtml(image) + '" alt="" loading="lazy"' + window.EB_IMG_ERR_ATTR + '></span><span><span class="radar-result-meta"><span>' + (hit.art === 'aktivitaet' ? 'EXTERNE AKTIVITÄT' : hit.art === 'event' ? 'DEMO-EVENT' : 'DIENSTLEISTER') + '</span><strong>' + _escHtml(radarEntfernung(hit.km)) + '</strong></span>' +
         '<strong class="feed-radar-result-title">' + _escHtml(title) + '</strong>' + _aiDisclosureLabelsHtml(d, 'ai-disclosure-radar-result') + '<small><span class="material-icons-round">location_on</span>' + _escHtml(hit.ort || '') + (hit.genau ? '' : ' · ca.') + '</small></span></button>' +
-        '<button type="button" class="feed-radar-result-open" onclick="feedRadarOpen(' + index + ')" aria-label="' + _escHtml(title) + ' öffnen"><span class="material-icons-round">arrow_forward</span></button></article>';
+        '<div class="feed-radar-result-actions">' + planBtn +
+        '<button type="button" class="feed-radar-result-open" onclick="feedRadarOpen(' + index + ')" aria-label="' + _escHtml(title) + ' öffnen"><span class="material-icons-round">arrow_forward</span></button></div></article>';
     }).join('') + '</div>' + '<p class="akt-fuss">Externe Aktivitäten: OpenLigaDB und © OpenStreetMap-Mitwirkende (ODbL). Öffnungszeiten und Buchungen bei der Quelle prüfen.</p>' + ebAktivitaetenStarthilfe();
   _initFeedRadarMap(hits);
 }

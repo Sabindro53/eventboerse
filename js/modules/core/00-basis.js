@@ -886,6 +886,7 @@ var EB_SPEICHER_KLASSEN = {
   eb_passkey_prompt_dismissed_: 'funktional',
   eb_stripe_onboarding_prompt_: 'funktional',
   eb_ai_chat_v1_: 'funktional',
+  eb_qa_assistant_avatar: 'funktional',
   eb_radar_ort: 'funktional',
 
   eb_kb_misses: 'profil',

@@ -44,7 +44,7 @@ const WEGE = [
     was: 'etwas erleben',
     text: /Was geht hier gerade/i,
     seite: 'page-aktuelles',
-    beleg: '#page-aktuelles .akt-karte-huelle',
+    beleg: '#page-aktuelles .feed-radar-card',
   },
   {
     was: 'etwas planen',
@@ -145,22 +145,22 @@ test.describe('Einstiege: die Landeseite bedient mehr als eine Absicht', () => {
     }
   });
 
-  test('„Jetzt" war vorher von hier aus nicht erreichbar', async ({ page }) => {
-    // Der Beleg für den Befund, nicht nur für die Behebung. Die
-    // Reiterleiste mit „Jetzt" gehört zu `#page-aktuelles` und
-    // `#page-explore` — auf der Landeseite gibt es sie nicht. Ohne die
+  test('„Was geht hier gerade" war vorher von hier aus nicht erreichbar', async ({ page }) => {
+    // Der Beleg für den Befund, nicht nur für die Behebung. Die Reiterleiste
+    // mit dem Aktivitäts-Einstieg (jetzt der Radar) gehört zu `#page-aktuelles`
+    // und `#page-explore` — auf der Landeseite gibt es sie nicht. Ohne die
     // Einstiegsreihe gäbe es von dort also keinen Weg dorthin.
     //
     // Verschwindet dieser Test, verschwindet die einzige Stelle, an der
     // steht, WARUM die Reihe existiert.
     await openApp(page);
-    const reiterAufLandeseite = await page.locator('#page-browse .feed-tab[data-feed="jetzt"]').count();
+    const reiterAufLandeseite = await page.locator('#page-browse .feed-tabs').count();
     expect(reiterAufLandeseite,
-      'die Landeseite trägt jetzt selbst einen Jetzt-Reiter — dann ist der Befund überholt und dieser Test anzupassen')
+      'die Landeseite trägt jetzt selbst eine Feed-Reiterleiste — dann ist der Befund überholt und dieser Test anzupassen')
       .toBe(0);
-    // Und der Gegenbeweis, dass es den Reiter überhaupt gibt:
-    expect(await page.locator('.feed-tab[data-feed="jetzt"]').count(),
-      'es gibt gar keinen Jetzt-Reiter mehr').toBeGreaterThan(0);
+    // Und der Gegenbeweis, dass es den Einstieg zur Aktivitäts-Ansicht gibt:
+    expect(await page.locator('.ai-hero-wege button[onclick*="radar"]').count(),
+      'es gibt gar keinen Einstieg in den Radar von der Landeseite').toBeGreaterThan(0);
   });
 
   test('der Dienstleister hatte von hier aus KEINEN Weg zu seinem Geschäft', async ({ page }) => {

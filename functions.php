@@ -97,6 +97,28 @@ function eb_avatar_url( $seed, $name = '' ) {
 }
 
 /**
+ * URL des vom Nutzer gewaehlten Kollektions-Avatars (EB Faces) oder ''.
+ *
+ * Die Kennung ist eine Whitelist-Form (avatar-NN), kein freier Pfad: was
+ * nicht dem Muster entspricht oder als Datei fehlt, wird nicht ausgeliefert.
+ * WebP (gerenderte 3D-Fassung) gewinnt vor der SVG-Basis.
+ */
+function eb_gewaehlter_avatar_url( $uid ) {
+    $id = (string) get_user_meta( absint( $uid ), 'eb_avatar_id', true );
+    if ( ! preg_match( '/^avatar-\d{2}$/', $id ) ) {
+        return '';
+    }
+    $dir = get_stylesheet_directory() . '/assets/avatare/';
+    $base = get_stylesheet_directory_uri() . '/assets/avatare/';
+    foreach ( array( '-freigestellt.webp', '.webp', '.svg' ) as $ext ) {
+        if ( file_exists( $dir . $id . $ext ) ) {
+            return $base . $id . $ext;
+        }
+    }
+    return '';
+}
+
+/**
  * Performance-Hardening: WordPress-Bloat entfernen, das das Theme nicht braucht.
  * Spart pro Request: ~40 kB inline emoji-script, mehrere DNS-Lookups, jquery-migrate,
  * unnötige <link>-Tags, oEmbed-Discovery, dashicons im Frontend.
@@ -1720,6 +1742,7 @@ function eb_user_profile_meta( $uid ) {
         'coverUrl'  => get_user_meta( $uid, 'eb_cover_url', true ) ?: '',
         'coverPosY' => (float) ( get_user_meta( $uid, 'eb_cover_pos_y', true ) ?: 50 ),
         'photoUrl'  => get_user_meta( $uid, 'eb_photo_url', true ) ?: '',
+        'avatarId'  => get_user_meta( $uid, 'eb_avatar_id', true ) ?: '',
         'socialLinks' => is_array( $social ) ? $social : array(),
         'taxProfile'  => is_array( $tax ) ? $tax : array(
             'smallBusiness' => true,
@@ -1834,7 +1857,7 @@ function eb_collaboration_partner( $partner_id ) {
         'role'     => eventboerse_map_role( $user ),
         'tagline'  => $meta['tagline'],
         'location' => $meta['location'],
-        'photoUrl' => $meta['photoUrl'] ?: eb_avatar_url( $name ?: $user->display_name, $name ?: $user->display_name ),
+        'photoUrl' => eb_gewaehlter_avatar_url( $partner_id ) ?: ( $meta['photoUrl'] ?: eb_avatar_url( $name ?: $user->display_name, $name ?: $user->display_name ) ),
     );
 }
 
@@ -3069,6 +3092,7 @@ function eventboerse_handle_profile_get() {
         'coverUrl'  => $cover    ?: '',
         'coverPosY' => $coverPosY,
         'photoUrl'  => $photo    ?: '',
+        'avatarId'  => $profile_meta['avatarId'],
         'company'   => $profile_meta['company'],
         'socialLinks' => $profile_meta['socialLinks'],
         'taxProfile'  => $profile_meta['taxProfile'],
@@ -3120,6 +3144,14 @@ function eventboerse_handle_profile_save( WP_REST_Request $request ) {
             $legacy = (string) get_user_meta( $uid, $meta_key, true );
             $clean  = eb_account_image_url( $params[ $key ], $uid, $legacy );
             update_user_meta( $uid, $meta_key, $clean );
+        }
+    }
+
+    // Kollektions-Avatar: nur die Whitelist-Form avatar-NN oder '' (abwaehlen).
+    if ( array_key_exists( 'avatarId', $params ) ) {
+        $aid = sanitize_text_field( (string) $params['avatarId'] );
+        if ( $aid === '' || preg_match( '/^avatar-\d{2}$/', $aid ) ) {
+            update_user_meta( $uid, 'eb_avatar_id', $aid );
         }
     }
 
@@ -5760,7 +5792,8 @@ function eb_format_listing( $row ) {
 
     $name = $user ? trim( $user->first_name . ' ' . $user->last_name ) : 'Unbekannt';
     $photo = $user ? ( get_user_meta( $user->ID, 'eb_photo_url', true ) ?: '' ) : '';
-    $avatar = $photo ?: eb_avatar_url( $name, $name );
+    $gewaehlt = $user ? eb_gewaehlter_avatar_url( $user->ID ) : '';
+    $avatar = $gewaehlt ?: ( $photo ?: eb_avatar_url( $name, $name ) );
     $since = $user ? date( 'Y', strtotime( $user->user_registered ) ) : '';
 
     return array(
@@ -7261,7 +7294,7 @@ function eb_provider_profile( WP_REST_Request $request ) {
         'bio'      => $meta['bio'],
         'coverUrl' => $meta['coverUrl'],
         'coverPosY'=> $meta['coverPosY'],
-        'photoUrl' => $meta['photoUrl'],
+        'photoUrl' => eb_gewaehlter_avatar_url( $provider_id ) ?: $meta['photoUrl'],
         'gallery'  => $meta['gallery'],
         'socialLinks' => $meta['socialLinks'],
         'collaborations' => eb_collaborations_enriched( $provider_id, true ),

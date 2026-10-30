@@ -387,31 +387,36 @@ test.describe('Jetzt-Ansicht: fremder Text bleibt Text', () => {
 });
 
 test.describe('Jetzt-Ansicht: der Weg dorthin', () => {
-  test('beide Reiterleisten führen zu „Jetzt"', async ({ page }) => {
-    // Genau hier lag der Radar-Fehler vom 31.08.: der Reiter stand nur in
-    // einer der zwei Leisten, und von „Entdecken" aus war er unerreichbar.
+  test('„Jetzt" ist kein eigener Reiter mehr, lebt aber als Deep-Link', async ({ page }) => {
+    // Der Inhaber hat „Jetzt" in den Radar gelegt: alle Einstiege gehen zum
+    // Radar, einen eigenen Reiter gibt es nicht mehr. Die Ansicht bleibt als
+    // Komponente und unter `/aktuelles/jetzt` erreichbar — geteilte Links
+    // dürfen nicht brechen.
     const shell = fs.readFileSync(path.join(ROOT, 'app-shell.html'), 'utf8');
     const leisten = shell.split('feed-tabs').length - 1;
     expect(leisten, 'die Reiterleisten sind nicht mehr auffindbar').toBeGreaterThan(1);
     expect((shell.match(/feed-tab-jetzt/g) || []).length,
-      '„Jetzt" fehlt in einer der Leisten').toBeGreaterThanOrEqual(2);
+      'ein „Jetzt"-Reiter ist zurück — er sollte im Radar aufgegangen sein').toBe(0);
+    // Beide Leisten tragen stattdessen den Radar-Einstieg.
+    expect((shell.match(/feed-tab-radar/g) || []).length,
+      'der Radar fehlt in einer der Leisten').toBeGreaterThanOrEqual(2);
   });
 
   test('/aktuelles/jetzt zeigt auch wirklich die Jetzt-Ansicht', async ({ page }) => {
     // MARKIERUNG UND INHALT MÜSSEN ÜBEREINSTIMMEN. Der erste Entwurf dieses
     // Tests prüfte nur URL und Reiter-Markierung — beide werden vom Router
     // gesetzt, nicht von der Ansicht. Nimmt man `renderFeed()` die Weiche
-    // auf 'jetzt', bleibt der Reiter markiert, darunter erscheinen die
-    // Inserate von „Für dich", und der Test war grün.
+    // auf 'jetzt', erschiene darunter ein anderer Kanal, und der Test war
+    // grün.
     //
-    // Das ist genau der Fehler vom 31.08.2026, nur eine Ebene höher: es
-    // sieht nicht nach einem Fehler aus, sondern nach einer Seite, die
-    // einen nicht versteht.
+    // Seit dem Umbau hat „Jetzt" keinen eigenen Reiter; der Deep-Link führt
+    // sie unter dem Radar-Reiter. Geprüft wird also: Radar markiert, darunter
+    // die Jetzt-Ansicht — nicht der Radar selbst.
     const liste = await jetztOeffnen(page, bestand([ORT_NAH]));
     expect(await page.evaluate(() => location.pathname)).toContain('jetzt');
     const aktiv = await page.evaluate(
-      () => !!document.querySelector('#page-aktuelles .feed-tab[data-feed="jetzt"].active'));
-    expect(aktiv, 'der Reiter ist nicht markiert').toBe(true);
+      () => !!document.querySelector('#page-aktuelles .feed-tab[data-feed="radar"].active'));
+    expect(aktiv, 'der Radar-Reiter ist nicht markiert').toBe(true);
     // Und darunter steht die Ansicht, nicht irgendein anderer Kanal.
     await expect(liste.locator('.akt-karte-huelle'),
       'der Reiter ist markiert, darunter steht ein anderer Kanal').toHaveCount(1);

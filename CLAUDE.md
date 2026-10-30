@@ -3830,7 +3830,7 @@ npm run test:smoke      # nur Routen-Smoke-Tests
 npm run test:css        # CSS-Minify-Regression (Verlaufsschrift)
 ```
 
-1169 Tests in 79 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
+1175 Tests in 80 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
 Sätze), Gebühren (centgenau, JS↔PHP-Parität), Wissensbasis (Antworten +
 Leckage-Schutz), Zufluss (Quarantäne-Tor + Demo-Feed-Ehrlichkeit),
 Verbindungen (HQ-Zugang + Connector-Katalog), Auftragsstrom (Herkunft +
@@ -3862,6 +3862,8 @@ als der Normalfall** — der Marquee steht dann still, hält keine eigene Ebene
 mehr und läuft nach der Rücknahme ohne Neuladen wieder an, und wer die Seite
 mit der Einstellung LÄDT, bekommt keine Dauerschleife),
 **Site-Monitor** (der Monitor unterscheidet „antwortet“ von „funktioniert“),
+**Event-Assistent-Portraits** (Erstauswahl vor dem Chat, zehn lokal ausgelieferte WebPs,
+Portrait und Rolle getrennt, funktionale Einwilligung für Persistenz, responsive Kacheln),
 **WebP** (an echten Bilddateien: ein Foto wird kleiner, Transparenz überlebt
 auch bei einem Paletten-PNG, ein größeres WebP wird gelöscht und vermerkt,
 Apache liefert nur bei passendem `Accept` und vorhandener Datei um),

@@ -59,6 +59,7 @@ Die gemessene Lage steht in [[40-Governance/Legal/Rechtliche-Lage]].
 | `eb_passkey_prompt_dismissed_<userId>` | funktional | „Passkey einrichten" weggeklickt | `core/30-auth.js`, `ui/22-inserat-settings-uploads.js` |
 | `eb_stripe_onboarding_prompt_<kontext>_<userId>` | funktional | Stripe-Hinweis weggeklickt | `core/30-auth.js` |
 | `eb_ai_chat_v1_<userId\|gast>` | funktional | **Gesprächsverlauf** mit dem Planungs-Assistenten, letzte 60 Nachrichten | `ai/50-planungs-assistent.js` |
+| `eb_qa_assistant_avatar` | funktional | gewählter Portrait-Charakter des Event-Assistenten | `ui/22-inserat-settings-uploads.js` |
 | `eb_radar_ort` | funktional | **Standort** (Koordinaten + Herkunft: Geolocation oder Adresse) | `search/13-event-radar.js` |
 | `eb_kb_misses` | profilbildend | unbeantwortete Fragen an den KI-Bot; Export von Hand über das HQ | `ui/31-modals-toast-qabot.js` |
 | `eb_taste_v1` | profilbildend | **abgeleitetes Präferenzprofil** aus Such- und Klickverhalten | `search/11-suche-ki.js` |
