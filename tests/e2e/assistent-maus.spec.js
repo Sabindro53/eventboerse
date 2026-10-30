@@ -16,9 +16,16 @@ async function bereit(page, reducedMotion = 'no-preference') {
   return errors;
 }
 
+// Bewegt die Maus bei jedem Versuch ein Pixel hin und her, statt nur einmal:
+// ein umgeschaltetes prefers-reduced-motion meldet der Browser asynchron, und
+// der Horcher setzt den Kopf dann zu Recht zurück — auch wenn er gerade erst
+// gedreht hat. Ein Mensch bewegt die Maus weiter; der Test tut es auch.
 async function schauen(page, x, y) {
-  await page.mouse.move(x, y);
-  await expect.poll(() => blickt(page)).toBe(true);
+  let n = 0;
+  await expect.poll(async () => {
+    await page.mouse.move(x + (n++ % 2), y);
+    return blickt(page);
+  }).toBe(true);
   return expect.poll(() => feld(page));
 }
 
@@ -129,12 +136,13 @@ test('Finger: ein Tippen lenkt den Blick kurz dorthin, dann wieder nach vorn', a
   const ctx = await browser.newContext({ hasTouch: true, viewport: { width: 390, height: 844 } });
   const page = await ctx.newPage();
   const errors = await bereit(page);
-  // Erstes Tippen lädt das Raster, das zweite zeigt den Blick.
-  await page.touchscreen.tap(30, 200);
-  await page.waitForTimeout(300);
-  await page.touchscreen.tap(30, 200);
-  await expect.poll(() => blickt(page), { timeout: 3000 }).toBe(true);
-  expect(await feld(page)).toMatch(/^[0-2],/);                        // nach links
+  // Das erste Tippen lädt das Raster; jedes weitere zeigt den Blick 1,4 s lang.
+  // Getippt wird je Versuch, sonst kann der Blick zwischen zwei Abfragen schon
+  // wieder vorbei sein.
+  await expect.poll(async () => {
+    await page.touchscreen.tap(30, 200);
+    return (await blickt(page)) ? await feld(page) : null;
+  }, { timeout: 5000 }).toMatch(/^[0-2],/);                         // nach links
   await expect.poll(() => blickt(page), { timeout: 4000 }).toBe(false);
   expectNoPageErrors(errors, 'Tippen');
   await ctx.close();
