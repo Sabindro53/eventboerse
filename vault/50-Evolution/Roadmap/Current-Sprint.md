@@ -16,7 +16,7 @@ Zahlen ihrer Zeit — die sind Historie, kein Ist-Stand. Der Ensemble-Kontext
 liest diese Datei von oben; ein Modell, das „68 Tests" als aktuell meldet, hat
 einen alten Abschnitt gelesen und nicht diesen.
 
-- **Playwright-Suite: 1588 Tests in 108 Suiten**, blockierendes Gate in `pr-check.yml`.
+- **Playwright-Suite: 1595 Tests in 108 Suiten**, blockierendes Gate in `pr-check.yml`.
   Läuft seit dem Self-Hosting auch ohne Netzzugang vollständig durch
 - **Live-Stand-Tor: am echten Server bewährt** (Lauf #1108, 01.10.2026,
   Commit `f02b18c`). Erster Anlauf, eine Sekunde, erwartet und gemessen
@@ -98,6 +98,28 @@ hält beim nächsten Zuwachs noch, aber nicht beliebig.
 **Offen, nicht in diesem PR:** `tagesroutine.yml` und die übrigen Workflows
 sind nicht angesehen worden. Die Regel im Test gilt ausdrücklich nur für
 `pr-check.yml`; sie auf alle zu weiten ist eine eigene Messung.
+
+## Blickfolge des Assistenten (30.10.2026)
+
+**Wer:** Claude Code, Wunsch des Inhabers: der Assistent unten rechts dreht
+den Kopf dorthin, wo Maus oder Finger sind — mit den echten Avataren, nicht
+mit einer neuen Comicfigur.
+
+**Gebaut auf `claude/avatar-blick`:** `scripts/avatar-blick.py` (Blender,
+headless) wölbt jede der zehn Figuren aus ihrer Silhouette zu einer Büste und
+rendert 7 × 3 Blickrichtungen (±14° / ±7°) → `assets/avatare/avatar-NN-blick.webp`.
+`ui/33-assistent-figur.js` zeigt das passende Feld; die alte CSS-Neigung ist
+ersetzt. Kein WebGL, Arbeit nur bei Zeiger-Ereignissen, Raster lädt erst bei
+der ersten Bewegung. Finger: ein Tippen lenkt den Blick 1,4 s dorthin.
+Bewegungsreduktion: Kopf steht still.
+
+**Geprüft:** `assistent-maus.spec.js` neu (9 Tests), `assistent-figur.spec.js`
++1 (Raster je Figur: Maße, Alpha, ≤ 160 KB). Gesamtlauf: alle Fehlschläge
+lagen an fehlendem GNU-sed in der lokalen Umgebung und waren mit `Pruefen`
+grün; einer war echt (Host per Teilstring im neuen Test) und ist behoben.
+
+**Offen:** Die Augen drehen mit dem Kopf, eigene Augenbewegung und Blinzeln
+gäbe es nur mit echten 3D-Modellen der Figuren. Kein Commit, kein Push.
 
 ## Konsolidierung (29.10.2026)
 
