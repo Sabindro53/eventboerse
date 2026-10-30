@@ -8,9 +8,16 @@ Logik: `js/modules/ui/33-assistent-figur.js`, Test: `tests/e2e/assistent-figur.s
 
 Vom Inhaber am 08.10.2026 als Bildpaket bereitgestellt. Das Paket nennt weder
 Urheber noch Lizenz. **Nutzungsrechte vom Inhaber am 16.10.2026 bestätigt** (kommerzielle Nutzung).
+Laut Inhaber (30.10.2026) hat er die Bilder selbst mit einem KI-Bildgenerator erzeugt.
 
 Die Motive sind 3D-Illustrationen, keine 3D-Modelle: Es gibt keine Drehung,
 kein Blinzeln und keine Mundbewegung.
+
+## Geplant: echte 3D-Figuren
+
+Der Inhaber will die Figuren in Blender zu 3D-Elementen umbauen, damit sich die
+Köpfe später nach dem Mauszeiger ausrichten. Bis dahin bleiben die WebP-Bilder
+die ausgelieferte Fassung; die 3D-Umsetzung ist noch nicht begonnen.
 
 ## Format
 
