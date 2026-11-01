@@ -1,11 +1,26 @@
 {
   "version": 1,
-  "erzeugt": "2026-10-31T03:28:49.553Z",
+  "erzeugt": "2026-11-01T03:33:00.889Z",
   "hinweis": "Erzeugt von scripts/auftragsstrom.mjs aus assets/eb-arbeit.json. Nicht von Hand bearbeiten.",
-  "journalStand": "2026-10-31T03:28:49.438Z",
+  "journalStand": "2026-11-01T03:33:00.780Z",
   "lage": "Kein Befund im freigegebenen Rahmen — der Scout wählt selbst.",
   "auftraege": [],
   "ausserhalb": [
+    {
+      "herkunft": {
+        "rolle": "mistral-ops",
+        "person": "Nils Falk",
+        "rollenname": "Reliability-Wächter",
+        "bereich": "betrieb",
+        "zeit": "2026-11-01T03:33:00.778Z",
+        "aufgabe": "Deploys, Tests und Monitor-Signale zu einem belastbaren Lagebild verdichten."
+      },
+      "dateien": [
+        "audit/latest.json",
+        ".github/workflows/site-monitor.yml"
+      ],
+      "grund": "nennt audit/latest.json, .github/workflows/site-monitor.yml — außerhalb des freigegebenen Rahmens"
+    },
     {
       "herkunft": {
         "rolle": "mistral-ops",
@@ -48,7 +63,9 @@
         ".github/workflows/site-monitor.yml"
       ],
       "grund": "nennt audit/latest.json, .github/workflows/site-monitor.yml — außerhalb des freigegebenen Rahmens"
-    },
+    }
+  ],
+  "verworfen": [
     {
       "herkunft": {
         "rolle": "mistral-ops",
@@ -58,13 +75,8 @@
         "zeit": "2026-10-28T03:33:29.412Z",
         "aufgabe": "Releaseweg auf den nächsten vermeidbaren Engpass prüfen."
       },
-      "dateien": [
-        ".github/workflows/pr-check.yml"
-      ],
-      "grund": "nennt .github/workflows/pr-check.yml — außerhalb des freigegebenen Rahmens"
-    }
-  ],
-  "verworfen": [
+      "grund": "älter als 72 h — beschreibt einen anderen Code-Stand"
+    },
     {
       "herkunft": {
         "rolle": "mistral-ops",
