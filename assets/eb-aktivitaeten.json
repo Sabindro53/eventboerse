@@ -1,7 +1,7 @@
 {
   "version": 2,
   "hinweis": "Erzeugt von scripts/aktivitaeten.mjs. Nicht von Hand bearbeiten.",
-  "stand": "2026-10-31T03:27:50.554Z",
+  "stand": "2026-11-02T03:30:25.564Z",
   "gebiete": [
     {
       "stadt": "Köln",
@@ -71,91 +71,11 @@
     }
   ],
   "anzahl": {
-    "gesamt": 935,
-    "sport": 135,
+    "gesamt": 930,
+    "sport": 130,
     "orte": 800
   },
   "eintraege": [
-    {
-      "id": "openligadb:83226",
-      "art": "sport",
-      "titel": "FC Schalke 04 – RB Leipzig",
-      "beginn": "2026-10-31T14:30:00.000Z",
-      "gebiet": "Dortmund",
-      "ort": {
-        "name": "Stadion",
-        "stadt": "Dortmund",
-        "lat": 51.5136,
-        "lon": 7.4653,
-        "ungefaehr": true
-      },
-      "quelle": {
-        "name": "OpenLigaDB",
-        "url": "https://www.openligadb.de/",
-        "lizenz": "frei (openligadb.de)"
-      },
-      "partner": false
-    },
-    {
-      "id": "openligadb:83219",
-      "art": "sport",
-      "titel": "FC Bayern München – Borussia Dortmund",
-      "beginn": "2026-10-31T17:30:00.000Z",
-      "gebiet": "München",
-      "ort": {
-        "name": "Stadion",
-        "stadt": "München",
-        "lat": 48.1372,
-        "lon": 11.5755,
-        "ungefaehr": true
-      },
-      "quelle": {
-        "name": "OpenLigaDB",
-        "url": "https://www.openligadb.de/",
-        "lizenz": "frei (openligadb.de)"
-      },
-      "partner": false
-    },
-    {
-      "id": "openligadb:83223",
-      "art": "sport",
-      "titel": "1. FC Union Berlin – 1. FC Köln",
-      "beginn": "2026-11-01T14:30:00.000Z",
-      "gebiet": "Berlin",
-      "ort": {
-        "name": "Stadion",
-        "stadt": "Berlin",
-        "lat": 52.52,
-        "lon": 13.405,
-        "ungefaehr": true
-      },
-      "quelle": {
-        "name": "OpenLigaDB",
-        "url": "https://www.openligadb.de/",
-        "lizenz": "frei (openligadb.de)"
-      },
-      "partner": false
-    },
-    {
-      "id": "openligadb:83221",
-      "art": "sport",
-      "titel": "Eintracht Frankfurt – Hamburger SV",
-      "beginn": "2026-11-01T16:30:00.000Z",
-      "gebiet": "Frankfurt",
-      "ort": {
-        "name": "Stadion",
-        "stadt": "Frankfurt",
-        "lat": 50.1109,
-        "lon": 8.6821,
-        "ungefaehr": true
-      },
-      "quelle": {
-        "name": "OpenLigaDB",
-        "url": "https://www.openligadb.de/",
-        "lizenz": "frei (openligadb.de)"
-      },
-      "partner": false
-    },
     {
       "id": "openligadb:83234",
       "art": "sport",
@@ -2247,26 +2167,6 @@
         "stadt": "Dortmund",
         "lat": 51.5136,
         "lon": 7.4653,
-        "ungefaehr": true
-      },
-      "quelle": {
-        "name": "OpenLigaDB",
-        "url": "https://www.openligadb.de/",
-        "lizenz": "frei (openligadb.de)"
-      },
-      "partner": false
-    },
-    {
-      "id": "openligadb:83664",
-      "art": "sport",
-      "titel": "FC St. Pauli – 1. FC Nürnberg",
-      "beginn": "2026-11-01T12:30:00.000Z",
-      "gebiet": "Hamburg",
-      "ort": {
-        "name": "Stadion",
-        "stadt": "Hamburg",
-        "lat": 53.5511,
-        "lon": 9.9937,
         "ungefaehr": true
       },
       "quelle": {
@@ -5014,28 +4914,6 @@
       "partner": false
     },
     {
-      "id": "osm:node/671436239",
-      "art": "ort",
-      "titel": "Schmela Haus - Kunstsammlung NRW",
-      "kategorie": "Museum",
-      "beginn": null,
-      "gebiet": "Düsseldorf",
-      "ort": {
-        "name": "Schmela Haus - Kunstsammlung NRW",
-        "stadt": "Düsseldorf",
-        "lat": 51.22714,
-        "lon": 6.77575
-      },
-      "entfernungKm": 0.2,
-      "webseite": "https://www.kunstsammlung.de/",
-      "quelle": {
-        "name": "OpenStreetMap",
-        "url": "https://www.openstreetmap.org/node/671436239",
-        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
-      },
-      "partner": false
-    },
-    {
       "id": "osm:node/1577234965",
       "art": "ort",
       "titel": "Cinema",
@@ -5245,7 +5123,7 @@
         "lon": 6.77302
       },
       "entfernungKm": 0.6,
-      "webseite": "https://www.duesseldorf.de/heineinstitut.html",
+      "webseite": "https://heine-institut.de/museum",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/671436231",
@@ -6313,6 +6191,7 @@
         "lon": 6.74621
       },
       "entfernungKm": 8.1,
+      "webseite": "https://pflegemuseum-kaiserswerth.de",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/3677192092",
@@ -6510,6 +6389,7 @@
         "lon": 6.85345
       },
       "entfernungKm": 10.3,
+      "webseite": "https://www.lvr.de/industriemuseum/textilfabrik-cromford",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/2865993051",
@@ -6896,6 +6776,7 @@
         "lon": 7.00004
       },
       "entfernungKm": 16.4,
+      "webseite": "https://www.kreis-mettmann.de/Quickmenu/Ansichtskartenmuseum-.php?object=tx,2023.355.1",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/5437278816",
@@ -7114,6 +6995,28 @@
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/275141838",
+        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
+      },
+      "partner": false
+    },
+    {
+      "id": "osm:node/1725729413",
+      "art": "ort",
+      "titel": "Feuerwehrmuseum Heiligenhaus",
+      "kategorie": "Museum",
+      "beginn": null,
+      "gebiet": "Düsseldorf",
+      "ort": {
+        "name": "Feuerwehrmuseum Heiligenhaus",
+        "stadt": "Heiligenhaus",
+        "lat": 51.33469,
+        "lon": 6.98972
+      },
+      "entfernungKm": 19.2,
+      "webseite": "https://www.fw-heiligenhaus.de/museum",
+      "quelle": {
+        "name": "OpenStreetMap",
+        "url": "https://www.openstreetmap.org/node/1725729413",
         "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
       },
       "partner": false

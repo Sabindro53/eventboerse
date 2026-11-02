@@ -1,11 +1,25 @@
 {
   "version": 1,
-  "erzeugt": "2026-11-01T03:33:00.889Z",
+  "erzeugt": "2026-11-02T03:31:23.610Z",
   "hinweis": "Erzeugt von scripts/auftragsstrom.mjs aus assets/eb-arbeit.json. Nicht von Hand bearbeiten.",
-  "journalStand": "2026-11-01T03:33:00.780Z",
+  "journalStand": "2026-11-02T03:31:23.499Z",
   "lage": "Kein Befund im freigegebenen Rahmen — der Scout wählt selbst.",
   "auftraege": [],
   "ausserhalb": [
+    {
+      "herkunft": {
+        "rolle": "mistral-ops",
+        "person": "Nils Falk",
+        "rollenname": "Reliability-Wächter",
+        "bereich": "betrieb",
+        "zeit": "2026-11-02T03:31:23.496Z",
+        "aufgabe": "Den ältesten roten oder unbekannten Betriebszustand benennen und eingrenzen."
+      },
+      "dateien": [
+        "audit/latest.json"
+      ],
+      "grund": "nennt audit/latest.json — außerhalb des freigegebenen Rahmens"
+    },
     {
       "herkunft": {
         "rolle": "mistral-ops",
@@ -48,7 +62,9 @@
         "audit/latest.json"
       ],
       "grund": "nennt audit/latest.json — außerhalb des freigegebenen Rahmens"
-    },
+    }
+  ],
+  "verworfen": [
     {
       "herkunft": {
         "rolle": "mistral-ops",
@@ -58,14 +74,8 @@
         "zeit": "2026-10-29T03:33:56.621Z",
         "aufgabe": "Deploys, Tests und Monitor-Signale zu einem belastbaren Lagebild verdichten."
       },
-      "dateien": [
-        "audit/latest.json",
-        ".github/workflows/site-monitor.yml"
-      ],
-      "grund": "nennt audit/latest.json, .github/workflows/site-monitor.yml — außerhalb des freigegebenen Rahmens"
-    }
-  ],
-  "verworfen": [
+      "grund": "älter als 72 h — beschreibt einen anderen Code-Stand"
+    },
     {
       "herkunft": {
         "rolle": "mistral-ops",
