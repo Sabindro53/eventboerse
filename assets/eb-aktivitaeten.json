@@ -1,7 +1,7 @@
 {
   "version": 2,
   "hinweis": "Erzeugt von scripts/aktivitaeten.mjs. Nicht von Hand bearbeiten.",
-  "stand": "2026-11-04T03:28:36.048Z",
+  "stand": "2026-11-05T03:29:00.842Z",
   "gebiete": [
     {
       "stadt": "Köln",
@@ -7306,27 +7306,6 @@
       "partner": false
     },
     {
-      "id": "osm:node/11160143677",
-      "art": "ort",
-      "titel": "Camera Lichtspiele",
-      "kategorie": "Kino",
-      "beginn": null,
-      "gebiet": "Dortmund",
-      "ort": {
-        "name": "Camera Lichtspiele",
-        "stadt": "Dortmund",
-        "lat": 51.52413,
-        "lon": 7.45423
-      },
-      "entfernungKm": 1.4,
-      "quelle": {
-        "name": "OpenStreetMap",
-        "url": "https://www.openstreetmap.org/node/11160143677",
-        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
-      },
-      "partner": false
-    },
-    {
       "id": "osm:node/12200702513",
       "art": "ort",
       "titel": "NEO Escape Room",
@@ -9177,6 +9156,28 @@
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/30913756",
+        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
+      },
+      "partner": false
+    },
+    {
+      "id": "osm:node/264263661",
+      "art": "ort",
+      "titel": "Union Kino",
+      "kategorie": "Kino",
+      "beginn": null,
+      "gebiet": "Dortmund",
+      "ort": {
+        "name": "Union Kino",
+        "stadt": "Bochum",
+        "lat": 51.47678,
+        "lon": 7.2169
+      },
+      "entfernungKm": 17.7,
+      "webseite": "https://www.kino-bochum.de/",
+      "quelle": {
+        "name": "OpenStreetMap",
+        "url": "https://www.openstreetmap.org/node/264263661",
         "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
       },
       "partner": false
@@ -14806,23 +14807,64 @@
       "partner": false
     },
     {
-      "id": "osm:way/150797531",
+      "id": "osm:node/14349682101",
       "art": "ort",
-      "titel": "Haus der Kunst",
-      "kategorie": "Museum",
+      "titel": "Großer Konzertsaal (GK)",
+      "kategorie": "Theater",
       "beginn": null,
       "gebiet": "München",
       "ort": {
-        "name": "Haus der Kunst",
+        "name": "Großer Konzertsaal (GK)",
         "stadt": "",
-        "lat": 48.14412,
-        "lon": 11.58596
+        "lat": 48.14602,
+        "lon": 11.56769
       },
       "entfernungKm": 1.1,
-      "webseite": "https://www.hausderkunst.de/",
       "quelle": {
         "name": "OpenStreetMap",
-        "url": "https://www.openstreetmap.org/way/150797531",
+        "url": "https://www.openstreetmap.org/node/14349682101",
+        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
+      },
+      "partner": false
+    },
+    {
+      "id": "osm:node/14349682201",
+      "art": "ort",
+      "titel": "Kleiner Konzertsaal (KK)",
+      "kategorie": "Theater",
+      "beginn": null,
+      "gebiet": "München",
+      "ort": {
+        "name": "Kleiner Konzertsaal (KK)",
+        "stadt": "",
+        "lat": 48.14589,
+        "lon": 11.56774
+      },
+      "entfernungKm": 1.1,
+      "quelle": {
+        "name": "OpenStreetMap",
+        "url": "https://www.openstreetmap.org/node/14349682201",
+        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
+      },
+      "partner": false
+    },
+    {
+      "id": "osm:node/14349682401",
+      "art": "ort",
+      "titel": "Opernschule (A 033)",
+      "kategorie": "Theater",
+      "beginn": null,
+      "gebiet": "München",
+      "ort": {
+        "name": "Opernschule (A 033)",
+        "stadt": "",
+        "lat": 48.14608,
+        "lon": 11.56788
+      },
+      "entfernungKm": 1.1,
+      "quelle": {
+        "name": "OpenStreetMap",
+        "url": "https://www.openstreetmap.org/node/14349682401",
         "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
       },
       "partner": false
@@ -15109,6 +15151,27 @@
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/11401594532",
+        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
+      },
+      "partner": false
+    },
+    {
+      "id": "osm:node/14349682001",
+      "art": "ort",
+      "titel": "Carl Orff Auditorium (COA)",
+      "kategorie": "Theater",
+      "beginn": null,
+      "gebiet": "München",
+      "ort": {
+        "name": "Carl Orff Auditorium (COA)",
+        "stadt": "",
+        "lat": 48.14818,
+        "lon": 11.56496
+      },
+      "entfernungKm": 1.5,
+      "quelle": {
+        "name": "OpenStreetMap",
+        "url": "https://www.openstreetmap.org/node/14349682001",
         "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
       },
       "partner": false
@@ -15659,71 +15722,6 @@
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/370745201",
-        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
-      },
-      "partner": false
-    },
-    {
-      "id": "osm:node/315953391",
-      "art": "ort",
-      "titel": "Blutenburg-Theater",
-      "kategorie": "Theater",
-      "beginn": null,
-      "gebiet": "München",
-      "ort": {
-        "name": "Blutenburg-Theater",
-        "stadt": "",
-        "lat": 48.14941,
-        "lon": 11.54201
-      },
-      "entfernungKm": 2.8,
-      "webseite": "https://www.blutenburg-theater.de/willkommen.html",
-      "quelle": {
-        "name": "OpenStreetMap",
-        "url": "https://www.openstreetmap.org/node/315953391",
-        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
-      },
-      "partner": false
-    },
-    {
-      "id": "osm:node/338175108",
-      "art": "ort",
-      "titel": "ABC Kino",
-      "kategorie": "Kino",
-      "beginn": null,
-      "gebiet": "München",
-      "ort": {
-        "name": "ABC Kino",
-        "stadt": "München",
-        "lat": 48.16186,
-        "lon": 11.58547
-      },
-      "entfernungKm": 2.8,
-      "webseite": "https://leopold-abckinos.de/",
-      "quelle": {
-        "name": "OpenStreetMap",
-        "url": "https://www.openstreetmap.org/node/338175108",
-        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
-      },
-      "partner": false
-    },
-    {
-      "id": "osm:node/387455916",
-      "art": "ort",
-      "titel": "Heppel & Ettlich",
-      "kategorie": "Theater",
-      "beginn": null,
-      "gebiet": "München",
-      "ort": {
-        "name": "Heppel & Ettlich",
-        "stadt": "München",
-        "lat": 48.16122,
-        "lon": 11.5888
-      },
-      "entfernungKm": 2.8,
-      "quelle": {
-        "name": "OpenStreetMap",
-        "url": "https://www.openstreetmap.org/node/387455916",
         "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
       },
       "partner": false
