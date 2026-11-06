@@ -1,7 +1,7 @@
 {
   "version": 2,
   "hinweis": "Erzeugt von scripts/aktivitaeten.mjs. Nicht von Hand bearbeiten.",
-  "stand": "2026-11-05T03:29:00.842Z",
+  "stand": "2026-11-06T03:29:22.027Z",
   "gebiete": [
     {
       "stadt": "Köln",
@@ -320,33 +320,13 @@
       "id": "openligadb:83255",
       "art": "sport",
       "titel": "FC Bayern München – SC Paderborn 07",
-      "beginn": "2026-12-05T14:30:00.000Z",
+      "beginn": "2026-12-04T19:30:00.000Z",
       "gebiet": "München",
       "ort": {
         "name": "Stadion",
         "stadt": "München",
         "lat": 48.1372,
         "lon": 11.5755,
-        "ungefaehr": true
-      },
-      "quelle": {
-        "name": "OpenLigaDB",
-        "url": "https://www.openligadb.de/",
-        "lizenz": "frei (openligadb.de)"
-      },
-      "partner": false
-    },
-    {
-      "id": "openligadb:83259",
-      "art": "sport",
-      "titel": "Eintracht Frankfurt – SV Werder Bremen",
-      "beginn": "2026-12-05T14:30:00.000Z",
-      "gebiet": "Frankfurt",
-      "ort": {
-        "name": "Stadion",
-        "stadt": "Frankfurt",
-        "lat": 50.1109,
-        "lon": 8.6821,
         "ungefaehr": true
       },
       "quelle": {
@@ -377,16 +357,56 @@
       "partner": false
     },
     {
+      "id": "openligadb:83259",
+      "art": "sport",
+      "titel": "Eintracht Frankfurt – SV Werder Bremen",
+      "beginn": "2026-12-05T17:30:00.000Z",
+      "gebiet": "Frankfurt",
+      "ort": {
+        "name": "Stadion",
+        "stadt": "Frankfurt",
+        "lat": 50.1109,
+        "lon": 8.6821,
+        "ungefaehr": true
+      },
+      "quelle": {
+        "name": "OpenLigaDB",
+        "url": "https://www.openligadb.de/",
+        "lizenz": "frei (openligadb.de)"
+      },
+      "partner": false
+    },
+    {
       "id": "openligadb:83262",
       "art": "sport",
       "titel": "FC Schalke 04 – Borussia Dortmund",
-      "beginn": "2026-12-05T14:30:00.000Z",
+      "beginn": "2026-12-06T14:30:00.000Z",
       "gebiet": "Dortmund",
       "ort": {
         "name": "Stadion",
         "stadt": "Dortmund",
         "lat": 51.5136,
         "lon": 7.4653,
+        "ungefaehr": true
+      },
+      "quelle": {
+        "name": "OpenLigaDB",
+        "url": "https://www.openligadb.de/",
+        "lizenz": "frei (openligadb.de)"
+      },
+      "partner": false
+    },
+    {
+      "id": "openligadb:83269",
+      "art": "sport",
+      "titel": "Hamburger SV – FC Schalke 04",
+      "beginn": "2026-12-11T19:30:00.000Z",
+      "gebiet": "Hamburg",
+      "ort": {
+        "name": "Stadion",
+        "stadt": "Hamburg",
+        "lat": 53.5511,
+        "lon": 9.9937,
         "ungefaehr": true
       },
       "quelle": {
@@ -437,26 +457,6 @@
       "partner": false
     },
     {
-      "id": "openligadb:83269",
-      "art": "sport",
-      "titel": "Hamburger SV – FC Schalke 04",
-      "beginn": "2026-12-12T14:30:00.000Z",
-      "gebiet": "Hamburg",
-      "ort": {
-        "name": "Stadion",
-        "stadt": "Hamburg",
-        "lat": 53.5511,
-        "lon": 9.9937,
-        "ungefaehr": true
-      },
-      "quelle": {
-        "name": "OpenLigaDB",
-        "url": "https://www.openligadb.de/",
-        "lizenz": "frei (openligadb.de)"
-      },
-      "partner": false
-    },
-    {
       "id": "openligadb:83270",
       "art": "sport",
       "titel": "1. FC Köln – RB Leipzig",
@@ -480,7 +480,7 @@
       "id": "openligadb:83273",
       "art": "sport",
       "titel": "FC Bayern München – SV Werder Bremen",
-      "beginn": "2026-12-19T14:30:00.000Z",
+      "beginn": "2026-12-18T19:30:00.000Z",
       "gebiet": "München",
       "ort": {
         "name": "Stadion",
@@ -500,7 +500,7 @@
       "id": "openligadb:83279",
       "art": "sport",
       "titel": "1. FC Union Berlin – TSG Hoffenheim",
-      "beginn": "2026-12-19T14:30:00.000Z",
+      "beginn": "2026-12-20T16:30:00.000Z",
       "gebiet": "Berlin",
       "ort": {
         "name": "Stadion",
@@ -520,7 +520,7 @@
       "id": "openligadb:83280",
       "art": "sport",
       "titel": "FC Schalke 04 – Borussia Mönchengladbach",
-      "beginn": "2026-12-19T14:30:00.000Z",
+      "beginn": "2026-12-20T18:30:00.000Z",
       "gebiet": "Dortmund",
       "ort": {
         "name": "Stadion",
@@ -540,7 +540,7 @@
       "id": "openligadb:83282",
       "art": "sport",
       "titel": "Borussia Dortmund – 1. FSV Mainz 05",
-      "beginn": "2027-01-09T14:30:00.000Z",
+      "beginn": "2027-01-08T19:30:00.000Z",
       "gebiet": "Dortmund",
       "ort": {
         "name": "Stadion",
@@ -597,26 +597,6 @@
       "partner": false
     },
     {
-      "id": "openligadb:83287",
-      "art": "sport",
-      "titel": "Hamburger SV – Bayer 04 Leverkusen",
-      "beginn": "2027-01-09T14:30:00.000Z",
-      "gebiet": "Hamburg",
-      "ort": {
-        "name": "Stadion",
-        "stadt": "Hamburg",
-        "lat": 53.5511,
-        "lon": 9.9937,
-        "ungefaehr": true
-      },
-      "quelle": {
-        "name": "OpenLigaDB",
-        "url": "https://www.openligadb.de/",
-        "lizenz": "frei (openligadb.de)"
-      },
-      "partner": false
-    },
-    {
       "id": "openligadb:83288",
       "art": "sport",
       "titel": "1. FC Köln – SC Freiburg",
@@ -637,36 +617,16 @@
       "partner": false
     },
     {
-      "id": "openligadb:83291",
+      "id": "openligadb:83287",
       "art": "sport",
-      "titel": "FC Bayern München – Bayer 04 Leverkusen",
-      "beginn": "2027-01-12T19:30:00.000Z",
-      "gebiet": "München",
+      "titel": "Hamburger SV – Bayer 04 Leverkusen",
+      "beginn": "2027-01-10T16:30:00.000Z",
+      "gebiet": "Hamburg",
       "ort": {
         "name": "Stadion",
-        "stadt": "München",
-        "lat": 48.1372,
-        "lon": 11.5755,
-        "ungefaehr": true
-      },
-      "quelle": {
-        "name": "OpenLigaDB",
-        "url": "https://www.openligadb.de/",
-        "lizenz": "frei (openligadb.de)"
-      },
-      "partner": false
-    },
-    {
-      "id": "openligadb:83296",
-      "art": "sport",
-      "titel": "1. FC Union Berlin – SC Paderborn 07",
-      "beginn": "2027-01-12T19:30:00.000Z",
-      "gebiet": "Berlin",
-      "ort": {
-        "name": "Stadion",
-        "stadt": "Berlin",
-        "lat": 52.52,
-        "lon": 13.405,
+        "stadt": "Hamburg",
+        "lat": 53.5511,
+        "lon": 9.9937,
         "ungefaehr": true
       },
       "quelle": {
@@ -697,16 +657,76 @@
       "partner": false
     },
     {
+      "id": "openligadb:83291",
+      "art": "sport",
+      "titel": "FC Bayern München – Bayer 04 Leverkusen",
+      "beginn": "2027-01-13T19:30:00.000Z",
+      "gebiet": "München",
+      "ort": {
+        "name": "Stadion",
+        "stadt": "München",
+        "lat": 48.1372,
+        "lon": 11.5755,
+        "ungefaehr": true
+      },
+      "quelle": {
+        "name": "OpenLigaDB",
+        "url": "https://www.openligadb.de/",
+        "lizenz": "frei (openligadb.de)"
+      },
+      "partner": false
+    },
+    {
+      "id": "openligadb:83296",
+      "art": "sport",
+      "titel": "1. FC Union Berlin – SC Paderborn 07",
+      "beginn": "2027-01-13T19:30:00.000Z",
+      "gebiet": "Berlin",
+      "ort": {
+        "name": "Stadion",
+        "stadt": "Berlin",
+        "lat": 52.52,
+        "lon": 13.405,
+        "ungefaehr": true
+      },
+      "quelle": {
+        "name": "OpenLigaDB",
+        "url": "https://www.openligadb.de/",
+        "lizenz": "frei (openligadb.de)"
+      },
+      "partner": false
+    },
+    {
       "id": "openligadb:83298",
       "art": "sport",
       "titel": "FC Schalke 04 – SV Werder Bremen",
-      "beginn": "2027-01-12T19:30:00.000Z",
+      "beginn": "2027-01-13T19:30:00.000Z",
       "gebiet": "Dortmund",
       "ort": {
         "name": "Stadion",
         "stadt": "Dortmund",
         "lat": 51.5136,
         "lon": 7.4653,
+        "ungefaehr": true
+      },
+      "quelle": {
+        "name": "OpenLigaDB",
+        "url": "https://www.openligadb.de/",
+        "lizenz": "frei (openligadb.de)"
+      },
+      "partner": false
+    },
+    {
+      "id": "openligadb:83301",
+      "art": "sport",
+      "titel": "VfB Stuttgart – 1. FSV Mainz 05",
+      "beginn": "2027-01-15T19:30:00.000Z",
+      "gebiet": "Stuttgart",
+      "ort": {
+        "name": "Stadion",
+        "stadt": "Stuttgart",
+        "lat": 48.7758,
+        "lon": 9.1829,
         "ungefaehr": true
       },
       "quelle": {
@@ -737,16 +757,16 @@
       "partner": false
     },
     {
-      "id": "openligadb:83301",
+      "id": "openligadb:83306",
       "art": "sport",
-      "titel": "VfB Stuttgart – 1. FSV Mainz 05",
+      "titel": "Hamburger SV – FC Augsburg",
       "beginn": "2027-01-16T14:30:00.000Z",
-      "gebiet": "Stuttgart",
+      "gebiet": "Hamburg",
       "ort": {
         "name": "Stadion",
-        "stadt": "Stuttgart",
-        "lat": 48.7758,
-        "lon": 9.1829,
+        "stadt": "Hamburg",
+        "lat": 53.5511,
+        "lon": 9.9937,
         "ungefaehr": true
       },
       "quelle": {
@@ -760,33 +780,13 @@
       "id": "openligadb:83304",
       "art": "sport",
       "titel": "Eintracht Frankfurt – FC Bayern München",
-      "beginn": "2027-01-16T14:30:00.000Z",
+      "beginn": "2027-01-16T17:30:00.000Z",
       "gebiet": "Frankfurt",
       "ort": {
         "name": "Stadion",
         "stadt": "Frankfurt",
         "lat": 50.1109,
         "lon": 8.6821,
-        "ungefaehr": true
-      },
-      "quelle": {
-        "name": "OpenLigaDB",
-        "url": "https://www.openligadb.de/",
-        "lizenz": "frei (openligadb.de)"
-      },
-      "partner": false
-    },
-    {
-      "id": "openligadb:83306",
-      "art": "sport",
-      "titel": "Hamburger SV – FC Augsburg",
-      "beginn": "2027-01-16T14:30:00.000Z",
-      "gebiet": "Hamburg",
-      "ort": {
-        "name": "Stadion",
-        "stadt": "Hamburg",
-        "lat": 53.5511,
-        "lon": 9.9937,
         "ungefaehr": true
       },
       "quelle": {
@@ -817,16 +817,16 @@
       "partner": false
     },
     {
-      "id": "openligadb:83312",
+      "id": "openligadb:83316",
       "art": "sport",
-      "titel": "Eintracht Frankfurt – 1. FC Union Berlin",
+      "titel": "FC Schalke 04 – FC Augsburg",
       "beginn": "2027-01-23T14:30:00.000Z",
-      "gebiet": "Frankfurt",
+      "gebiet": "Dortmund",
       "ort": {
         "name": "Stadion",
-        "stadt": "Frankfurt",
-        "lat": 50.1109,
-        "lon": 8.6821,
+        "stadt": "Dortmund",
+        "lat": 51.5136,
+        "lon": 7.4653,
         "ungefaehr": true
       },
       "quelle": {
@@ -840,7 +840,7 @@
       "id": "openligadb:83314",
       "art": "sport",
       "titel": "Hamburger SV – Borussia Dortmund",
-      "beginn": "2027-01-23T14:30:00.000Z",
+      "beginn": "2027-01-23T17:30:00.000Z",
       "gebiet": "Hamburg",
       "ort": {
         "name": "Stadion",
@@ -857,16 +857,16 @@
       "partner": false
     },
     {
-      "id": "openligadb:83316",
+      "id": "openligadb:83312",
       "art": "sport",
-      "titel": "FC Schalke 04 – FC Augsburg",
-      "beginn": "2027-01-23T14:30:00.000Z",
-      "gebiet": "Dortmund",
+      "titel": "Eintracht Frankfurt – 1. FC Union Berlin",
+      "beginn": "2027-01-24T14:30:00.000Z",
+      "gebiet": "Frankfurt",
       "ort": {
         "name": "Stadion",
-        "stadt": "Dortmund",
-        "lat": 51.5136,
-        "lon": 7.4653,
+        "stadt": "Frankfurt",
+        "lat": 50.1109,
+        "lon": 8.6821,
         "ungefaehr": true
       },
       "quelle": {
@@ -2260,7 +2260,7 @@
       "id": "openligadb:83743",
       "art": "sport",
       "titel": "Hertha BSC – SV Darmstadt 98",
-      "beginn": "2026-12-13T12:30:00.000Z",
+      "beginn": "2026-12-12T12:00:00.000Z",
       "gebiet": "Berlin",
       "ort": {
         "name": "Stadion",
@@ -2280,7 +2280,7 @@
       "id": "openligadb:83753",
       "art": "sport",
       "titel": "FC St. Pauli – Hertha BSC",
-      "beginn": "2026-12-20T12:30:00.000Z",
+      "beginn": "2026-12-19T12:00:00.000Z",
       "gebiet": "Hamburg",
       "ort": {
         "name": "Stadion",
@@ -2300,7 +2300,7 @@
       "id": "openligadb:83771",
       "art": "sport",
       "titel": "Hertha BSC – 1. FC Nürnberg",
-      "beginn": "2027-01-17T12:30:00.000Z",
+      "beginn": "2027-01-16T19:30:00.000Z",
       "gebiet": "Berlin",
       "ort": {
         "name": "Stadion",
@@ -2320,7 +2320,7 @@
       "id": "openligadb:83860",
       "art": "sport",
       "titel": "Hertha BSC – VfL Bochum",
-      "beginn": "2027-01-24T12:30:00.000Z",
+      "beginn": "2027-01-23T12:00:00.000Z",
       "gebiet": "Berlin",
       "ort": {
         "name": "Stadion",
