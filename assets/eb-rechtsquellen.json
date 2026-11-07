@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "geprueftAm": "2026-11-06",
+  "geprueftAm": "2026-11-07",
   "quellen": [
     {
       "id": "bgb-356a",
@@ -31,9 +31,8 @@
         "C07"
       ],
       "akzeptierterHash": "173b3ad8060567166108ed8f0f4996d490d0be6e868ea9d4043e8958ffaa1fd2",
-      "aktuellerHash": "173b3ad8060567166108ed8f0f4996d490d0be6e868ea9d4043e8958ffaa1fd2",
-      "status": "nicht_erreichbar",
-      "fehler": "amtliche Seite enthielt zu wenig Text"
+      "aktuellerHash": "b168784a00256006e3c03453daf42b49d4e3ca8d1be5338ccaf9fb3ed4cf818e",
+      "status": "pruefung"
     },
     {
       "id": "bfsg-3",
@@ -75,9 +74,8 @@
         "B16"
       ],
       "akzeptierterHash": "6a56a0633955faa38f62050bf17bd4b03106bd0f4bdea0cfb6e8ef620892143b",
-      "aktuellerHash": "6a56a0633955faa38f62050bf17bd4b03106bd0f4bdea0cfb6e8ef620892143b",
-      "status": "nicht_erreichbar",
-      "fehler": "amtliche Seite enthielt zu wenig Text"
+      "aktuellerHash": "5c70b4fee2b54c3da5446ff1f4eef67ad099666eb39d2ca10319a83a500a58f6",
+      "status": "pruefung"
     },
     {
       "id": "p2b",
@@ -91,9 +89,8 @@
         "B17"
       ],
       "akzeptierterHash": "1f46adb781de29673c295676e5da477abccaa078e8b3be22e324ebf32e4ee8a8",
-      "aktuellerHash": "1f46adb781de29673c295676e5da477abccaa078e8b3be22e324ebf32e4ee8a8",
-      "status": "nicht_erreichbar",
-      "fehler": "amtliche Seite enthielt zu wenig Text"
+      "aktuellerHash": "464a81907827caaf33c9a06f9c5d147cc60767bc1e1225d87e5c2c78d46e4177",
+      "status": "pruefung"
     },
     {
       "id": "gmbhg-5a",
