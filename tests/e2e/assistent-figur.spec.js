@@ -59,9 +59,25 @@ test.describe('Die Dateien', () => {
   });
 
   test('es liegt nichts im Ordner, was nicht ausgeliefert werden soll', () => {
-    const erlaubt = new Set(['README.md', ...Array.from({ length: 10 }, (_, i) => `avatar-${String(i + 1).padStart(2, '0')}.webp`)]);
+    const nrn = Array.from({ length: 10 }, (_, i) => String(i + 1).padStart(2, '0'));
+    const erlaubt = new Set(['README.md', ...nrn.map((n) => `avatar-${n}.webp`), ...nrn.map((n) => `avatar-${n}-blick.webp`)]);
     const fremd = fs.readdirSync(ORDNER).filter((f) => !erlaubt.has(f));
     expect(fremd, 'Archiv, Codex-Bild oder Kontextdatei gehören nicht ins öffentliche Repo').toEqual([]);
+  });
+
+  test('zu jeder Figur ein Blick-Raster: 7 × 3 Felder à 160 × 240, mit Transparenz, höchstens 160 KB', () => {
+    for (let n = 1; n <= 10; n++) {
+      const datei = path.join(ORDNER, `avatar-${String(n).padStart(2, '0')}-blick.webp`);
+      expect(fs.existsSync(datei), `${datei} fehlt — scripts/avatar-blick.py laufen lassen`).toBe(true);
+      const b = fs.readFileSync(datei);
+      expect(b.subarray(8, 12).toString('latin1')).toBe('WEBP');
+      expect(b.subarray(12, 16).toString('latin1')).toBe('VP8X');
+      expect(b[20] & 0x10, `${datei}: keine Transparenz`).not.toBe(0);
+      // VP8X: Breite-1 und Höhe-1 als 24-Bit little endian ab Byte 24 bzw. 27
+      const breite = 1 + b.readUIntLE(24, 3), hoehe = 1 + b.readUIntLE(27, 3);
+      expect([breite, hoehe], datei).toEqual([7 * 160, 3 * 240]);
+      expect(b.length, datei).toBeLessThanOrEqual(160 * 1024);
+    }
   });
 
   test('die README vermerkt die Bestätigung der Nutzungsrechte', () => {
