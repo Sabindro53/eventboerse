@@ -1,7 +1,7 @@
 {
   "version": 2,
   "hinweis": "Erzeugt von scripts/aktivitaeten.mjs. Nicht von Hand bearbeiten.",
-  "stand": "2026-11-07T03:27:32.003Z",
+  "stand": "2026-11-09T03:31:31.488Z",
   "gebiete": [
     {
       "stadt": "Köln",
@@ -71,71 +71,11 @@
     }
   ],
   "anzahl": {
-    "gesamt": 929,
-    "sport": 129,
+    "gesamt": 925,
+    "sport": 125,
     "orte": 800
   },
   "eintraege": [
-    {
-      "id": "openligadb:83228",
-      "art": "sport",
-      "titel": "Borussia Dortmund – SV 07 Elversberg",
-      "beginn": "2026-11-07T14:30:00.000Z",
-      "gebiet": "Dortmund",
-      "ort": {
-        "name": "Stadion",
-        "stadt": "Dortmund",
-        "lat": 51.5136,
-        "lon": 7.4653,
-        "ungefaehr": true
-      },
-      "quelle": {
-        "name": "OpenLigaDB",
-        "url": "https://www.openligadb.de/",
-        "lizenz": "frei (openligadb.de)"
-      },
-      "partner": false
-    },
-    {
-      "id": "openligadb:83230",
-      "art": "sport",
-      "titel": "VfB Stuttgart – SV Werder Bremen",
-      "beginn": "2026-11-07T17:30:00.000Z",
-      "gebiet": "Stuttgart",
-      "ort": {
-        "name": "Stadion",
-        "stadt": "Stuttgart",
-        "lat": 48.7758,
-        "lon": 9.1829,
-        "ungefaehr": true
-      },
-      "quelle": {
-        "name": "OpenLigaDB",
-        "url": "https://www.openligadb.de/",
-        "lizenz": "frei (openligadb.de)"
-      },
-      "partner": false
-    },
-    {
-      "id": "openligadb:83235",
-      "art": "sport",
-      "titel": "1. FC Köln – Bayer 04 Leverkusen",
-      "beginn": "2026-11-08T14:30:00.000Z",
-      "gebiet": "Köln",
-      "ort": {
-        "name": "Stadion",
-        "stadt": "Köln",
-        "lat": 50.9413,
-        "lon": 6.9583,
-        "ungefaehr": true
-      },
-      "quelle": {
-        "name": "OpenLigaDB",
-        "url": "https://www.openligadb.de/",
-        "lizenz": "frei (openligadb.de)"
-      },
-      "partner": false
-    },
     {
       "id": "openligadb:83237",
       "art": "sport",
@@ -2147,26 +2087,6 @@
         "stadt": "Dortmund",
         "lat": 51.5136,
         "lon": 7.4653,
-        "ungefaehr": true
-      },
-      "quelle": {
-        "name": "OpenLigaDB",
-        "url": "https://www.openligadb.de/",
-        "lizenz": "frei (openligadb.de)"
-      },
-      "partner": false
-    },
-    {
-      "id": "openligadb:83681",
-      "art": "sport",
-      "titel": "Hertha BSC – VfL Wolfsburg",
-      "beginn": "2026-11-07T19:30:00.000Z",
-      "gebiet": "Berlin",
-      "ort": {
-        "name": "Stadion",
-        "stadt": "Berlin",
-        "lat": 52.52,
-        "lon": 13.405,
         "ungefaehr": true
       },
       "quelle": {
