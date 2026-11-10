@@ -1,7 +1,7 @@
 {
   "version": 2,
   "hinweis": "Erzeugt von scripts/aktivitaeten.mjs. Nicht von Hand bearbeiten.",
-  "stand": "2026-11-09T03:31:31.488Z",
+  "stand": "2026-11-10T03:28:51.440Z",
   "gebiete": [
     {
       "stadt": "Köln",
@@ -10279,6 +10279,28 @@
       "partner": false
     },
     {
+      "id": "osm:node/9573608156",
+      "art": "ort",
+      "titel": "Lettrétage",
+      "kategorie": "Theater",
+      "beginn": null,
+      "gebiet": "Berlin",
+      "ort": {
+        "name": "Lettrétage",
+        "stadt": "",
+        "lat": 52.53339,
+        "lon": 13.40105
+      },
+      "entfernungKm": 1.5,
+      "webseite": "https://www.lettretage.de/",
+      "quelle": {
+        "name": "OpenStreetMap",
+        "url": "https://www.openstreetmap.org/node/9573608156",
+        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
+      },
+      "partner": false
+    },
+    {
       "id": "osm:node/292738889",
       "art": "ort",
       "titel": "Museum für Kommunikation",
@@ -11234,28 +11256,6 @@
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/1158225994",
-        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
-      },
-      "partner": false
-    },
-    {
-      "id": "osm:node/4007032909",
-      "art": "ort",
-      "titel": "Schneiders Filmclub",
-      "kategorie": "Kino",
-      "beginn": null,
-      "gebiet": "Berlin",
-      "ort": {
-        "name": "Schneiders Filmclub",
-        "stadt": "Berlin",
-        "lat": 52.5411,
-        "lon": 13.38494
-      },
-      "entfernungKm": 2.7,
-      "webseite": "https://www.bauinx-berlin.de/",
-      "quelle": {
-        "name": "OpenStreetMap",
-        "url": "https://www.openstreetmap.org/node/4007032909",
         "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
       },
       "partner": false
