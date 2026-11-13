@@ -1,11 +1,26 @@
 {
   "version": 1,
-  "erzeugt": "2026-11-12T03:30:12.366Z",
+  "erzeugt": "2026-11-13T03:31:00.135Z",
   "hinweis": "Erzeugt von scripts/auftragsstrom.mjs aus assets/eb-arbeit.json. Nicht von Hand bearbeiten.",
-  "journalStand": "2026-11-12T03:30:12.238Z",
+  "journalStand": "2026-11-13T03:31:00.026Z",
   "lage": "Kein Befund im freigegebenen Rahmen — der Scout wählt selbst.",
   "auftraege": [],
   "ausserhalb": [
+    {
+      "herkunft": {
+        "rolle": "mistral-ops",
+        "person": "Nils Falk",
+        "rollenname": "Reliability-Wächter",
+        "bereich": "betrieb",
+        "zeit": "2026-11-13T03:31:00.024Z",
+        "aufgabe": "Deploys, Tests und Monitor-Signale zu einem belastbaren Lagebild verdichten."
+      },
+      "dateien": [
+        "audit/latest.json",
+        ".github/workflows/site-monitor.yml"
+      ],
+      "grund": "nennt audit/latest.json, .github/workflows/site-monitor.yml — außerhalb des freigegebenen Rahmens"
+    },
     {
       "herkunft": {
         "rolle": "mistral-ops",
@@ -33,7 +48,9 @@
         "audit/latest.json"
       ],
       "grund": "nennt audit/latest.json — außerhalb des freigegebenen Rahmens"
-    },
+    }
+  ],
+  "verworfen": [
     {
       "herkunft": {
         "rolle": "mistral-ops",
@@ -43,11 +60,7 @@
         "zeit": "2026-11-10T03:29:53.066Z",
         "aufgabe": "Deploys, Tests und Monitor-Signale zu einem belastbaren Lagebild verdichten."
       },
-      "dateien": [
-        "audit/latest.json",
-        ".github/workflows/site-monitor.yml"
-      ],
-      "grund": "nennt audit/latest.json, .github/workflows/site-monitor.yml — außerhalb des freigegebenen Rahmens"
+      "grund": "älter als 72 h — beschreibt einen anderen Code-Stand"
     },
     {
       "herkunft": {
@@ -58,13 +71,8 @@
         "zeit": "2026-11-09T03:32:32.860Z",
         "aufgabe": "Releaseweg auf den nächsten vermeidbaren Engpass prüfen."
       },
-      "dateien": [
-        ".github/workflows/pr-check.yml"
-      ],
-      "grund": "nennt .github/workflows/pr-check.yml — außerhalb des freigegebenen Rahmens"
-    }
-  ],
-  "verworfen": [
+      "grund": "älter als 72 h — beschreibt einen anderen Code-Stand"
+    },
     {
       "herkunft": {
         "rolle": "mistral-ops",
