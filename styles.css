@@ -839,6 +839,19 @@ body.dark-mode .nav-clear-search:hover { background: var(--border-light); }
   flex-shrink: 0;
 }
 /* ── Assistenten-Figur (ui/33-assistent-figur.js, assets/avatare) ── */
+/* Blickfolge (ui/33): das Raster liegt über dem ruhenden Bild und ist nur
+   sichtbar, solange der Knopf .is-blick trägt. Ohne Raster bleibt alles
+   wie vorher. */
+.eb-qa-launcher-icon { position: relative; }
+.eb-qa-blick {
+  position: absolute;
+  inset: 0;
+  background-repeat: no-repeat;
+  opacity: 0;
+  pointer-events: none;
+}
+.eb-qa-launcher.is-blick .eb-qa-blick { opacity: 1; }
+.eb-qa-launcher.is-blick .eb-qa-figur { opacity: 0; }
 /* N02: beim Herunterscrollen aus dem Weg (ui/33). visibility statt nur
    opacity: ein unsichtbarer Knopf darf weder Finger noch Tastaturfokus
    fangen. Die Verzögerung von visibility lässt das Gleiten erst zu Ende
