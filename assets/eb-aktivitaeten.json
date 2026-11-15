@@ -1,7 +1,7 @@
 {
   "version": 2,
   "hinweis": "Erzeugt von scripts/aktivitaeten.mjs. Nicht von Hand bearbeiten.",
-  "stand": "2026-11-14T03:28:07.561Z",
+  "stand": "2026-11-15T03:29:17.668Z",
   "gebiete": [
     {
       "stadt": "Köln",
@@ -6568,6 +6568,7 @@
         "lon": 6.90017
       },
       "entfernungKm": 14.9,
+      "webseite": "https://oberschlesisches-landesmuseum.de",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/506907780",
@@ -6887,11 +6888,12 @@
       "gebiet": "Düsseldorf",
       "ort": {
         "name": "Niederbergisches Museum",
-        "stadt": "",
+        "stadt": "Wülfrath",
         "lat": 51.2847,
         "lon": 7.02891
       },
       "entfernungKm": 18.9,
+      "webseite": "https://www.niederbergisches-museum.de",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/275141838",
