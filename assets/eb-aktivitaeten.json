@@ -1,7 +1,7 @@
 {
   "version": 2,
   "hinweis": "Erzeugt von scripts/aktivitaeten.mjs. Nicht von Hand bearbeiten.",
-  "stand": "2026-11-15T03:29:17.668Z",
+  "stand": "2026-11-16T03:34:48.498Z",
   "gebiete": [
     {
       "stadt": "Köln",
@@ -13234,7 +13234,7 @@
         "lon": 9.97822
       },
       "entfernungKm": 2.1,
-      "webseite": "https://www.cenak.uni-hamburg.de/ausstellungen/museum-zoologie.html",
+      "webseite": "https://hamburg.leibniz-lib.de/de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/way/27443629",
