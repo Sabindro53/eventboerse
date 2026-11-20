@@ -1,11 +1,25 @@
 {
   "version": 1,
-  "erzeugt": "2026-11-19T03:30:57.050Z",
+  "erzeugt": "2026-11-20T03:31:55.508Z",
   "hinweis": "Erzeugt von scripts/auftragsstrom.mjs aus assets/eb-arbeit.json. Nicht von Hand bearbeiten.",
-  "journalStand": "2026-11-19T03:30:56.932Z",
+  "journalStand": "2026-11-20T03:31:55.346Z",
   "lage": "Kein Befund im freigegebenen Rahmen — der Scout wählt selbst.",
   "auftraege": [],
   "ausserhalb": [
+    {
+      "herkunft": {
+        "rolle": "mistral-ops",
+        "person": "Nils Falk",
+        "rollenname": "Reliability-Wächter",
+        "bereich": "betrieb",
+        "zeit": "2026-11-20T03:31:55.341Z",
+        "aufgabe": "Den ältesten roten oder unbekannten Betriebszustand benennen und eingrenzen."
+      },
+      "dateien": [
+        "audit/latest.json"
+      ],
+      "grund": "nennt audit/latest.json — außerhalb des freigegebenen Rahmens"
+    },
     {
       "herkunft": {
         "rolle": "mistral-ops",
@@ -34,7 +48,9 @@
         ".github/workflows/pr-check.yml"
       ],
       "grund": "nennt .github/workflows/pr-check.yml — außerhalb des freigegebenen Rahmens"
-    },
+    }
+  ],
+  "verworfen": [
     {
       "herkunft": {
         "rolle": "mistral-ops",
@@ -44,10 +60,7 @@
         "zeit": "2026-11-17T03:30:44.777Z",
         "aufgabe": "Den ältesten roten oder unbekannten Betriebszustand benennen und eingrenzen."
       },
-      "dateien": [
-        "audit/latest.json"
-      ],
-      "grund": "nennt audit/latest.json — außerhalb des freigegebenen Rahmens"
+      "grund": "älter als 72 h — beschreibt einen anderen Code-Stand"
     },
     {
       "herkunft": {
@@ -58,14 +71,8 @@
         "zeit": "2026-11-16T03:35:48.699Z",
         "aufgabe": "Deploys, Tests und Monitor-Signale zu einem belastbaren Lagebild verdichten."
       },
-      "dateien": [
-        "audit/latest.json",
-        ".github/workflows/site-monitor.yml"
-      ],
-      "grund": "nennt audit/latest.json, .github/workflows/site-monitor.yml — außerhalb des freigegebenen Rahmens"
-    }
-  ],
-  "verworfen": [
+      "grund": "älter als 72 h — beschreibt einen anderen Code-Stand"
+    },
     {
       "herkunft": {
         "rolle": "mistral-ops",

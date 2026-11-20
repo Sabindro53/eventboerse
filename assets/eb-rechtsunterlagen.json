@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "stand": "2026-11-19",
+  "stand": "2026-11-20",
   "paket": "Eventboerse_UG_Rechtsunterlagen_v11_Entwurf",
   "paketStand": "2026-05-04",
   "rechtshinweis": "Arbeits- und Organisationshilfe, keine Rechtsberatung. Verbindliche Fassungen benötigen die dokumentierte Freigabe qualifizierter Fachleute.",
@@ -50,7 +50,8 @@
       ],
       "akzeptierterHash": "173b3ad8060567166108ed8f0f4996d490d0be6e868ea9d4043e8958ffaa1fd2",
       "aktuellerHash": "b168784a00256006e3c03453daf42b49d4e3ca8d1be5338ccaf9fb3ed4cf818e",
-      "status": "pruefung"
+      "status": "nicht_erreichbar",
+      "fehler": "amtliche Seite enthielt zu wenig Text"
     },
     {
       "id": "bfsg-3",
@@ -381,13 +382,13 @@
     },
     {
       "id": "quelle-ai-2026-1744",
-      "prioritaet": "hoch",
+      "prioritaet": "mittel",
       "verantwortlich": [
         "Sandro",
         "Julian"
       ],
-      "titel": "Amtliche Quelle geändert: VO (EU) 2026/1744 – AI-Act-Übergangsregeln",
-      "beschreibung": "Änderung fachlich prüfen, betroffene Dokumente aktualisieren und erst danach die neue Quellenfassung akzeptieren.",
+      "titel": "Amtliche Quelle nicht erreichbar: VO (EU) 2026/1744 – AI-Act-Übergangsregeln",
+      "beschreibung": "Abruf erneut prüfen. Solange die Quelle nicht erreichbar ist, wird Aktualität nicht behauptet.",
       "frist": "vor der nächsten Freigabe",
       "dokumente": [
         "09",
