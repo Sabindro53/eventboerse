@@ -4438,7 +4438,7 @@ Läufen, je nach Ablauf. **Offen:** den Helfer auf das gültige Format heben;
 das betrifft jede Suite und gehört in einen eigenen Schritt mit voller Suite.
 
 ```bash
-npx playwright test tests/e2e/assistent-figur.spec.js   # 22 Tests, 22 Mutationen
+npx playwright test tests/e2e/assistent-figur.spec.js   # 23 Tests, 22 Mutationen
 ```
 
 ### Suchergebnisse lassen sich wieder einklappen
@@ -6480,7 +6480,7 @@ npm run test:smoke      # nur Routen-Smoke-Tests
 npm run test:css        # CSS-Minify-Regression (Verlaufsschrift)
 ```
 
-1588 Tests in 108 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
+1595 Tests in 108 Suiten: Smoke (alle Routen, 0 Page-Errors), Suche (natürliche
 Sätze), Gebühren (centgenau, JS↔PHP-Parität), Wissensbasis (Antworten +
 Leckage-Schutz), Zufluss (Quarantäne-Tor + Demo-Feed-Ehrlichkeit),
 Verbindungen (HQ-Zugang + Connector-Katalog), Auftragsstrom (Herkunft +
