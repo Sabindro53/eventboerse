@@ -1,7 +1,7 @@
 {
   "version": 2,
   "hinweis": "Erzeugt von scripts/aktivitaeten.mjs. Nicht von Hand bearbeiten.",
-  "stand": "2026-11-20T03:30:56.168Z",
+  "stand": "2026-11-23T03:34:05.329Z",
   "gebiete": [
     {
       "stadt": "Köln",
@@ -71,91 +71,11 @@
     }
   ],
   "anzahl": {
-    "gesamt": 925,
-    "sport": 125,
+    "gesamt": 920,
+    "sport": 120,
     "orte": 800
   },
   "eintraege": [
-    {
-      "id": "openligadb:83237",
-      "art": "sport",
-      "titel": "FC Bayern München – 1. FC Köln",
-      "beginn": "2026-11-20T19:30:00.000Z",
-      "gebiet": "München",
-      "ort": {
-        "name": "Stadion",
-        "stadt": "München",
-        "lat": 48.1372,
-        "lon": 11.5755,
-        "ungefaehr": true
-      },
-      "quelle": {
-        "name": "OpenLigaDB",
-        "url": "https://www.openligadb.de/",
-        "lizenz": "frei (openligadb.de)"
-      },
-      "partner": false
-    },
-    {
-      "id": "openligadb:83239",
-      "art": "sport",
-      "titel": "Eintracht Frankfurt – TSG Hoffenheim",
-      "beginn": "2026-11-21T14:30:00.000Z",
-      "gebiet": "Frankfurt",
-      "ort": {
-        "name": "Stadion",
-        "stadt": "Frankfurt",
-        "lat": 50.1109,
-        "lon": 8.6821,
-        "ungefaehr": true
-      },
-      "quelle": {
-        "name": "OpenLigaDB",
-        "url": "https://www.openligadb.de/",
-        "lizenz": "frei (openligadb.de)"
-      },
-      "partner": false
-    },
-    {
-      "id": "openligadb:83241",
-      "art": "sport",
-      "titel": "1. FC Union Berlin – RB Leipzig",
-      "beginn": "2026-11-21T14:30:00.000Z",
-      "gebiet": "Berlin",
-      "ort": {
-        "name": "Stadion",
-        "stadt": "Berlin",
-        "lat": 52.52,
-        "lon": 13.405,
-        "ungefaehr": true
-      },
-      "quelle": {
-        "name": "OpenLigaDB",
-        "url": "https://www.openligadb.de/",
-        "lizenz": "frei (openligadb.de)"
-      },
-      "partner": false
-    },
-    {
-      "id": "openligadb:83244",
-      "art": "sport",
-      "titel": "FC Schalke 04 – VfB Stuttgart",
-      "beginn": "2026-11-21T17:30:00.000Z",
-      "gebiet": "Dortmund",
-      "ort": {
-        "name": "Stadion",
-        "stadt": "Dortmund",
-        "lat": 51.5136,
-        "lon": 7.4653,
-        "ungefaehr": true
-      },
-      "quelle": {
-        "name": "OpenLigaDB",
-        "url": "https://www.openligadb.de/",
-        "lizenz": "frei (openligadb.de)"
-      },
-      "partner": false
-    },
     {
       "id": "openligadb:83251",
       "art": "sport",
@@ -163,7 +83,7 @@
       "beginn": "2026-11-28T14:30:00.000Z",
       "gebiet": "Hamburg",
       "ort": {
-        "name": "Stadion",
+        "name": "Volksparkstadion",
         "stadt": "Hamburg",
         "lat": 53.5511,
         "lon": 9.9937,
@@ -183,7 +103,7 @@
       "beginn": "2026-11-28T14:30:00.000Z",
       "gebiet": "Köln",
       "ort": {
-        "name": "Stadion",
+        "name": "RheinEnergieStadion",
         "stadt": "Köln",
         "lat": 50.9413,
         "lon": 6.9583,
@@ -203,7 +123,7 @@
       "beginn": "2026-11-28T17:30:00.000Z",
       "gebiet": "Stuttgart",
       "ort": {
-        "name": "Stadion",
+        "name": "MHP-Arena",
         "stadt": "Stuttgart",
         "lat": 48.7758,
         "lon": 9.1829,
@@ -223,7 +143,7 @@
       "beginn": "2026-11-29T18:30:00.000Z",
       "gebiet": "Dortmund",
       "ort": {
-        "name": "Stadion",
+        "name": "Signal Iduna Park",
         "stadt": "Dortmund",
         "lat": 51.5136,
         "lon": 7.4653,
@@ -243,7 +163,7 @@
       "beginn": "2026-12-04T19:30:00.000Z",
       "gebiet": "München",
       "ort": {
-        "name": "Stadion",
+        "name": "Allianz Arena",
         "stadt": "München",
         "lat": 48.1372,
         "lon": 11.5755,
@@ -263,7 +183,7 @@
       "beginn": "2026-12-05T14:30:00.000Z",
       "gebiet": "Berlin",
       "ort": {
-        "name": "Stadion",
+        "name": "Alte Försterei",
         "stadt": "Berlin",
         "lat": 52.52,
         "lon": 13.405,
@@ -283,7 +203,7 @@
       "beginn": "2026-12-05T17:30:00.000Z",
       "gebiet": "Frankfurt",
       "ort": {
-        "name": "Stadion",
+        "name": "Deutsche Bank Park",
         "stadt": "Frankfurt",
         "lat": 50.1109,
         "lon": 8.6821,
@@ -303,8 +223,8 @@
       "beginn": "2026-12-06T14:30:00.000Z",
       "gebiet": "Dortmund",
       "ort": {
-        "name": "Stadion",
-        "stadt": "Dortmund",
+        "name": "Veltins Arena",
+        "stadt": "Gelsenkirchen",
         "lat": 51.5136,
         "lon": 7.4653,
         "ungefaehr": true
@@ -2087,26 +2007,6 @@
         "stadt": "Dortmund",
         "lat": 51.5136,
         "lon": 7.4653,
-        "ungefaehr": true
-      },
-      "quelle": {
-        "name": "OpenLigaDB",
-        "url": "https://www.openligadb.de/",
-        "lizenz": "frei (openligadb.de)"
-      },
-      "partner": false
-    },
-    {
-      "id": "openligadb:83691",
-      "art": "sport",
-      "titel": "FC St. Pauli – VfL Bochum",
-      "beginn": "2026-11-21T19:30:00.000Z",
-      "gebiet": "Hamburg",
-      "ort": {
-        "name": "Stadion",
-        "stadt": "Hamburg",
-        "lat": 53.5511,
-        "lon": 9.9937,
         "ungefaehr": true
       },
       "quelle": {
@@ -9995,6 +9895,28 @@
       "partner": false
     },
     {
+      "id": "osm:node/9689247850",
+      "art": "ort",
+      "titel": "Haus des Papiers",
+      "kategorie": "Museum",
+      "beginn": null,
+      "gebiet": "Berlin",
+      "ort": {
+        "name": "Haus des Papiers",
+        "stadt": "Berlin",
+        "lat": 52.51045,
+        "lon": 13.40329
+      },
+      "entfernungKm": 1.1,
+      "webseite": "https://www.hausdespapiers.com/",
+      "quelle": {
+        "name": "OpenStreetMap",
+        "url": "https://www.openstreetmap.org/node/9689247850",
+        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
+      },
+      "partner": false
+    },
+    {
       "id": "osm:node/66917094",
       "art": "ort",
       "titel": "Friedrichstadt-Palast",
@@ -11236,28 +11158,6 @@
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/173985100",
-        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
-      },
-      "partner": false
-    },
-    {
-      "id": "osm:node/1158225994",
-      "art": "ort",
-      "titel": "Ballhaus Ost",
-      "kategorie": "Theater",
-      "beginn": null,
-      "gebiet": "Berlin",
-      "ort": {
-        "name": "Ballhaus Ost",
-        "stadt": "Berlin",
-        "lat": 52.543,
-        "lon": 13.41531
-      },
-      "entfernungKm": 2.7,
-      "webseite": "https://www.ballhausost.de/",
-      "quelle": {
-        "name": "OpenStreetMap",
-        "url": "https://www.openstreetmap.org/node/1158225994",
         "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
       },
       "partner": false
@@ -14860,6 +14760,28 @@
       "partner": false
     },
     {
+      "id": "osm:node/14406366381",
+      "art": "ort",
+      "titel": "Vermessungshistorische Ausstellung",
+      "kategorie": "Museum",
+      "beginn": null,
+      "gebiet": "München",
+      "ort": {
+        "name": "Vermessungshistorische Ausstellung",
+        "stadt": "München",
+        "lat": 48.14159,
+        "lon": 11.59035
+      },
+      "entfernungKm": 1.2,
+      "webseite": "https://museen-in-bayern.de/museen/detailseite-museum/vermessen-in-bayern-vermessungshistorische-ausstellung",
+      "quelle": {
+        "name": "OpenStreetMap",
+        "url": "https://www.openstreetmap.org/node/14406366381",
+        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
+      },
+      "partner": false
+    },
+    {
       "id": "osm:node/305581866",
       "art": "ort",
       "titel": "Bayerisches Nationalmuseum",
@@ -15602,28 +15524,6 @@
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/953031130",
-        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
-      },
-      "partner": false
-    },
-    {
-      "id": "osm:node/370745201",
-      "art": "ort",
-      "titel": "Leopold Kinos 1+2+3",
-      "kategorie": "Kino",
-      "beginn": null,
-      "gebiet": "München",
-      "ort": {
-        "name": "Leopold Kinos 1+2+3",
-        "stadt": "München",
-        "lat": 48.1607,
-        "lon": 11.58668
-      },
-      "entfernungKm": 2.7,
-      "webseite": "https://www.kino-zeit.de/kinoprogramm/muenchen/leopold-kino-muenchen",
-      "quelle": {
-        "name": "OpenStreetMap",
-        "url": "https://www.openstreetmap.org/node/370745201",
         "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
       },
       "partner": false
