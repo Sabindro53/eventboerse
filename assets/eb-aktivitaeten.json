@@ -1,7 +1,7 @@
 {
   "version": 2,
   "hinweis": "Erzeugt von scripts/aktivitaeten.mjs. Nicht von Hand bearbeiten.",
-  "stand": "2026-11-23T03:34:05.329Z",
+  "stand": "2026-11-24T03:30:15.320Z",
   "gebiete": [
     {
       "stadt": "Köln",
@@ -10146,8 +10146,8 @@
       "ort": {
         "name": "ACUDkino",
         "stadt": "Berlin",
-        "lat": 52.53366,
-        "lon": 13.40082
+        "lat": 52.53368,
+        "lon": 13.40083
       },
       "entfernungKm": 1.5,
       "webseite": "https://acudkino.de/",
@@ -10168,8 +10168,8 @@
       "ort": {
         "name": "ACUD Theater",
         "stadt": "Berlin",
-        "lat": 52.53343,
-        "lon": 13.40098
+        "lat": 52.53344,
+        "lon": 13.40101
       },
       "entfernungKm": 1.5,
       "webseite": "https://www.acud-theater.de/",
@@ -10212,8 +10212,8 @@
       "ort": {
         "name": "Lettrétage",
         "stadt": "",
-        "lat": 52.53339,
-        "lon": 13.40105
+        "lat": 52.53353,
+        "lon": 13.40078
       },
       "entfernungKm": 1.5,
       "webseite": "https://www.lettretage.de/",
