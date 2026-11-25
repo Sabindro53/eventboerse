@@ -1,7 +1,7 @@
 {
   "version": 2,
   "hinweis": "Erzeugt von scripts/aktivitaeten.mjs. Nicht von Hand bearbeiten.",
-  "stand": "2026-11-24T03:30:15.320Z",
+  "stand": "2026-11-25T03:32:49.116Z",
   "gebiete": [
     {
       "stadt": "Köln",
@@ -14892,50 +14892,6 @@
       "partner": false
     },
     {
-      "id": "osm:node/12249232101",
-      "art": "ort",
-      "titel": "Lucky Punch Comedy Club",
-      "kategorie": "Theater",
-      "beginn": null,
-      "gebiet": "München",
-      "ort": {
-        "name": "Lucky Punch Comedy Club",
-        "stadt": "",
-        "lat": 48.13103,
-        "lon": 11.59131
-      },
-      "entfernungKm": 1.4,
-      "webseite": "https://luckypunch-comedyclub.de/",
-      "quelle": {
-        "name": "OpenStreetMap",
-        "url": "https://www.openstreetmap.org/node/12249232101",
-        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
-      },
-      "partner": false
-    },
-    {
-      "id": "osm:node/13354515331",
-      "art": "ort",
-      "titel": "Münchner Lach- & Schießgesellschaft",
-      "kategorie": "Theater",
-      "beginn": null,
-      "gebiet": "München",
-      "ort": {
-        "name": "Münchner Lach- & Schießgesellschaft",
-        "stadt": "München",
-        "lat": 48.13112,
-        "lon": 11.59167
-      },
-      "entfernungKm": 1.4,
-      "webseite": "https://lachundschiess.de/",
-      "quelle": {
-        "name": "OpenStreetMap",
-        "url": "https://www.openstreetmap.org/node/13354515331",
-        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
-      },
-      "partner": false
-    },
-    {
       "id": "osm:node/78402190",
       "art": "ort",
       "titel": "Royal Filmpalast",
@@ -15524,6 +15480,50 @@
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/953031130",
+        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
+      },
+      "partner": false
+    },
+    {
+      "id": "osm:node/370745201",
+      "art": "ort",
+      "titel": "Leopold Kinos 1+2+3",
+      "kategorie": "Kino",
+      "beginn": null,
+      "gebiet": "München",
+      "ort": {
+        "name": "Leopold Kinos 1+2+3",
+        "stadt": "München",
+        "lat": 48.1607,
+        "lon": 11.58668
+      },
+      "entfernungKm": 2.7,
+      "webseite": "https://www.kino-zeit.de/kinoprogramm/muenchen/leopold-kino-muenchen",
+      "quelle": {
+        "name": "OpenStreetMap",
+        "url": "https://www.openstreetmap.org/node/370745201",
+        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
+      },
+      "partner": false
+    },
+    {
+      "id": "osm:node/315953391",
+      "art": "ort",
+      "titel": "Blutenburg-Theater",
+      "kategorie": "Theater",
+      "beginn": null,
+      "gebiet": "München",
+      "ort": {
+        "name": "Blutenburg-Theater",
+        "stadt": "",
+        "lat": 48.14941,
+        "lon": 11.54201
+      },
+      "entfernungKm": 2.8,
+      "webseite": "https://www.blutenburg-theater.de/willkommen.html",
+      "quelle": {
+        "name": "OpenStreetMap",
+        "url": "https://www.openstreetmap.org/node/315953391",
         "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
       },
       "partner": false
