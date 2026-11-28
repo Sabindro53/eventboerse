@@ -46,6 +46,11 @@ temp/
 ki-knowledge.json
 Attached Element Context*
 
+# graphify: Code-Graph und Extraktions-Cache von `/graphify .` (lokal erzeugt).
+# Das Repository ist oeffentlich — die Karte des gesamten Codes gehoert nicht hinein.
+graphify-out/
+.graphify/
+
 # Obsidian vault
 .obsidian/
 
