@@ -26,20 +26,31 @@ Diese Zeilen sind der Ist-Stand; der Ensemble-Kontext liest genau diesen Abschni
 
 ## Was den Release sperrt (Inhaber)
 
-Stand der letzten Messung **23.–26.09.2026**; seither von hier aus nicht neu geprüft.
+**Nachgeprüft am 28.11.2026** (Code auf `main`, Deploy-Log Lauf 46098656925). Keine Sperre
+ist erledigt. Stripe-Dashboard, Live-Seite und Rechtsberatung sind aus der Agent-Umgebung
+nicht erreichbar — diese Punkte tragen weiter den Stand vom September.
 Details: Archiv, Abschnitt „Release-Bereitschaft".
 
 1. **Kein verbundenes Stripe-Connect-Konto** → jede Buchung endet mit 409. Der Code trägt
    (am 24.09. im Browser bis `POST /stripe/connect/onboard` gemessen); es fehlt nur der
-   echte Onboarding-Durchlauf.
+   echte Onboarding-Durchlauf. *28.11.: von hier nicht prüfbar (Stripe/HQ).*
 2. **`EB_STEUERNUMMER` / `EB_UST_ID`**: Secret-Weg über den Deploy ist gebaut, die Werte
    gibt es erst mit der Eintragung der UG. Vorher entsteht bewusst kein Provisionsbeleg.
-3. **Impressum:** vier Platzhalter füllen, danach „i. G." entfernen (das Tor verlangt beides).
+   *28.11.: weiter offen — im Deploy-Log sind `STEUERNUMMER` und `UST_ID` leer.*
+3. **Impressum:** Platzhalter füllen, danach „i. G." entfernen (das Tor verlangt beides).
+   *28.11.: zwei von vier gefüllt; offen `[TELEFON-GESCHÄFTLICH]` und `HRB [HR-NUMMER]`
+   (`app-shell.html`, Impressum), „i. G." steht noch.*
 4. **Stripe-Konto** von `business_type: individual` auf die UG umstellen.
+   *28.11.: von hier nicht prüfbar (Stripe-Dashboard).*
 5. **Chargebacks:** werden festgehalten und gemeldet; offen ist die AGB-Klausel, ob der
    Dienstleister einsteht — erst danach ist eine Rückholung baubar.
+   *28.11.: weiter offen — die AGB in `app-shell.html` enthalten keine solche Klausel.*
 6. **Rechtsfragen:** ZAG-Einordnung (Anwalt) · PStTG/DAC7 inkl. Abdeckung durch Stripe
    Connect (Steuerberater) · Datenschutzerklärung § 10a, danach `EB_HANDLE_NACHTRAG`.
+   *28.11.: nur durch den Inhaber klärbar.*
+
+Erledigt seit September: `EB_APPLE_TEAM_ID` ist gesetzt (der Deploy schreibt sie in die
+Server-Konfiguration) — Voraussetzung für Passkeys in der iOS-App.
 
 ## Weitere Entscheidungen des Inhabers
 
