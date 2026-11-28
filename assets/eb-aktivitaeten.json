@@ -1,7 +1,7 @@
 {
   "version": 2,
   "hinweis": "Erzeugt von scripts/aktivitaeten.mjs. Nicht von Hand bearbeiten.",
-  "stand": "2026-10-30T03:33:18.960Z",
+  "stand": "2026-11-26T03:32:05.393Z",
   "gebiete": [
     {
       "stadt": "Köln",
@@ -71,251 +71,11 @@
     }
   ],
   "anzahl": {
-    "gesamt": 935,
-    "sport": 135,
+    "gesamt": 920,
+    "sport": 120,
     "orte": 800
   },
   "eintraege": [
-    {
-      "id": "openligadb:83226",
-      "art": "sport",
-      "titel": "FC Schalke 04 – RB Leipzig",
-      "beginn": "2026-10-31T14:30:00.000Z",
-      "gebiet": "Dortmund",
-      "ort": {
-        "name": "Stadion",
-        "stadt": "Dortmund",
-        "lat": 51.5136,
-        "lon": 7.4653,
-        "ungefaehr": true
-      },
-      "quelle": {
-        "name": "OpenLigaDB",
-        "url": "https://www.openligadb.de/",
-        "lizenz": "frei (openligadb.de)"
-      },
-      "partner": false
-    },
-    {
-      "id": "openligadb:83219",
-      "art": "sport",
-      "titel": "FC Bayern München – Borussia Dortmund",
-      "beginn": "2026-10-31T17:30:00.000Z",
-      "gebiet": "München",
-      "ort": {
-        "name": "Stadion",
-        "stadt": "München",
-        "lat": 48.1372,
-        "lon": 11.5755,
-        "ungefaehr": true
-      },
-      "quelle": {
-        "name": "OpenLigaDB",
-        "url": "https://www.openligadb.de/",
-        "lizenz": "frei (openligadb.de)"
-      },
-      "partner": false
-    },
-    {
-      "id": "openligadb:83223",
-      "art": "sport",
-      "titel": "1. FC Union Berlin – 1. FC Köln",
-      "beginn": "2026-11-01T14:30:00.000Z",
-      "gebiet": "Berlin",
-      "ort": {
-        "name": "Stadion",
-        "stadt": "Berlin",
-        "lat": 52.52,
-        "lon": 13.405,
-        "ungefaehr": true
-      },
-      "quelle": {
-        "name": "OpenLigaDB",
-        "url": "https://www.openligadb.de/",
-        "lizenz": "frei (openligadb.de)"
-      },
-      "partner": false
-    },
-    {
-      "id": "openligadb:83221",
-      "art": "sport",
-      "titel": "Eintracht Frankfurt – Hamburger SV",
-      "beginn": "2026-11-01T16:30:00.000Z",
-      "gebiet": "Frankfurt",
-      "ort": {
-        "name": "Stadion",
-        "stadt": "Frankfurt",
-        "lat": 50.1109,
-        "lon": 8.6821,
-        "ungefaehr": true
-      },
-      "quelle": {
-        "name": "OpenLigaDB",
-        "url": "https://www.openligadb.de/",
-        "lizenz": "frei (openligadb.de)"
-      },
-      "partner": false
-    },
-    {
-      "id": "openligadb:83234",
-      "art": "sport",
-      "titel": "Hamburger SV – Borussia Mönchengladbach",
-      "beginn": "2026-11-06T19:30:00.000Z",
-      "gebiet": "Hamburg",
-      "ort": {
-        "name": "Stadion",
-        "stadt": "Hamburg",
-        "lat": 53.5511,
-        "lon": 9.9937,
-        "ungefaehr": true
-      },
-      "quelle": {
-        "name": "OpenLigaDB",
-        "url": "https://www.openligadb.de/",
-        "lizenz": "frei (openligadb.de)"
-      },
-      "partner": false
-    },
-    {
-      "id": "openligadb:83228",
-      "art": "sport",
-      "titel": "Borussia Dortmund – SV 07 Elversberg",
-      "beginn": "2026-11-07T14:30:00.000Z",
-      "gebiet": "Dortmund",
-      "ort": {
-        "name": "Stadion",
-        "stadt": "Dortmund",
-        "lat": 51.5136,
-        "lon": 7.4653,
-        "ungefaehr": true
-      },
-      "quelle": {
-        "name": "OpenLigaDB",
-        "url": "https://www.openligadb.de/",
-        "lizenz": "frei (openligadb.de)"
-      },
-      "partner": false
-    },
-    {
-      "id": "openligadb:83230",
-      "art": "sport",
-      "titel": "VfB Stuttgart – SV Werder Bremen",
-      "beginn": "2026-11-07T17:30:00.000Z",
-      "gebiet": "Stuttgart",
-      "ort": {
-        "name": "Stadion",
-        "stadt": "Stuttgart",
-        "lat": 48.7758,
-        "lon": 9.1829,
-        "ungefaehr": true
-      },
-      "quelle": {
-        "name": "OpenLigaDB",
-        "url": "https://www.openligadb.de/",
-        "lizenz": "frei (openligadb.de)"
-      },
-      "partner": false
-    },
-    {
-      "id": "openligadb:83235",
-      "art": "sport",
-      "titel": "1. FC Köln – Bayer 04 Leverkusen",
-      "beginn": "2026-11-08T14:30:00.000Z",
-      "gebiet": "Köln",
-      "ort": {
-        "name": "Stadion",
-        "stadt": "Köln",
-        "lat": 50.9413,
-        "lon": 6.9583,
-        "ungefaehr": true
-      },
-      "quelle": {
-        "name": "OpenLigaDB",
-        "url": "https://www.openligadb.de/",
-        "lizenz": "frei (openligadb.de)"
-      },
-      "partner": false
-    },
-    {
-      "id": "openligadb:83237",
-      "art": "sport",
-      "titel": "FC Bayern München – 1. FC Köln",
-      "beginn": "2026-11-20T19:30:00.000Z",
-      "gebiet": "München",
-      "ort": {
-        "name": "Stadion",
-        "stadt": "München",
-        "lat": 48.1372,
-        "lon": 11.5755,
-        "ungefaehr": true
-      },
-      "quelle": {
-        "name": "OpenLigaDB",
-        "url": "https://www.openligadb.de/",
-        "lizenz": "frei (openligadb.de)"
-      },
-      "partner": false
-    },
-    {
-      "id": "openligadb:83239",
-      "art": "sport",
-      "titel": "Eintracht Frankfurt – TSG Hoffenheim",
-      "beginn": "2026-11-21T14:30:00.000Z",
-      "gebiet": "Frankfurt",
-      "ort": {
-        "name": "Stadion",
-        "stadt": "Frankfurt",
-        "lat": 50.1109,
-        "lon": 8.6821,
-        "ungefaehr": true
-      },
-      "quelle": {
-        "name": "OpenLigaDB",
-        "url": "https://www.openligadb.de/",
-        "lizenz": "frei (openligadb.de)"
-      },
-      "partner": false
-    },
-    {
-      "id": "openligadb:83241",
-      "art": "sport",
-      "titel": "1. FC Union Berlin – RB Leipzig",
-      "beginn": "2026-11-21T14:30:00.000Z",
-      "gebiet": "Berlin",
-      "ort": {
-        "name": "Stadion",
-        "stadt": "Berlin",
-        "lat": 52.52,
-        "lon": 13.405,
-        "ungefaehr": true
-      },
-      "quelle": {
-        "name": "OpenLigaDB",
-        "url": "https://www.openligadb.de/",
-        "lizenz": "frei (openligadb.de)"
-      },
-      "partner": false
-    },
-    {
-      "id": "openligadb:83244",
-      "art": "sport",
-      "titel": "FC Schalke 04 – VfB Stuttgart",
-      "beginn": "2026-11-21T17:30:00.000Z",
-      "gebiet": "Dortmund",
-      "ort": {
-        "name": "Stadion",
-        "stadt": "Dortmund",
-        "lat": 51.5136,
-        "lon": 7.4653,
-        "ungefaehr": true
-      },
-      "quelle": {
-        "name": "OpenLigaDB",
-        "url": "https://www.openligadb.de/",
-        "lizenz": "frei (openligadb.de)"
-      },
-      "partner": false
-    },
     {
       "id": "openligadb:83251",
       "art": "sport",
@@ -323,7 +83,7 @@
       "beginn": "2026-11-28T14:30:00.000Z",
       "gebiet": "Hamburg",
       "ort": {
-        "name": "Stadion",
+        "name": "Volksparkstadion",
         "stadt": "Hamburg",
         "lat": 53.5511,
         "lon": 9.9937,
@@ -343,7 +103,7 @@
       "beginn": "2026-11-28T14:30:00.000Z",
       "gebiet": "Köln",
       "ort": {
-        "name": "Stadion",
+        "name": "RheinEnergieStadion",
         "stadt": "Köln",
         "lat": 50.9413,
         "lon": 6.9583,
@@ -363,7 +123,7 @@
       "beginn": "2026-11-28T17:30:00.000Z",
       "gebiet": "Stuttgart",
       "ort": {
-        "name": "Stadion",
+        "name": "MHP-Arena",
         "stadt": "Stuttgart",
         "lat": 48.7758,
         "lon": 9.1829,
@@ -383,7 +143,7 @@
       "beginn": "2026-11-29T18:30:00.000Z",
       "gebiet": "Dortmund",
       "ort": {
-        "name": "Stadion",
+        "name": "Signal Iduna Park",
         "stadt": "Dortmund",
         "lat": 51.5136,
         "lon": 7.4653,
@@ -400,33 +160,13 @@
       "id": "openligadb:83255",
       "art": "sport",
       "titel": "FC Bayern München – SC Paderborn 07",
-      "beginn": "2026-12-05T14:30:00.000Z",
+      "beginn": "2026-12-04T19:30:00.000Z",
       "gebiet": "München",
       "ort": {
-        "name": "Stadion",
+        "name": "Allianz Arena",
         "stadt": "München",
         "lat": 48.1372,
         "lon": 11.5755,
-        "ungefaehr": true
-      },
-      "quelle": {
-        "name": "OpenLigaDB",
-        "url": "https://www.openligadb.de/",
-        "lizenz": "frei (openligadb.de)"
-      },
-      "partner": false
-    },
-    {
-      "id": "openligadb:83259",
-      "art": "sport",
-      "titel": "Eintracht Frankfurt – SV Werder Bremen",
-      "beginn": "2026-12-05T14:30:00.000Z",
-      "gebiet": "Frankfurt",
-      "ort": {
-        "name": "Stadion",
-        "stadt": "Frankfurt",
-        "lat": 50.1109,
-        "lon": 8.6821,
         "ungefaehr": true
       },
       "quelle": {
@@ -443,7 +183,7 @@
       "beginn": "2026-12-05T14:30:00.000Z",
       "gebiet": "Berlin",
       "ort": {
-        "name": "Stadion",
+        "name": "Alte Försterei",
         "stadt": "Berlin",
         "lat": 52.52,
         "lon": 13.405,
@@ -457,16 +197,56 @@
       "partner": false
     },
     {
+      "id": "openligadb:83259",
+      "art": "sport",
+      "titel": "Eintracht Frankfurt – SV Werder Bremen",
+      "beginn": "2026-12-05T17:30:00.000Z",
+      "gebiet": "Frankfurt",
+      "ort": {
+        "name": "Deutsche Bank Park",
+        "stadt": "Frankfurt",
+        "lat": 50.1109,
+        "lon": 8.6821,
+        "ungefaehr": true
+      },
+      "quelle": {
+        "name": "OpenLigaDB",
+        "url": "https://www.openligadb.de/",
+        "lizenz": "frei (openligadb.de)"
+      },
+      "partner": false
+    },
+    {
       "id": "openligadb:83262",
       "art": "sport",
       "titel": "FC Schalke 04 – Borussia Dortmund",
-      "beginn": "2026-12-05T14:30:00.000Z",
+      "beginn": "2026-12-06T14:30:00.000Z",
       "gebiet": "Dortmund",
       "ort": {
-        "name": "Stadion",
-        "stadt": "Dortmund",
+        "name": "Veltins Arena",
+        "stadt": "Gelsenkirchen",
         "lat": 51.5136,
         "lon": 7.4653,
+        "ungefaehr": true
+      },
+      "quelle": {
+        "name": "OpenLigaDB",
+        "url": "https://www.openligadb.de/",
+        "lizenz": "frei (openligadb.de)"
+      },
+      "partner": false
+    },
+    {
+      "id": "openligadb:83269",
+      "art": "sport",
+      "titel": "Hamburger SV – FC Schalke 04",
+      "beginn": "2026-12-11T19:30:00.000Z",
+      "gebiet": "Hamburg",
+      "ort": {
+        "name": "Stadion",
+        "stadt": "Hamburg",
+        "lat": 53.5511,
+        "lon": 9.9937,
         "ungefaehr": true
       },
       "quelle": {
@@ -517,26 +297,6 @@
       "partner": false
     },
     {
-      "id": "openligadb:83269",
-      "art": "sport",
-      "titel": "Hamburger SV – FC Schalke 04",
-      "beginn": "2026-12-12T14:30:00.000Z",
-      "gebiet": "Hamburg",
-      "ort": {
-        "name": "Stadion",
-        "stadt": "Hamburg",
-        "lat": 53.5511,
-        "lon": 9.9937,
-        "ungefaehr": true
-      },
-      "quelle": {
-        "name": "OpenLigaDB",
-        "url": "https://www.openligadb.de/",
-        "lizenz": "frei (openligadb.de)"
-      },
-      "partner": false
-    },
-    {
       "id": "openligadb:83270",
       "art": "sport",
       "titel": "1. FC Köln – RB Leipzig",
@@ -560,7 +320,7 @@
       "id": "openligadb:83273",
       "art": "sport",
       "titel": "FC Bayern München – SV Werder Bremen",
-      "beginn": "2026-12-19T14:30:00.000Z",
+      "beginn": "2026-12-18T19:30:00.000Z",
       "gebiet": "München",
       "ort": {
         "name": "Stadion",
@@ -580,7 +340,7 @@
       "id": "openligadb:83279",
       "art": "sport",
       "titel": "1. FC Union Berlin – TSG Hoffenheim",
-      "beginn": "2026-12-19T14:30:00.000Z",
+      "beginn": "2026-12-20T16:30:00.000Z",
       "gebiet": "Berlin",
       "ort": {
         "name": "Stadion",
@@ -600,7 +360,7 @@
       "id": "openligadb:83280",
       "art": "sport",
       "titel": "FC Schalke 04 – Borussia Mönchengladbach",
-      "beginn": "2026-12-19T14:30:00.000Z",
+      "beginn": "2026-12-20T18:30:00.000Z",
       "gebiet": "Dortmund",
       "ort": {
         "name": "Stadion",
@@ -620,7 +380,7 @@
       "id": "openligadb:83282",
       "art": "sport",
       "titel": "Borussia Dortmund – 1. FSV Mainz 05",
-      "beginn": "2027-01-09T14:30:00.000Z",
+      "beginn": "2027-01-08T19:30:00.000Z",
       "gebiet": "Dortmund",
       "ort": {
         "name": "Stadion",
@@ -677,26 +437,6 @@
       "partner": false
     },
     {
-      "id": "openligadb:83287",
-      "art": "sport",
-      "titel": "Hamburger SV – Bayer 04 Leverkusen",
-      "beginn": "2027-01-09T14:30:00.000Z",
-      "gebiet": "Hamburg",
-      "ort": {
-        "name": "Stadion",
-        "stadt": "Hamburg",
-        "lat": 53.5511,
-        "lon": 9.9937,
-        "ungefaehr": true
-      },
-      "quelle": {
-        "name": "OpenLigaDB",
-        "url": "https://www.openligadb.de/",
-        "lizenz": "frei (openligadb.de)"
-      },
-      "partner": false
-    },
-    {
       "id": "openligadb:83288",
       "art": "sport",
       "titel": "1. FC Köln – SC Freiburg",
@@ -717,36 +457,16 @@
       "partner": false
     },
     {
-      "id": "openligadb:83291",
+      "id": "openligadb:83287",
       "art": "sport",
-      "titel": "FC Bayern München – Bayer 04 Leverkusen",
-      "beginn": "2027-01-12T19:30:00.000Z",
-      "gebiet": "München",
+      "titel": "Hamburger SV – Bayer 04 Leverkusen",
+      "beginn": "2027-01-10T16:30:00.000Z",
+      "gebiet": "Hamburg",
       "ort": {
         "name": "Stadion",
-        "stadt": "München",
-        "lat": 48.1372,
-        "lon": 11.5755,
-        "ungefaehr": true
-      },
-      "quelle": {
-        "name": "OpenLigaDB",
-        "url": "https://www.openligadb.de/",
-        "lizenz": "frei (openligadb.de)"
-      },
-      "partner": false
-    },
-    {
-      "id": "openligadb:83296",
-      "art": "sport",
-      "titel": "1. FC Union Berlin – SC Paderborn 07",
-      "beginn": "2027-01-12T19:30:00.000Z",
-      "gebiet": "Berlin",
-      "ort": {
-        "name": "Stadion",
-        "stadt": "Berlin",
-        "lat": 52.52,
-        "lon": 13.405,
+        "stadt": "Hamburg",
+        "lat": 53.5511,
+        "lon": 9.9937,
         "ungefaehr": true
       },
       "quelle": {
@@ -777,16 +497,76 @@
       "partner": false
     },
     {
+      "id": "openligadb:83291",
+      "art": "sport",
+      "titel": "FC Bayern München – Bayer 04 Leverkusen",
+      "beginn": "2027-01-13T19:30:00.000Z",
+      "gebiet": "München",
+      "ort": {
+        "name": "Stadion",
+        "stadt": "München",
+        "lat": 48.1372,
+        "lon": 11.5755,
+        "ungefaehr": true
+      },
+      "quelle": {
+        "name": "OpenLigaDB",
+        "url": "https://www.openligadb.de/",
+        "lizenz": "frei (openligadb.de)"
+      },
+      "partner": false
+    },
+    {
+      "id": "openligadb:83296",
+      "art": "sport",
+      "titel": "1. FC Union Berlin – SC Paderborn 07",
+      "beginn": "2027-01-13T19:30:00.000Z",
+      "gebiet": "Berlin",
+      "ort": {
+        "name": "Stadion",
+        "stadt": "Berlin",
+        "lat": 52.52,
+        "lon": 13.405,
+        "ungefaehr": true
+      },
+      "quelle": {
+        "name": "OpenLigaDB",
+        "url": "https://www.openligadb.de/",
+        "lizenz": "frei (openligadb.de)"
+      },
+      "partner": false
+    },
+    {
       "id": "openligadb:83298",
       "art": "sport",
       "titel": "FC Schalke 04 – SV Werder Bremen",
-      "beginn": "2027-01-12T19:30:00.000Z",
+      "beginn": "2027-01-13T19:30:00.000Z",
       "gebiet": "Dortmund",
       "ort": {
         "name": "Stadion",
         "stadt": "Dortmund",
         "lat": 51.5136,
         "lon": 7.4653,
+        "ungefaehr": true
+      },
+      "quelle": {
+        "name": "OpenLigaDB",
+        "url": "https://www.openligadb.de/",
+        "lizenz": "frei (openligadb.de)"
+      },
+      "partner": false
+    },
+    {
+      "id": "openligadb:83301",
+      "art": "sport",
+      "titel": "VfB Stuttgart – 1. FSV Mainz 05",
+      "beginn": "2027-01-15T19:30:00.000Z",
+      "gebiet": "Stuttgart",
+      "ort": {
+        "name": "Stadion",
+        "stadt": "Stuttgart",
+        "lat": 48.7758,
+        "lon": 9.1829,
         "ungefaehr": true
       },
       "quelle": {
@@ -817,16 +597,16 @@
       "partner": false
     },
     {
-      "id": "openligadb:83301",
+      "id": "openligadb:83306",
       "art": "sport",
-      "titel": "VfB Stuttgart – 1. FSV Mainz 05",
+      "titel": "Hamburger SV – FC Augsburg",
       "beginn": "2027-01-16T14:30:00.000Z",
-      "gebiet": "Stuttgart",
+      "gebiet": "Hamburg",
       "ort": {
         "name": "Stadion",
-        "stadt": "Stuttgart",
-        "lat": 48.7758,
-        "lon": 9.1829,
+        "stadt": "Hamburg",
+        "lat": 53.5511,
+        "lon": 9.9937,
         "ungefaehr": true
       },
       "quelle": {
@@ -840,33 +620,13 @@
       "id": "openligadb:83304",
       "art": "sport",
       "titel": "Eintracht Frankfurt – FC Bayern München",
-      "beginn": "2027-01-16T14:30:00.000Z",
+      "beginn": "2027-01-16T17:30:00.000Z",
       "gebiet": "Frankfurt",
       "ort": {
         "name": "Stadion",
         "stadt": "Frankfurt",
         "lat": 50.1109,
         "lon": 8.6821,
-        "ungefaehr": true
-      },
-      "quelle": {
-        "name": "OpenLigaDB",
-        "url": "https://www.openligadb.de/",
-        "lizenz": "frei (openligadb.de)"
-      },
-      "partner": false
-    },
-    {
-      "id": "openligadb:83306",
-      "art": "sport",
-      "titel": "Hamburger SV – FC Augsburg",
-      "beginn": "2027-01-16T14:30:00.000Z",
-      "gebiet": "Hamburg",
-      "ort": {
-        "name": "Stadion",
-        "stadt": "Hamburg",
-        "lat": 53.5511,
-        "lon": 9.9937,
         "ungefaehr": true
       },
       "quelle": {
@@ -897,16 +657,16 @@
       "partner": false
     },
     {
-      "id": "openligadb:83312",
+      "id": "openligadb:83316",
       "art": "sport",
-      "titel": "Eintracht Frankfurt – 1. FC Union Berlin",
+      "titel": "FC Schalke 04 – FC Augsburg",
       "beginn": "2027-01-23T14:30:00.000Z",
-      "gebiet": "Frankfurt",
+      "gebiet": "Dortmund",
       "ort": {
         "name": "Stadion",
-        "stadt": "Frankfurt",
-        "lat": 50.1109,
-        "lon": 8.6821,
+        "stadt": "Dortmund",
+        "lat": 51.5136,
+        "lon": 7.4653,
         "ungefaehr": true
       },
       "quelle": {
@@ -920,7 +680,7 @@
       "id": "openligadb:83314",
       "art": "sport",
       "titel": "Hamburger SV – Borussia Dortmund",
-      "beginn": "2027-01-23T14:30:00.000Z",
+      "beginn": "2027-01-23T17:30:00.000Z",
       "gebiet": "Hamburg",
       "ort": {
         "name": "Stadion",
@@ -937,16 +697,16 @@
       "partner": false
     },
     {
-      "id": "openligadb:83316",
+      "id": "openligadb:83312",
       "art": "sport",
-      "titel": "FC Schalke 04 – FC Augsburg",
-      "beginn": "2027-01-23T14:30:00.000Z",
-      "gebiet": "Dortmund",
+      "titel": "Eintracht Frankfurt – 1. FC Union Berlin",
+      "beginn": "2027-01-24T14:30:00.000Z",
+      "gebiet": "Frankfurt",
       "ort": {
         "name": "Stadion",
-        "stadt": "Dortmund",
-        "lat": 51.5136,
-        "lon": 7.4653,
+        "stadt": "Frankfurt",
+        "lat": 50.1109,
+        "lon": 8.6821,
         "ungefaehr": true
       },
       "quelle": {
@@ -2257,66 +2017,6 @@
       "partner": false
     },
     {
-      "id": "openligadb:83664",
-      "art": "sport",
-      "titel": "FC St. Pauli – 1. FC Nürnberg",
-      "beginn": "2026-11-01T12:30:00.000Z",
-      "gebiet": "Hamburg",
-      "ort": {
-        "name": "Stadion",
-        "stadt": "Hamburg",
-        "lat": 53.5511,
-        "lon": 9.9937,
-        "ungefaehr": true
-      },
-      "quelle": {
-        "name": "OpenLigaDB",
-        "url": "https://www.openligadb.de/",
-        "lizenz": "frei (openligadb.de)"
-      },
-      "partner": false
-    },
-    {
-      "id": "openligadb:83681",
-      "art": "sport",
-      "titel": "Hertha BSC – VfL Wolfsburg",
-      "beginn": "2026-11-07T19:30:00.000Z",
-      "gebiet": "Berlin",
-      "ort": {
-        "name": "Stadion",
-        "stadt": "Berlin",
-        "lat": 52.52,
-        "lon": 13.405,
-        "ungefaehr": true
-      },
-      "quelle": {
-        "name": "OpenLigaDB",
-        "url": "https://www.openligadb.de/",
-        "lizenz": "frei (openligadb.de)"
-      },
-      "partner": false
-    },
-    {
-      "id": "openligadb:83691",
-      "art": "sport",
-      "titel": "FC St. Pauli – VfL Bochum",
-      "beginn": "2026-11-21T19:30:00.000Z",
-      "gebiet": "Hamburg",
-      "ort": {
-        "name": "Stadion",
-        "stadt": "Hamburg",
-        "lat": 53.5511,
-        "lon": 9.9937,
-        "ungefaehr": true
-      },
-      "quelle": {
-        "name": "OpenLigaDB",
-        "url": "https://www.openligadb.de/",
-        "lizenz": "frei (openligadb.de)"
-      },
-      "partner": false
-    },
-    {
       "id": "openligadb:83708",
       "art": "sport",
       "titel": "Hertha BSC – Karlsruher SC",
@@ -2360,7 +2060,7 @@
       "id": "openligadb:83743",
       "art": "sport",
       "titel": "Hertha BSC – SV Darmstadt 98",
-      "beginn": "2026-12-13T12:30:00.000Z",
+      "beginn": "2026-12-12T12:00:00.000Z",
       "gebiet": "Berlin",
       "ort": {
         "name": "Stadion",
@@ -2380,7 +2080,7 @@
       "id": "openligadb:83753",
       "art": "sport",
       "titel": "FC St. Pauli – Hertha BSC",
-      "beginn": "2026-12-20T12:30:00.000Z",
+      "beginn": "2026-12-19T12:00:00.000Z",
       "gebiet": "Hamburg",
       "ort": {
         "name": "Stadion",
@@ -2400,7 +2100,7 @@
       "id": "openligadb:83771",
       "art": "sport",
       "titel": "Hertha BSC – 1. FC Nürnberg",
-      "beginn": "2027-01-17T12:30:00.000Z",
+      "beginn": "2027-01-16T19:30:00.000Z",
       "gebiet": "Berlin",
       "ort": {
         "name": "Stadion",
@@ -2420,7 +2120,7 @@
       "id": "openligadb:83860",
       "art": "sport",
       "titel": "Hertha BSC – VfL Bochum",
-      "beginn": "2027-01-24T12:30:00.000Z",
+      "beginn": "2027-01-23T12:00:00.000Z",
       "gebiet": "Berlin",
       "ort": {
         "name": "Stadion",
@@ -5014,28 +4714,6 @@
       "partner": false
     },
     {
-      "id": "osm:node/671436239",
-      "art": "ort",
-      "titel": "Schmela Haus - Kunstsammlung NRW",
-      "kategorie": "Museum",
-      "beginn": null,
-      "gebiet": "Düsseldorf",
-      "ort": {
-        "name": "Schmela Haus - Kunstsammlung NRW",
-        "stadt": "Düsseldorf",
-        "lat": 51.22714,
-        "lon": 6.77575
-      },
-      "entfernungKm": 0.2,
-      "webseite": "https://www.kunstsammlung.de/",
-      "quelle": {
-        "name": "OpenStreetMap",
-        "url": "https://www.openstreetmap.org/node/671436239",
-        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
-      },
-      "partner": false
-    },
-    {
       "id": "osm:node/1577234965",
       "art": "ort",
       "titel": "Cinema",
@@ -5245,7 +4923,7 @@
         "lon": 6.77302
       },
       "entfernungKm": 0.6,
-      "webseite": "https://www.duesseldorf.de/heineinstitut.html",
+      "webseite": "https://heine-institut.de/museum",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/671436231",
@@ -6313,6 +5991,7 @@
         "lon": 6.74621
       },
       "entfernungKm": 8.1,
+      "webseite": "https://pflegemuseum-kaiserswerth.de",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/3677192092",
@@ -6510,6 +6189,7 @@
         "lon": 6.85345
       },
       "entfernungKm": 10.3,
+      "webseite": "https://www.lvr.de/industriemuseum/textilfabrik-cromford",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/2865993051",
@@ -6788,6 +6468,7 @@
         "lon": 6.90017
       },
       "entfernungKm": 14.9,
+      "webseite": "https://oberschlesisches-landesmuseum.de",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/506907780",
@@ -6896,6 +6577,7 @@
         "lon": 7.00004
       },
       "entfernungKm": 16.4,
+      "webseite": "https://www.kreis-mettmann.de/Quickmenu/Ansichtskartenmuseum-.php?object=tx,2023.355.1",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/5437278816",
@@ -7106,14 +6788,37 @@
       "gebiet": "Düsseldorf",
       "ort": {
         "name": "Niederbergisches Museum",
-        "stadt": "",
+        "stadt": "Wülfrath",
         "lat": 51.2847,
         "lon": 7.02891
       },
       "entfernungKm": 18.9,
+      "webseite": "https://www.niederbergisches-museum.de",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/275141838",
+        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
+      },
+      "partner": false
+    },
+    {
+      "id": "osm:node/1725729413",
+      "art": "ort",
+      "titel": "Feuerwehrmuseum Heiligenhaus",
+      "kategorie": "Museum",
+      "beginn": null,
+      "gebiet": "Düsseldorf",
+      "ort": {
+        "name": "Feuerwehrmuseum Heiligenhaus",
+        "stadt": "Heiligenhaus",
+        "lat": 51.33469,
+        "lon": 6.98972
+      },
+      "entfernungKm": 19.2,
+      "webseite": "https://www.fw-heiligenhaus.de/museum",
+      "quelle": {
+        "name": "OpenStreetMap",
+        "url": "https://www.openstreetmap.org/node/1725729413",
         "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
       },
       "partner": false
@@ -7398,27 +7103,6 @@
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/360805003",
-        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
-      },
-      "partner": false
-    },
-    {
-      "id": "osm:node/11160143677",
-      "art": "ort",
-      "titel": "Camera Lichtspiele",
-      "kategorie": "Kino",
-      "beginn": null,
-      "gebiet": "Dortmund",
-      "ort": {
-        "name": "Camera Lichtspiele",
-        "stadt": "Dortmund",
-        "lat": 51.52413,
-        "lon": 7.45423
-      },
-      "entfernungKm": 1.4,
-      "quelle": {
-        "name": "OpenStreetMap",
-        "url": "https://www.openstreetmap.org/node/11160143677",
         "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
       },
       "partner": false
@@ -9279,6 +8963,28 @@
       "partner": false
     },
     {
+      "id": "osm:node/264263661",
+      "art": "ort",
+      "titel": "Union Kino",
+      "kategorie": "Kino",
+      "beginn": null,
+      "gebiet": "Dortmund",
+      "ort": {
+        "name": "Union Kino",
+        "stadt": "Bochum",
+        "lat": 51.47678,
+        "lon": 7.2169
+      },
+      "entfernungKm": 17.7,
+      "webseite": "https://www.kino-bochum.de/",
+      "quelle": {
+        "name": "OpenStreetMap",
+        "url": "https://www.openstreetmap.org/node/264263661",
+        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
+      },
+      "partner": false
+    },
+    {
       "id": "osm:node/4840984953",
       "art": "ort",
       "titel": "Squad",
@@ -10189,6 +9895,28 @@
       "partner": false
     },
     {
+      "id": "osm:node/9689247850",
+      "art": "ort",
+      "titel": "Haus des Papiers",
+      "kategorie": "Museum",
+      "beginn": null,
+      "gebiet": "Berlin",
+      "ort": {
+        "name": "Haus des Papiers",
+        "stadt": "Berlin",
+        "lat": 52.51045,
+        "lon": 13.40329
+      },
+      "entfernungKm": 1.1,
+      "webseite": "https://www.hausdespapiers.com/",
+      "quelle": {
+        "name": "OpenStreetMap",
+        "url": "https://www.openstreetmap.org/node/9689247850",
+        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
+      },
+      "partner": false
+    },
+    {
       "id": "osm:node/66917094",
       "art": "ort",
       "titel": "Friedrichstadt-Palast",
@@ -10418,8 +10146,8 @@
       "ort": {
         "name": "ACUDkino",
         "stadt": "Berlin",
-        "lat": 52.53366,
-        "lon": 13.40082
+        "lat": 52.53368,
+        "lon": 13.40083
       },
       "entfernungKm": 1.5,
       "webseite": "https://acudkino.de/",
@@ -10440,8 +10168,8 @@
       "ort": {
         "name": "ACUD Theater",
         "stadt": "Berlin",
-        "lat": 52.53343,
-        "lon": 13.40098
+        "lat": 52.53344,
+        "lon": 13.40101
       },
       "entfernungKm": 1.5,
       "webseite": "https://www.acud-theater.de/",
@@ -10470,6 +10198,28 @@
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/9272790617",
+        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
+      },
+      "partner": false
+    },
+    {
+      "id": "osm:node/9573608156",
+      "art": "ort",
+      "titel": "Lettrétage",
+      "kategorie": "Theater",
+      "beginn": null,
+      "gebiet": "Berlin",
+      "ort": {
+        "name": "Lettrétage",
+        "stadt": "",
+        "lat": 52.53353,
+        "lon": 13.40078
+      },
+      "entfernungKm": 1.5,
+      "webseite": "https://www.lettretage.de/",
+      "quelle": {
+        "name": "OpenStreetMap",
+        "url": "https://www.openstreetmap.org/node/9573608156",
         "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
       },
       "partner": false
@@ -11408,50 +11158,6 @@
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/173985100",
-        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
-      },
-      "partner": false
-    },
-    {
-      "id": "osm:node/1158225994",
-      "art": "ort",
-      "titel": "Ballhaus Ost",
-      "kategorie": "Theater",
-      "beginn": null,
-      "gebiet": "Berlin",
-      "ort": {
-        "name": "Ballhaus Ost",
-        "stadt": "Berlin",
-        "lat": 52.543,
-        "lon": 13.41531
-      },
-      "entfernungKm": 2.7,
-      "webseite": "https://www.ballhausost.de/",
-      "quelle": {
-        "name": "OpenStreetMap",
-        "url": "https://www.openstreetmap.org/node/1158225994",
-        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
-      },
-      "partner": false
-    },
-    {
-      "id": "osm:node/4007032909",
-      "art": "ort",
-      "titel": "Schneiders Filmclub",
-      "kategorie": "Kino",
-      "beginn": null,
-      "gebiet": "Berlin",
-      "ort": {
-        "name": "Schneiders Filmclub",
-        "stadt": "Berlin",
-        "lat": 52.5411,
-        "lon": 13.38494
-      },
-      "entfernungKm": 2.7,
-      "webseite": "https://www.bauinx-berlin.de/",
-      "quelle": {
-        "name": "OpenStreetMap",
-        "url": "https://www.openstreetmap.org/node/4007032909",
         "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
       },
       "partner": false
@@ -13428,7 +13134,7 @@
         "lon": 9.97822
       },
       "entfernungKm": 2.1,
-      "webseite": "https://www.cenak.uni-hamburg.de/ausstellungen/museum-zoologie.html",
+      "webseite": "https://hamburg.leibniz-lib.de/de/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/way/27443629",
@@ -14903,23 +14609,64 @@
       "partner": false
     },
     {
-      "id": "osm:way/150797531",
+      "id": "osm:node/14349682101",
       "art": "ort",
-      "titel": "Haus der Kunst",
-      "kategorie": "Museum",
+      "titel": "Großer Konzertsaal (GK)",
+      "kategorie": "Theater",
       "beginn": null,
       "gebiet": "München",
       "ort": {
-        "name": "Haus der Kunst",
+        "name": "Großer Konzertsaal (GK)",
         "stadt": "",
-        "lat": 48.14412,
-        "lon": 11.58596
+        "lat": 48.14602,
+        "lon": 11.56769
       },
       "entfernungKm": 1.1,
-      "webseite": "https://www.hausderkunst.de/",
       "quelle": {
         "name": "OpenStreetMap",
-        "url": "https://www.openstreetmap.org/way/150797531",
+        "url": "https://www.openstreetmap.org/node/14349682101",
+        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
+      },
+      "partner": false
+    },
+    {
+      "id": "osm:node/14349682201",
+      "art": "ort",
+      "titel": "Kleiner Konzertsaal (KK)",
+      "kategorie": "Theater",
+      "beginn": null,
+      "gebiet": "München",
+      "ort": {
+        "name": "Kleiner Konzertsaal (KK)",
+        "stadt": "",
+        "lat": 48.14589,
+        "lon": 11.56774
+      },
+      "entfernungKm": 1.1,
+      "quelle": {
+        "name": "OpenStreetMap",
+        "url": "https://www.openstreetmap.org/node/14349682201",
+        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
+      },
+      "partner": false
+    },
+    {
+      "id": "osm:node/14349682401",
+      "art": "ort",
+      "titel": "Opernschule (A 033)",
+      "kategorie": "Theater",
+      "beginn": null,
+      "gebiet": "München",
+      "ort": {
+        "name": "Opernschule (A 033)",
+        "stadt": "",
+        "lat": 48.14608,
+        "lon": 11.56788
+      },
+      "entfernungKm": 1.1,
+      "quelle": {
+        "name": "OpenStreetMap",
+        "url": "https://www.openstreetmap.org/node/14349682401",
         "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
       },
       "partner": false
@@ -15008,6 +14755,28 @@
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/11935589855",
+        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
+      },
+      "partner": false
+    },
+    {
+      "id": "osm:node/14406366381",
+      "art": "ort",
+      "titel": "Vermessungshistorische Ausstellung",
+      "kategorie": "Museum",
+      "beginn": null,
+      "gebiet": "München",
+      "ort": {
+        "name": "Vermessungshistorische Ausstellung",
+        "stadt": "München",
+        "lat": 48.14159,
+        "lon": 11.59035
+      },
+      "entfernungKm": 1.2,
+      "webseite": "https://museen-in-bayern.de/museen/detailseite-museum/vermessen-in-bayern-vermessungshistorische-ausstellung",
+      "quelle": {
+        "name": "OpenStreetMap",
+        "url": "https://www.openstreetmap.org/node/14406366381",
         "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
       },
       "partner": false
@@ -15123,50 +14892,6 @@
       "partner": false
     },
     {
-      "id": "osm:node/12249232101",
-      "art": "ort",
-      "titel": "Lucky Punch Comedy Club",
-      "kategorie": "Theater",
-      "beginn": null,
-      "gebiet": "München",
-      "ort": {
-        "name": "Lucky Punch Comedy Club",
-        "stadt": "",
-        "lat": 48.13103,
-        "lon": 11.59131
-      },
-      "entfernungKm": 1.4,
-      "webseite": "https://luckypunch-comedyclub.de/",
-      "quelle": {
-        "name": "OpenStreetMap",
-        "url": "https://www.openstreetmap.org/node/12249232101",
-        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
-      },
-      "partner": false
-    },
-    {
-      "id": "osm:node/13354515331",
-      "art": "ort",
-      "titel": "Münchner Lach- & Schießgesellschaft",
-      "kategorie": "Theater",
-      "beginn": null,
-      "gebiet": "München",
-      "ort": {
-        "name": "Münchner Lach- & Schießgesellschaft",
-        "stadt": "München",
-        "lat": 48.13112,
-        "lon": 11.59167
-      },
-      "entfernungKm": 1.4,
-      "webseite": "https://lachundschiess.de/",
-      "quelle": {
-        "name": "OpenStreetMap",
-        "url": "https://www.openstreetmap.org/node/13354515331",
-        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
-      },
-      "partner": false
-    },
-    {
       "id": "osm:node/78402190",
       "art": "ort",
       "titel": "Royal Filmpalast",
@@ -15206,6 +14931,27 @@
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/11401594532",
+        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
+      },
+      "partner": false
+    },
+    {
+      "id": "osm:node/14349682001",
+      "art": "ort",
+      "titel": "Carl Orff Auditorium (COA)",
+      "kategorie": "Theater",
+      "beginn": null,
+      "gebiet": "München",
+      "ort": {
+        "name": "Carl Orff Auditorium (COA)",
+        "stadt": "",
+        "lat": 48.14818,
+        "lon": 11.56496
+      },
+      "entfernungKm": 1.5,
+      "quelle": {
+        "name": "OpenStreetMap",
+        "url": "https://www.openstreetmap.org/node/14349682001",
         "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
       },
       "partner": false
@@ -15778,49 +15524,6 @@
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/315953391",
-        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
-      },
-      "partner": false
-    },
-    {
-      "id": "osm:node/338175108",
-      "art": "ort",
-      "titel": "ABC Kino",
-      "kategorie": "Kino",
-      "beginn": null,
-      "gebiet": "München",
-      "ort": {
-        "name": "ABC Kino",
-        "stadt": "München",
-        "lat": 48.16186,
-        "lon": 11.58547
-      },
-      "entfernungKm": 2.8,
-      "webseite": "https://leopold-abckinos.de/",
-      "quelle": {
-        "name": "OpenStreetMap",
-        "url": "https://www.openstreetmap.org/node/338175108",
-        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
-      },
-      "partner": false
-    },
-    {
-      "id": "osm:node/387455916",
-      "art": "ort",
-      "titel": "Heppel & Ettlich",
-      "kategorie": "Theater",
-      "beginn": null,
-      "gebiet": "München",
-      "ort": {
-        "name": "Heppel & Ettlich",
-        "stadt": "München",
-        "lat": 48.16122,
-        "lon": 11.5888
-      },
-      "entfernungKm": 2.8,
-      "quelle": {
-        "name": "OpenStreetMap",
-        "url": "https://www.openstreetmap.org/node/387455916",
         "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
       },
       "partner": false
