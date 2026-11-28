@@ -23,6 +23,26 @@ einen alten Abschnitt gelesen und nicht diesen.
   `03d2485c429b`. Bisher ist nur der Normalfall vorgekommen — die drei
   Fehlerlagen hängen weiter an `live-stand.spec.js`.
 
+## CLAUDE.md auf den Kern gebracht (28.11.2026)
+
+**Wer:** Claude Code, auf Wunsch des Inhabers („CLAUDE.md bitte perfektionieren").
+
+**Befund:** `CLAUDE.md` hatte 7083 Zeilen (372 KB) und wird in jeder Sitzung
+vollständig geladen — vor allem Vorfall-Geschichten, die eine Sitzung nur
+braucht, wenn sie den betroffenen Bereich anfasst.
+
+**Umsetzung:** Kern mit 305 Zeilen (20,6 KB): Grundsätze, „Wenn du … — dann"-Tabelle,
+Bau- und Torbefehle, Architektur, Vault-Regeln, Automatik und alle 58 von
+`kontext.mjs` gemessenen Suitenzahlen. Die 77 Vorfall-Abschnitte und die
+Test-Landkarte stehen **wörtlich** in zehn Notizen unter `vault/50-Evolution/Lehren/`;
+dort sind nur die Testzahlen durch einen Verweis ersetzt, damit keine zweite,
+ungeprüfte Fassung driftet. `kontext.mjs --check` und alle 16 Tore grün.
+
+**Nächster Schritt (offen, Inhaber entscheidet):** Diese Datei selbst hat über
+1800 Zeilen und steht ebenfalls auf der Pflichtliste zum Sitzungsbeginn. Die
+abgeschlossenen Sprints könnten nach `50-Evolution/Archiv/` — `kontext.mjs` liest
+hier nur die Zeile „Playwright-Suite: N Tests".
+
 ## Der Pflicht-Check durfte sechs Stunden laufen (29.10.2026)
 
 **Wer:** Claude Code, auf Wunsch des Inhabers („mach das Timeout rein als
