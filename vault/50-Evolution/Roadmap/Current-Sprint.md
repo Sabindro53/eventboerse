@@ -13,7 +13,7 @@ tags: [layer/L5, domain/evolution, share/internal]
 
 Diese Zeilen sind der Ist-Stand; der Ensemble-Kontext liest genau diesen Abschnitt.
 
-- **Playwright-Suite: 1588 Tests in 108 Suiten**, blockierendes Gate in `pr-check.yml`
+- **Playwright-Suite: 1595 Tests in 108 Suiten**, blockierendes Gate in `pr-check.yml`
   (Pflicht-Kontexte: PR-Validierung **und** E2E-Testsuite). Läuft ohne Netzzugang.
 - **16 Tore** (`npm run gate`) grün; `kontext.mjs` misst die Zahlen in `CLAUDE.md`.
 - **Live-Stand-Tor bewährt:** Deploy vergleicht den ausgelieferten `eb-stand` mit dem
@@ -23,6 +23,9 @@ Diese Zeilen sind der Ist-Stand; der Ensemble-Kontext liest genau diesen Abschni
   Organisation); `tagesroutine.yml` auf GitHub läuft weiter.
 - **CLAUDE.md** ist seit 28.11.2026 ein Kern (305 Zeilen); Begründungen in
   `50-Evolution/Lehren/`, die alte Sprint-Historie in `50-Evolution/Archiv/`.
+- **Blickfolge des Assistenten** (PR #354, `claude/avatar-blick`): Blender-Raster je
+  Figur (`scripts/avatar-blick.py`), der Kopf dreht sich zu Maus und Finger. Offen:
+  eigene Augenbewegung und Blinzeln — dafür bräuchte es echte 3D-Modelle.
 
 ## Was den Release sperrt (Inhaber)
 

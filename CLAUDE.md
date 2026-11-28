@@ -199,7 +199,7 @@ Eine Erkenntnis aus der Recherche wird öffentlich, indem man sie unter `10-Prod
 
 ## Tests (Pflicht vor jedem Merge)
 
-1588 Tests in 108 Suiten. Was jede Suite sichert: `vault/50-Evolution/Lehren/Pruefhygiene-und-Tests.md`
+1595 Tests in 108 Suiten. Was jede Suite sichert: `vault/50-Evolution/Lehren/Pruefhygiene-und-Tests.md`
 (Abschnitt „Test-Landkarte"). Die Zahlen unten misst `kontext.mjs` gegen
 `playwright test --list` — wer eine dieser Suiten ändert, zieht die Zahl nach.
 
@@ -256,7 +256,7 @@ npx playwright test tests/e2e/plan-ansicht.spec.js  # 13 Tests, echter Browser
 npx playwright test tests/e2e/hochzeit-bausteine.spec.js   # 7 Tests, 5 Mutationen
 npx playwright test tests/e2e/aktivitaet-weiterleiten.spec.js   # 10 Tests, 9 Mutationen
 npx playwright test tests/e2e/assistent-stimme.spec.js   # 31 Tests, 20 Mutationen
-npx playwright test tests/e2e/assistent-figur.spec.js   # 22 Tests, 22 Mutationen
+npx playwright test tests/e2e/assistent-figur.spec.js   # 23 Tests, 22 Mutationen
 npx playwright test tests/e2e/dienstleister-termine.spec.js   # 13 Tests, 11 Mutationen
 npx playwright test tests/e2e/navigation-rollen.spec.js   # 18 Tests, 14 Mutationen
 npx playwright test tests/e2e/profil-arten.spec.js   # 14 Tests, 15 Mutationen
