@@ -1,7 +1,7 @@
 {
   "version": 2,
   "hinweis": "Erzeugt von scripts/aktivitaeten.mjs. Nicht von Hand bearbeiten.",
-  "stand": "2026-11-26T03:32:05.393Z",
+  "stand": "2026-11-28T03:29:46.607Z",
   "gebiete": [
     {
       "stadt": "Köln",
@@ -3827,27 +3827,6 @@
       "partner": false
     },
     {
-      "id": "osm:node/1933712053",
-      "art": "ort",
-      "titel": "Casamax Theater",
-      "kategorie": "Theater",
-      "beginn": null,
-      "gebiet": "Köln",
-      "ort": {
-        "name": "Casamax Theater",
-        "stadt": "",
-        "lat": 50.92012,
-        "lon": 6.92765
-      },
-      "entfernungKm": 3.2,
-      "quelle": {
-        "name": "OpenStreetMap",
-        "url": "https://www.openstreetmap.org/node/1933712053",
-        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
-      },
-      "partner": false
-    },
-    {
       "id": "osm:node/766477984",
       "art": "ort",
       "titel": "Halle Kalk",
@@ -4643,6 +4622,28 @@
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/7706877762",
+        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
+      },
+      "partner": false
+    },
+    {
+      "id": "osm:node/9845997660",
+      "art": "ort",
+      "titel": "Cineplex Schloßpassage",
+      "kategorie": "Kino",
+      "beginn": null,
+      "gebiet": "Köln",
+      "ort": {
+        "name": "Cineplex Schloßpassage",
+        "stadt": "Bergisch Gladbach",
+        "lat": 50.96527,
+        "lon": 7.16015
+      },
+      "entfernungKm": 14.4,
+      "webseite": "https://www.cineplex.de/bergisch-gladbach",
+      "quelle": {
+        "name": "OpenStreetMap",
+        "url": "https://www.openstreetmap.org/node/9845997660",
         "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
       },
       "partner": false
@@ -6715,6 +6716,28 @@
       "partner": false
     },
     {
+      "id": "osm:node/6657690432",
+      "art": "ort",
+      "titel": "Stadtmuseum | Stadtarchiv Langenfeld",
+      "kategorie": "Museum",
+      "beginn": null,
+      "gebiet": "Düsseldorf",
+      "ort": {
+        "name": "Stadtmuseum | Stadtarchiv Langenfeld",
+        "stadt": "",
+        "lat": 51.10553,
+        "lon": 6.94877
+      },
+      "entfernungKm": 18.3,
+      "webseite": "https://www.stadtmuseum-langenfeld.de/",
+      "quelle": {
+        "name": "OpenStreetMap",
+        "url": "https://www.openstreetmap.org/node/6657690432",
+        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
+      },
+      "partner": false
+    },
+    {
       "id": "osm:node/1232101345",
       "art": "ort",
       "titel": "Cobra Kino",
@@ -6797,28 +6820,6 @@
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/275141838",
-        "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
-      },
-      "partner": false
-    },
-    {
-      "id": "osm:node/1725729413",
-      "art": "ort",
-      "titel": "Feuerwehrmuseum Heiligenhaus",
-      "kategorie": "Museum",
-      "beginn": null,
-      "gebiet": "Düsseldorf",
-      "ort": {
-        "name": "Feuerwehrmuseum Heiligenhaus",
-        "stadt": "Heiligenhaus",
-        "lat": 51.33469,
-        "lon": 6.98972
-      },
-      "entfernungKm": 19.2,
-      "webseite": "https://www.fw-heiligenhaus.de/museum",
-      "quelle": {
-        "name": "OpenStreetMap",
-        "url": "https://www.openstreetmap.org/node/1725729413",
         "lizenz": "ODbL — © OpenStreetMap-Mitwirkende"
       },
       "partner": false
@@ -19059,6 +19060,7 @@
         "lon": 9.11203
       },
       "entfernungKm": 7.3,
+      "webseite": "https://www.corso-kino.com/",
       "quelle": {
         "name": "OpenStreetMap",
         "url": "https://www.openstreetmap.org/node/5792367532",
