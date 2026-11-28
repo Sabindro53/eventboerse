@@ -126,8 +126,14 @@ test.describe('Kontext: CLAUDE.md gegen den Code', () => {
     // alte Zahl, und das Muster greift plötzlich zwei Stellen. Dann misst
     // der Prüfer nicht die Aussage, sondern die Reihenfolge im Dokument —
     // und meldete beim Bauen prompt einen Fehler, den es nicht gab.
-    const r = mitGeaenderterNotiz('### Der Kontext wird nachgemessen',
-      '### Der Kontext wird nachgemessen\n\nFrüher: REST API (86 Routen).', tor);
+    //
+    // Der Anker ist der Satz, der dieses Tor erklärt: er gehört zum Kern von
+    // CLAUDE.md. Bis zum 28.11.2026 hing der Test an der Überschrift „Der
+    // Kontext wird nachgemessen" — die steht seither in
+    // vault/50-Evolution/Lehren/, und der Test fiel prompt mit „Muster nicht
+    // in CLAUDE.md" um, statt still ins Leere zu greifen.
+    const anker = 'Die Zahlen dieser Datei misst `node scripts/kontext.mjs --check` gegen den Code (CI-Tor).';
+    const r = mitGeaenderterNotiz(anker, `${anker}\n\nFrüher: REST API (86 Routen).`, tor);
     expect(r.ok, 'eine doppelt getroffene Aussage kommt durch').toBe(false);
     expect(r.aus).toMatch(/mehrdeutig/);
   });
